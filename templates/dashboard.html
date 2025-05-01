@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><title>マイページ</title></head>
+<body>
+  <h1>{{ user.username }}さんのマイページ</h1>
+  <p>お住まいの地域：{{ user.prefecture }}</p>
+  <p>性別：{{ user.gender }}</p>
+  <p>生年月日：{{ user.birthdate }}</p>
+  <p>職業：{{ user.occupation }}</p>
+
+  <p><a href="/record">🎙️ 録音ページへ</a></p>
+
+  <p>初回スコア：{{ first_score }}</p>
+  <p>今日のスコア：{{ latest_score }}</p>
+  <p>変化：<strong>{{ diff }}</strong> ポイント {% if diff < 0 %}（改善傾向）{% else %}（ストレス上昇）{% endif %}</p>
+  <p><a href="/result">📈 グラフを見る</a></p>
+  
+  <p><a href="/logout">ログアウト</a></p>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ストレススコアの推移</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>ストレススコアのグラフ</h1>
+    <canvas id="stressChart" width="600" height="300"></canvas>
+
+    <script>
+        const ctx = document.getElementById('stressChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ dates|tojson }},
+                datasets: [{
+                    label: 'ストレススコア',
+                    data: {{ scores|tojson }},
+                    fill: false,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    tension: 0.2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'スコア（0〜100）'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
