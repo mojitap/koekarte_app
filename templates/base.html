@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{% endblock %}</title>
-  
+
   <!-- ブラウザタブ用 -->
   <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
 
@@ -13,12 +13,19 @@
 
   <!-- Android PWA用（任意） -->
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  
+
   <style>
+    /* ✅ グローバルリセット */
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      max-width: 100%;
+      word-wrap: break-word;
     }
 
     body {
@@ -29,9 +36,7 @@
       font-family: sans-serif;
       font-size: 17px;
       padding: 30px 20px;
-      box-sizing: border-box;
       min-height: 100vh;
-
       max-width: 100vw;
       overflow-x: hidden;
     }
@@ -42,17 +47,17 @@
       justify-content: center;
       align-items: center;
       margin-top: 20px;
-      margin-bottom: 10px; /* ← ここ追加または変更！ */
+      margin-bottom: 10px;
     }
 
     .logo-container img {
-      width: 240px;           /* 最大サイズを指定 */
-      max-width: 90vw;        /* スマホ画面では90%まで縮小 */
+      width: 240px;
+      max-width: 90vw;
       height: auto;
       border-radius: 8px;
     }
 
-    /* ✅ ログイン/登録の囲い（既存） */
+    /* ✅ ボタンリンク */
     .auth-links {
       display: flex;
       justify-content: center;
@@ -68,13 +73,14 @@
       text-decoration: none;
       font-weight: bold;
       box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+      max-width: 100%;
     }
 
     .auth-links a:hover {
       background-color: #ddd;
     }
 
-    /* ✅ ログイン後カード風 */
+    /* ✅ ダッシュボード用カード */
     .dashboard-card {
       max-width: 500px;
       margin: 40px auto;
@@ -85,6 +91,7 @@
       text-align: left;
     }
 
+    /* ✅ スマホ対応見出し */
     @media (max-width: 600px) {
       h1 {
         font-size: 1.5rem;
@@ -94,24 +101,27 @@
     }
   </style>
 </head>
-<body>
 
-  <!-- ✅ ロゴ共通表示 -->
+<body>
+  <!-- ✅ ロゴ（マイページにリンク） -->
   <div class="logo-container">
     <a href="/dashboard">
       <img src="{{ url_for('static', filename='koekarte-image.png') }}" alt="koekarte logo">
     </a>
   </div>
 
-    {% block content %}{% endblock %}
-    <footer style="margin-top: 40px; padding: 20px; border-top: 2px solid #ccc; background-color: #f9f9f9;">
-      <div style="max-width: 800px; margin: 0 auto; text-align: center;">
-        <p style="font-size: 14px;">
-          <a href="/terms">利用規約</a> |
-          <a href="/privacy">プライバシーポリシー</a> |
-          <a href="/legal">特定商取引法に基づく表記</a>
-        </p>
-      </div>
-    </footer>
-  </body>
+  <!-- ✅ 各ページコンテンツ -->
+  {% block content %}{% endblock %}
+
+  <!-- ✅ 共通フッター -->
+  <footer style="margin-top: 40px; padding: 20px; border-top: 2px solid #ccc; background-color: #f9f9f9;">
+    <div style="max-width: 800px; margin: 0 auto; text-align: center;">
+      <p style="font-size: 14px;">
+        <a href="/terms">利用規約</a> |
+        <a href="/privacy">プライバシーポリシー</a> |
+        <a href="/legal">特定商取引法に基づく表記</a>
+      </p>
+    </div>
+  </footer>
+</body>
 </html>
