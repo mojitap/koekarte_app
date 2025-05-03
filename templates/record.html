@@ -5,13 +5,38 @@
   <title>ストレスチェック録音</title>
 </head>
 <body>
-  <h1>ストレスチェック録音ページ</h1>
-  <p>以下の定型文を読み上げてください：</p>
-  <blockquote>「今日はどんな気持ちで過ごしましたか？」</blockquote>
+  <div style="text-align: center; max-width: 700px; margin: auto;">
 
-  <button id="recordButton">録音開始</button>
-  <button id="stopButton" disabled>録音停止</button>
-  <audio id="audioPlayback" controls></audio>
+    <h1>ストレスチェック録音ページ</h1>
+    <p>以下の定型文を読み上げてください：</p>
+    <blockquote style="font-size: 1.1em; font-weight: bold; line-height: 1.6;">
+      「今日は落ち着いた気持ちで過ごしました」<br>
+      「人との関わりに安心感を感じています」<br>
+      「最近は夜によく眠れています」
+    </blockquote>
+
+    <p style="font-size: 0.9em; color: gray;">
+    ※声の大きさは自然に、普段のトーンでお話しください。
+    </p>
+
+    <button id="recordButton">録音開始</button>
+    <button id="stopButton" disabled>録音停止</button>
+    <br><br>
+    <audio id="audioPlayback" controls></audio>
+
+    <br><br>
+    <a href="/dashboard" style="
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    ">🏠 マイページに戻る</a>
+
+  </div>
 
   <script src="/static/recorder.js"></script>
 </body>

@@ -1,20 +1,35 @@
-<!DOCTYPE html>
-<html>
-<head><title>マイページ</title></head>
-<body>
+{% extends "base.html" %}
+
+{% block title %}マイページ - コエカルテ{% endblock %}
+
+{% block content %}
+<div class="dashboard-card">
   <h1>{{ user.username }}さんのマイページ</h1>
-  <p>お住まいの地域：{{ user.prefecture }}</p>
-  <p>性別：{{ user.gender }}</p>
-  <p>生年月日：{{ user.birthdate }}</p>
-  <p>職業：{{ user.occupation }}</p>
 
-  <p><a href="/record">🎙️ 録音ページへ</a></p>
+  <div class="profile-info">
+    <p>📧 <strong>メールアドレス：</strong>{{ user.email }}</p>
+    <p>🏠 <strong>地域：</strong>{{ user.prefecture }}</p>
+    <p>👤 <strong>性別：</strong>{{ user.gender }}</p>
+    <p>🎂 <strong>生年月日：</strong>{{ user.birthdate }}</p>
+    <p>💼 <strong>職業：</strong>{{ user.occupation or "未設定" }}</p>
+  </div>
 
-  <p>初回スコア：{{ first_score }}</p>
-  <p>今日のスコア：{{ latest_score }}</p>
-  <p>変化：<strong>{{ diff }}</strong> ポイント {% if diff < 0 %}（改善傾向）{% else %}（ストレス上昇）{% endif %}</p>
-  <p><a href="/result">📈 グラフを見る</a></p>
-  
-  <p><a href="/logout">ログアウト</a></p>
-</body>
-</html>
+  <hr>
+
+  <div class="actions">
+    <p>🎙️ <a href="/record" class="button">録音ページへ</a></p>
+    <p>📈 <a href="/result" class="button">グラフを見る</a></p>
+  </div>
+
+  <div class="score-summary">
+    <p>📅 <strong>登録日：</strong>{{ first_score_date }}</p>
+    <p>🔢 <strong>初回スコア：</strong>{{ first_score }}（{{ first_score_date }}）</p>
+    <p>📝今日のスコア：<strong>{{ latest_score }}</strong></p>
+    <p>📊 登録時より<strong>{{ diff }}ポイント</strong>（ストレス{% if diff > 0 %}上昇{% else %}減少{% endif %}）</p>
+  </div>
+
+  <div class="logout">
+    <a href="/logout">🚪 ログアウト</a>
+  </div>
+</div>
+{% endblock %}
