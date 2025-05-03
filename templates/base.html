@@ -37,8 +37,6 @@
       font-size: 17px;
       padding: 30px 20px;
       min-height: 100vh;
-      max-width: 100vw;
-      overflow-x: hidden;
     }
 
     /* ✅ ロゴ全体の配置 */
@@ -91,13 +89,20 @@
       text-align: left;
     }
 
-    /* ✅ スマホ対応見出し */
+        /* ✅ スマホ対応見出し */
     @media (max-width: 600px) {
       h1 {
         font-size: 1.5rem;
         line-height: 1.4;
         word-break: keep-all;
       }
+    }
+
+    /* ✅ フォーム入力対応（スマホで入力できない対策） */
+    input, select, textarea {
+      pointer-events: auto;
+      touch-action: manipulation;
+      z-index: 1;
     }
   </style>
 </head>
