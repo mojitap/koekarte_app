@@ -259,4 +259,5 @@ if __name__ == '__main__':
     with app.app_context():
         if not os.path.exists('users.db'):
             db.create_all()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
