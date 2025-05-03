@@ -6,14 +6,20 @@
   <div class="dashboard-card">
     <h1>新規登録</h1>
     <form method="POST" action="/register" style="width: 100%; max-width: 500px; z-index: 10;">
-      <label>ユーザー名:</label>
-      <input type="text" name="username" required>
+    <div>
+      <label for="username">ユーザー名:</label><br>
+      <input type="text" name="username" id="username">
+    </div>
 
-      <label>メールアドレス:</label>
-      <input type="email" name="email" required>
+    <div>
+      <label for="email">メールアドレス:</label><br>
+      <input type="email" name="email" id="email">
+    </div>
 
-      <label>パスワード:</label>
-      <input type="password" name="password" required>
+    <div>
+      <label for="password">パスワード:</label><br>
+      <input type="password" name="password" id="password">
+    </div>
 
       <p>生年月日:<br>
         <select name="birth_year">
