@@ -113,13 +113,22 @@ def confirm_email(token):
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
-        birthdate = f"{request.form['birth_year']}-{request.form['birth_month']}-{request.form['birth_day']}"
-        gender = request.form['gender']
-        occupation = request.form['occupation']
-        prefecture = request.form['prefecture']
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password_raw = request.form.get('password', '')
+        birth_year = request.form.get('birth_year')
+        birth_month = request.form.get('birth_month')
+        birth_day = request.form.get('birth_day')
+        gender = request.form.get('gender')
+        occupation = request.form.get('occupation', '')
+        prefecture = request.form.get('prefecture')
+
+        # 入力チェック（最小限）
+        if not username or not email or not password_raw or not birth_year or not birth_month or not birth_day:
+            return '全ての項目を入力してください', 400
+
+        password = generate_password_hash(password_raw, method='pbkdf2:sha256')
+        birthdate = f"{birth_year}-{birth_month}-{birth_day}"
 
         existing_user = User.query.filter_by(email=email).first()
         existing_name = User.query.filter_by(username=username).first()
@@ -140,9 +149,15 @@ def register():
             send_confirmation_email(email, username)
             return '未確認アカウントを更新しました。メールをご確認ください。'
 
-        new_user = User(username=username, email=email, password=password,
-                        birthdate=birthdate, gender=gender,
-                        occupation=occupation, prefecture=prefecture)
+        new_user = User(
+            username=username,
+            email=email,
+            password=password,
+            birthdate=birthdate,
+            gender=gender,
+            occupation=occupation,
+            prefecture=prefecture
+        )
         db.session.add(new_user)
         db.session.commit()
         send_confirmation_email(email, username)
