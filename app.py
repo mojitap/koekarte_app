@@ -65,11 +65,19 @@ def convert_webm_to_wav(webm_path, wav_path):
     audio = AudioSegment.from_file(webm_path, format="webm")
     audio.export(wav_path, format="wav")
 
+    # 🔽 この行を追加（変換されたファイルの長さをログ表示）
+    print("🔍 変換された wav の長さ（秒）:", audio.duration_seconds)
+
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
-    signal = audioBasicIO.stereo_to_mono(signal)
+
+    # 🔽 ここを追加！音声が空だった場合のエラー対策
+    if len(signal) == 0:
+        print("🔴 エラー：wavファイルが空です")
+        raise ValueError("Empty audio file")
+
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
-        signal, sampling_rate, 2.0, 1.0, 0.05, 0.025  # ← ✅ 6引数に修正
+        signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
     )
     if mt_feats.shape[1] == 0:
         return 50
