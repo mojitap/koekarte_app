@@ -86,7 +86,16 @@ def convert_webm_to_wav(webm_path, wav_path):
     except Exception as e:
         print("❌ WAVファイルチェックでエラー:", e)
         raise RuntimeError("WAVファイルが壊れている可能性があります")
-        
+       
+def is_valid_wav(wav_path):
+    try:
+        with wave.open(wav_path, 'rb') as wf:
+            frames = wf.getnframes()
+            duration = frames / wf.getframerate()
+            return duration > 1.0
+    except Exception:
+        return False
+         
 def analyze_stress_from_wav(wav_path):
     try:
         [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
