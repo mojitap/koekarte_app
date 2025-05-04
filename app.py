@@ -63,10 +63,13 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 def convert_webm_to_wav(webm_path, wav_path):
-    audio = AudioSegment.from_file(webm_path, format="webm")
-    audio.export(wav_path, format="wav")
-
-    print("🔍 変換された wav の長さ（秒）:", audio.duration_seconds)
+    try:
+        audio = AudioSegment.from_file(webm_path, format="webm")
+        audio.export(wav_path, format="wav")
+        print("🔍 変換された wav の長さ（秒）:", audio.duration_seconds)
+    except Exception as e:
+        print("❌ WebM→WAV変換に失敗:", e)
+        raise RuntimeError("録音ファイルの変換に失敗しました。形式や音声を確認してください。")
 
     # ✅ WAVファイルの中身が空でないかをチェック
     try:
