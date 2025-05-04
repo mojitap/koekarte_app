@@ -317,14 +317,28 @@ def upload():
 @app.route('/result')
 @login_required
 def result():
+    import os
+
     dates = []
     scores = []
     csv_path = f"recordings/user_{current_user.id}_scores.csv"
+
     if os.path.exists(csv_path):
-        with open(csv_path, 'r') as csvfile:
-            for row in csv.reader(csvfile):
-                dates.append(row[0])
-                scores.append(int(row[1]))
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    parts = line.split(',')
+                    if len(parts) == 2:
+                        try:
+                            dates.append(parts[0])
+                            scores.append(int(parts[1]))
+                        except ValueError:
+                            print(f"⚠️ 数値変換に失敗: {line}")
+    
+    print("📅 日付リスト:", dates)
+    print("📈 スコアリスト:", scores)
+
     return render_template('result.html', dates=dates, scores=scores)
 
 @app.route('/terms')
