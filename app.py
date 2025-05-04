@@ -66,7 +66,10 @@ def convert_webm_to_wav(webm_path, wav_path):
     audio.export(wav_path, format="wav")
 
 def analyze_stress_from_wav(wav_path):
-    mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(wav_path, 2.0, 1.0, 0.05, 0.025)
+    # 引数を6つにする（short_window, short_step の値を修正）
+    mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
+        wav_path, 2.0, 1.0, 0.05, 0.025, False
+    )
     if mt_feats.shape[1] == 0:
         return 50
     feature_means = np.mean(mt_feats, axis=1)
