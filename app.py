@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,6 +13,7 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from dotenv import load_dotenv
 from datetime import timedelta
+import wave
 
 app = Flask(__name__)
 load_dotenv()
@@ -68,10 +69,20 @@ def convert_webm_to_wav(webm_path, wav_path):
     # 🔽 この行を追加（変換されたファイルの長さをログ表示）
     print("🔍 変換された wav の長さ（秒）:", audio.duration_seconds)
 
+
+def is_valid_wav(wav_path):
+    try:
+        with wave.open(wav_path, 'rb') as wf:
+            frames = wf.getnframes()
+            duration = frames / wf.getframerate()
+            return duration > 1.0  # 1秒以上あるかどうか
+    except Exception:
+        return False
+        
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
 
-    # 🔽 ここを追加！音声が空だった場合のエラー対策
+    # 🔽 音声が空だった場合のエラー対策
     if len(signal) == 0:
         print("🔴 エラー：wavファイルが空です")
         raise ValueError("Empty audio file")
@@ -80,7 +91,7 @@ def analyze_stress_from_wav(wav_path):
         signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
     )
     if mt_feats.shape[1] == 0:
-        return 50
+        return 50  # 空の特徴量でも強制的に50返す
     feature_means = np.mean(mt_feats, axis=1)
     energy = feature_means[1]
     zero_crossing_rate = feature_means[0]
@@ -269,6 +280,11 @@ def upload():
     wav_filename = filename.replace(".webm", ".wav")
     wav_path = os.path.join(UPLOAD_FOLDER, wav_filename)
     convert_webm_to_wav(filepath, wav_path)
+
+    if not is_valid_wav(wav_path):
+        flash("録音に失敗しました。もう一度お試しください。")
+        return redirect(url_for("record"))
+
     stress_score = analyze_stress_from_wav(wav_path)
 
     with open(csv_path, 'a', newline='') as csvfile:
