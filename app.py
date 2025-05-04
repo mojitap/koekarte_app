@@ -80,23 +80,30 @@ def is_valid_wav(wav_path):
         return False
         
 def analyze_stress_from_wav(wav_path):
-    [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
+    try:
+        [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
 
-    # 🔽 音声が空だった場合のエラー対策
-    if len(signal) == 0:
-        print("🔴 エラー：wavファイルが空です")
-        raise ValueError("Empty audio file")
+        if len(signal) == 0:
+            print("🔴 エラー：wavファイルが空です")
+            raise ValueError("Empty audio file")
 
-    mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
-        signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
-    )
-    if mt_feats.shape[1] == 0:
-        return 50  # 空の特徴量でも強制的に50返す
-    feature_means = np.mean(mt_feats, axis=1)
-    energy = feature_means[1]
-    zero_crossing_rate = feature_means[0]
-    score = int((energy + zero_crossing_rate) * 50)
-    return max(0, min(score, 100))
+        mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
+            signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
+        )
+
+        if mt_feats.shape[1] == 0:
+            print("⚠️ 特徴量が抽出できませんでした（無音の可能性）")
+            raise ValueError("No features extracted (possibly silent audio)")
+
+        feature_means = np.mean(mt_feats, axis=1)
+        energy = feature_means[1]
+        zero_crossing_rate = feature_means[0]
+        score = int((energy + zero_crossing_rate) * 50)
+        return max(0, min(score, 100))
+
+    except Exception as e:
+        print(f"⚠️ ストレス分析中にエラー: {e}")
+        raise RuntimeError("ストレス分析に失敗しました。音声を確認してください。")
 
 def send_confirmation_email(user_email, username):
     token = serializer.dumps(user_email, salt='email-confirm')
