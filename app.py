@@ -100,9 +100,10 @@ def analyze_stress_from_wav(wav_path):
     try:
         [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
 
+        print(f"📥 読み込んだ信号の長さ: {len(signal)}")
         if len(signal) == 0:
-            print("🔴 エラー：wavファイルが空です")
-            raise ValueError("Empty audio file")
+            print("🔴 エラー：wavファイルが空です（read_audio_fileで失敗）")
+            raise ValueError("Empty audio file (possibly unsupported format or broken)")
 
         mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
             signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
