@@ -69,7 +69,7 @@ def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
     signal = audioBasicIO.stereo_to_mono(signal)
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
-        signal, sampling_rate, 2.0, 1.0, 0.05, 0.025, False
+        signal, sampling_rate, 2.0, 1.0, 0.05, 0.025  # ← ✅ 6引数に修正
     )
     if mt_feats.shape[1] == 0:
         return 50
