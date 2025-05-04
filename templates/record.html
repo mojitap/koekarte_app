@@ -4,7 +4,7 @@
 {% block content %}
   <div class="record-container">
     <h1>ストレスチェック録音ページ</h1>
-    <p>以下の定型文を全て読み上げてください：</p>
+    <p>以下の定型文をすべて読み上げてください：</p>
     <blockquote style="font-size: 1.1em; font-weight: bold; line-height: 1.6;">
       1、「今日は落ち着いた気持ちで過ごしました」<br>
       2、「人との関わりに安心感を感じています」<br>
@@ -12,11 +12,12 @@
     </blockquote>
 
     <p style="font-size: 0.9em; color: gray;">
-      ※声の大きさは自然に、普段のトーンでお話しください。
+      ※声の大きさは自然に、普段のトーンでお話しください。<br>
+      ※録音後、音声が再生されます。確認してからアップロードしてください。
     </p>
 
-    <button id="recordButton">録音開始</button>
-    <button id="stopButton" disabled>録音停止</button>
+    <button id="recordButton">🎙️ 録音開始</button>
+    <button id="stopButton" disabled>⏹️ 録音停止</button>
     <br><br>
     <audio id="audioPlayback" controls></audio>
     <br><br>
