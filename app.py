@@ -12,9 +12,13 @@ import numpy as np
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from dotenv import load_dotenv
+from datetime import timedelta
 
 app = Flask(__name__)
 load_dotenv()
+
+# ✅ セッションを30日間維持
+app.permanent_session_lifetime = timedelta(days=30)
 
 # ✅ SECRET_KEY を先に設定
 app.secret_key = os.getenv('SECRET_KEY')
