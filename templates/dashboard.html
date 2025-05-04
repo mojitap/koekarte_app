@@ -16,16 +16,20 @@
 
   <hr>
 
+  {% if first_score is not none %}
+  <div class="score-summary">
+    <p>📅 <strong>登録日：</strong>{{ first_score_date }}</p>
+    <p>🔢 <strong>初回スコア：</strong>{{ first_score }}</p>
+    <p>📝 <strong>今日のスコア：</strong>{{ latest_score }}</p>
+    <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}上昇{% elif diff < 0 %}減少{% else %}変化なし{% endif %}）</p>
+  </div>
+  {% else %}
+  <p>まだスコアが記録されていません。録音ページから初回スコアを登録してください。</p>
+  {% endif %}
+
   <div class="actions">
     <p>🎙️ <a href="/record" class="button">録音ページへ</a></p>
     <p>📈 <a href="/result" class="button">グラフを見る</a></p>
-  </div>
-
-  <div class="score-summary">
-    <p>📅 <strong>登録日：</strong>{{ first_score_date }}</p>
-    <p>🔢 <strong>初回スコア：</strong>{{ first_score }}（{{ first_score_date }}）</p>
-    <p>📝今日のスコア：<strong>{{ latest_score }}</strong></p>
-    <p>📊 登録時より<strong>{{ diff }}ポイント</strong>（ストレス{% if diff > 0 %}上昇{% else %}減少{% endif %}）</p>
   </div>
 
   <div class="logout">
