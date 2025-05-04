@@ -330,5 +330,8 @@ def privacy():
 def legal():
     return render_template('legal.html')
     
-with app.app_context():
-    db.create_all()
+try:
+    with app.app_context():
+        db.create_all()
+except Exception as e:
+    print("❌ データベース接続に失敗しました:", e)
