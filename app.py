@@ -1,6 +1,5 @@
 # 完全修正版 app.py
-# ✅ CSVではなくScoreLog(DB)のみを使い、
-# ✅ グラフやマイページ、アップロード時もDBのみ使用
+# ✅ DBのみを使用、ScoreLogで記録管理、管理者ページ対応済み
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -52,6 +51,7 @@ class User(UserMixin, db.Model):
     occupation = db.Column(db.String(100))
     prefecture = db.Column(db.String(20))
     is_verified = db.Column(db.Boolean, default=False)
+    score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
 class ScoreLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -63,7 +63,7 @@ class ScoreLog(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ======== 音声変換・分析 =========
+# ======== 音声処理 =========
 def convert_webm_to_wav(webm_path, wav_path):
     audio = AudioSegment.from_file(webm_path, format="webm")
     audio.export(wav_path, format="wav")
@@ -109,7 +109,7 @@ def send_confirmation_email(user_email, username):
     msg.body = f"""{username} 様\n\n以下のリンクをクリックして本登録を完了してください：\n{confirm_url}\n\nこのリンクは一定時間で無効になります。\n\n-- koekarte 運営"""
     mail.send(msg)
 
-# ======== ルーティング =========
+# ======== ルート定義 =========
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -129,15 +129,35 @@ def confirm_email(token):
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # ... 省略（前回と同じでOK）
-        pass
+        username = request.form['username']
+        email = request.form['email']
+        password = generate_password_hash(request.form['password'])
+        birthdate = request.form.get('birthdate')
+        gender = request.form.get('gender')
+        occupation = request.form.get('occupation')
+        prefecture = request.form.get('prefecture')
+        if User.query.filter_by(email=email).first():
+            return '既に登録されています'
+        user = User(username=username, email=email, password=password,
+                    birthdate=birthdate, gender=gender, occupation=occupation, prefecture=prefecture)
+        db.session.add(user)
+        db.session.commit()
+        send_confirmation_email(email, username)
+        return '確認メールを送信しました'
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # ... 省略（前回と同じでOK）
-        pass
+        identifier = request.form['username']
+        password = request.form['password']
+        user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+        if not user or not check_password_hash(user.password, password):
+            return 'ログイン失敗'
+        if not user.is_verified:
+            return 'メール確認が必要です'
+        login_user(user)
+        return redirect(url_for('dashboard'))
     return render_template('login.html')
 
 @app.route('/logout')
@@ -154,7 +174,6 @@ def dashboard():
     latest_score = logs[-1].score if logs else None
     diff = (latest_score - first_score) if (first_score is not None and latest_score is not None) else None
     first_score_date = logs[0].timestamp.strftime('%Y-%m-%d') if logs else None
-
     return render_template('dashboard.html', user=current_user, first_score=first_score, latest_score=latest_score, diff=diff, first_score_date=first_score_date)
 
 @app.route('/record')
@@ -201,6 +220,15 @@ def result():
     dates = [log.timestamp.strftime('%Y-%m-%d %H:%M:%S') for log in logs]
     scores = [log.score for log in logs]
     return render_template('result.html', dates=dates, scores=scores)
+
+@app.route('/admin')
+@login_required
+def admin():
+    if current_user.email != os.getenv("ADMIN_EMAIL"):
+        return "アクセス権がありません", 403
+    users = User.query.all()
+    data = [(user.username, [(log.timestamp.strftime('%Y-%m-%d'), log.score) for log in user.score_logs]) for user in users]
+    return render_template('admin.html', data=data)
 
 @app.route('/terms')
 def terms():
