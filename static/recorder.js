@@ -38,7 +38,7 @@ recordButton.addEventListener('click', async () => {
         });
 
         mediaRecorder.addEventListener('stop', async () => {
-            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            const blob = new Blob(recordedChunks, { type: 'audio/wav' }); // ← ここを wav に
 
             if (blob.size === 0) {
                 alert("⚠️ 録音できていません。マイクを確認してください。");
@@ -50,7 +50,7 @@ recordButton.addEventListener('click', async () => {
             console.log("🎧 再生用URL生成");
 
             const formData = new FormData();
-            formData.append('audio_data', blob, 'recording.webm');
+            formData.append('audio_data', blob, 'recording.wav');  // ← ファイル名を正しく変更
 
             const response = await fetch('/upload', {
                 method: 'POST',
