@@ -288,7 +288,7 @@ def upload():
     now = datetime.now()
     today_str = now.strftime('%Y-%m-%d')
     now_str = now.strftime('%Y%m%d_%H%M%S')
-    filename = f"user{current_user.id}_{now_str}.webm"
+    filename = f"user{current_user.id}_{now_str}.wav"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
@@ -302,15 +302,11 @@ def upload():
                 if row[0].startswith(today_str):
                     return '本日はすでに保存済みです（1日1回制限）'
 
-    wav_filename = filename.replace(".webm", ".wav")
-    wav_path = os.path.join(UPLOAD_FOLDER, wav_filename)
-    convert_webm_to_wav(filepath, wav_path)
-
-    if not is_valid_wav(wav_path):
+    if not is_valid_wav(filepath):
         flash("録音に失敗しました。もう一度お試しください。")
         return redirect(url_for("record"))
 
-    stress_score = analyze_stress_from_wav(wav_path)
+    stress_score = analyze_stress_from_wav(filepath)
 
     with open(csv_path, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
