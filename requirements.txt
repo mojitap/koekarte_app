@@ -13,3 +13,4 @@ eyed3==0.9.7
 scipy==1.10.1
 tqdm==4.66.2
 psycopg2-binary
+imageio-ffmpeg==0.4.8
