@@ -185,12 +185,9 @@ def record():
 @login_required
 def upload():
     if 'audio_data' not in request.files:
-        print("❌ audio_data が見つかりません")
         return '音声データが見つかりません'
-
     file = request.files['audio_data']
     if file.filename == '':
-        print("❌ ファイル名が空です")
         return 'ファイルが選択されていません'
 
     UPLOAD_FOLDER = 'uploads'
@@ -202,31 +199,23 @@ def upload():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
+    # ✅ DBから「本日すでに記録あり」を確認
+    existing = ScoreLog.query.filter_by(user_id=current_user.id)\
+        .filter(db.func.date(ScoreLog.timestamp) == today)\
+        .first()
     if existing:
-        print("⚠️ 本日すでに記録あり。保存スキップ。")
+        print("⚠️ 本日すでに記録があります")
         return '本日はすでに保存済みです（1日1回制限）'
 
     if not is_valid_wav(filepath):
-        print("❌ WAVファイルが無効")
         flash("録音に失敗しました。もう一度お試しください。")
         return redirect(url_for("record"))
 
-    try:
-        stress_score = analyze_stress_from_wav(filepath)
-        print(f"✅ 分析結果: ストレススコア = {stress_score}")
-    except Exception as e:
-        print("❌ 分析エラー:", e)
-        return 'ストレス分析に失敗しました'
-
-    try:
-        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
-        db.session.add(new_log)
-        db.session.commit()
-        print("✅ スコア保存完了")
-    except Exception as e:
-        print("❌ データベース保存失敗:", e)
-        return 'データベース保存失敗'
+    # ✅ WAVファイルを解析してスコアを保存
+    stress_score = analyze_stress_from_wav(filepath)
+    new_score = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
+    db.session.add(new_score)
+    db.session.commit()
 
     return redirect(url_for("dashboard"))
 
@@ -241,11 +230,13 @@ def result():
 @app.route('/admin')
 @login_required
 def admin():
-    if current_user.email != os.getenv("ADMIN_EMAIL"):
-        return "アクセス権がありません", 403
+    if current_user.email != 'koekarte.info@gmail.com':
+        return 'アクセス権がありません', 403
+
     users = User.query.all()
-    data = [(user.username, [(log.timestamp.strftime('%Y-%m-%d'), log.score) for log in user.score_logs]) for user in users]
-    return render_template('admin.html', data=data)
+    for user in users:
+        user.score_logs = ScoreLog.query.filter_by(user_id=user.id).order_by(ScoreLog.timestamp).all()
+    return render_template('admin.html', users=users)
 
 @app.route('/terms')
 def terms():
