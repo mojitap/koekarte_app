@@ -7,7 +7,7 @@ from datetime import datetime
 import random
 import csv
 from pydub import AudioSegment
-from pyAudioAnalysis import MidTermFeatures, audioBasicIO
+from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 import numpy as np
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
@@ -67,6 +67,7 @@ def convert_webm_to_wav(webm_path, wav_path):
 
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
+    signal = audioBasicIO.stereo_to_mono(signal)
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
         signal, sampling_rate, 2.0, 1.0, 0.05, 0.025, False
     )
