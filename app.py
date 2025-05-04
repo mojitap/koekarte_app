@@ -299,7 +299,9 @@ def upload():
     if os.path.exists(csv_path):
         with open(csv_path, 'r') as csvfile:
             for row in csv.reader(csvfile):
+                print("📝 既存の記録:", row)
                 if row[0].startswith(today_str):
+                    print("⚠️ 本日すでに記録あり。保存をスキップ。")
                     return '本日はすでに保存済みです（1日1回制限）'
 
     if not is_valid_wav(filepath):
