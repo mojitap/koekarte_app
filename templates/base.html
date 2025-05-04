@@ -104,6 +104,29 @@
       touch-action: manipulation;
       z-index: 1;
     }
+
+    /* 録音ページ専用の調整 */
+    .record-container {
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .record-container button {
+        padding: 12px 24px;
+        font-size: 16px;
+        margin: 10px;
+        border-radius: 8px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+    }
+
+    .record-container button:disabled {
+        background-color: #ccc;
+        color: #666;
+    }
   </style>
 </head>
 
