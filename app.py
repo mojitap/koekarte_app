@@ -185,9 +185,12 @@ def record():
 @login_required
 def upload():
     if 'audio_data' not in request.files:
+        print("❌ audio_data が見つかりません")
         return '音声データが見つかりません'
+
     file = request.files['audio_data']
     if file.filename == '':
+        print("❌ ファイル名が空です")
         return 'ファイルが選択されていません'
 
     UPLOAD_FOLDER = 'uploads'
@@ -201,15 +204,29 @@ def upload():
 
     existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
     if existing:
+        print("⚠️ 本日すでに記録あり。保存スキップ。")
         return '本日はすでに保存済みです（1日1回制限）'
 
     if not is_valid_wav(filepath):
+        print("❌ WAVファイルが無効")
         flash("録音に失敗しました。もう一度お試しください。")
         return redirect(url_for("record"))
 
-    stress_score = analyze_stress_from_wav(filepath)
-    db.session.add(ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score))
-    db.session.commit()
+    try:
+        stress_score = analyze_stress_from_wav(filepath)
+        print(f"✅ 分析結果: ストレススコア = {stress_score}")
+    except Exception as e:
+        print("❌ 分析エラー:", e)
+        return 'ストレス分析に失敗しました'
+
+    try:
+        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
+        db.session.add(new_log)
+        db.session.commit()
+        print("✅ スコア保存完了")
+    except Exception as e:
+        print("❌ データベース保存失敗:", e)
+        return 'データベース保存失敗'
 
     return redirect(url_for("dashboard"))
 
