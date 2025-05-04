@@ -66,18 +66,23 @@ def convert_webm_to_wav(webm_path, wav_path):
     audio = AudioSegment.from_file(webm_path, format="webm")
     audio.export(wav_path, format="wav")
 
-    # 🔽 この行を追加（変換されたファイルの長さをログ表示）
     print("🔍 変換された wav の長さ（秒）:", audio.duration_seconds)
 
-
-def is_valid_wav(wav_path):
+    # ✅ WAVファイルの中身が空でないかをチェック
     try:
         with wave.open(wav_path, 'rb') as wf:
             frames = wf.getnframes()
-            duration = frames / wf.getframerate()
-            return duration > 1.0  # 1秒以上あるかどうか
-    except Exception:
-        return False
+            framerate = wf.getframerate()
+            duration = frames / float(framerate)
+            print("📏 WAVフレーム数:", frames)
+            print("📏 WAV秒数（計算）:", duration)
+
+            if frames == 0 or duration < 1.0:
+                raise ValueError("生成されたWAVファイルが無効です（無音または破損）")
+
+    except Exception as e:
+        print("❌ WAVファイルチェックでエラー:", e)
+        raise RuntimeError("WAVファイルが壊れている可能性があります")
         
 def analyze_stress_from_wav(wav_path):
     try:
