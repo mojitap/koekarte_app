@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>新しいパスワード設定</title>
+</head>
+<body>
+    <h2>🔑 新しいパスワードを設定</h2>
+    <form method="POST">
+        <input type="password" name="password" placeholder="新しいパスワード" required><br><br>
+        <button type="submit">再設定</button>
+    </form>
+    <br>
+    <a href="{{ url_for('login') }}">ログインページへ戻る</a>
+</body>
+</html>
