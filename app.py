@@ -71,14 +71,24 @@ def load_user(user_id):
 
 # ======== 音声処理 =========
 def convert_webm_to_wav(webm_path, wav_path):
-    audio = AudioSegment.from_file(webm_path, format="webm")
-    audio.export(wav_path, format="wav")
-    with wave.open(wav_path, 'rb') as wf:
-        frames = wf.getnframes()
-        framerate = wf.getframerate()
-        duration = frames / float(framerate)
-        if frames == 0 or duration < 1.0:
-            raise ValueError("生成されたWAVファイルが無効です")
+    try:
+        audio = AudioSegment.from_file(webm_path, format="webm")
+        print(f"🔍 WebM録音長さ（秒）: {audio.duration_seconds}")
+        audio.export(wav_path, format="wav")
+
+        with wave.open(wav_path, 'rb') as wf:
+            frames = wf.getnframes()
+            framerate = wf.getframerate()
+            duration = frames / float(framerate)
+            print(f"🔍 WAVファイルの長さ: {duration:.2f} 秒, フレーム数: {frames}")
+
+            if frames == 0 or duration < 1.0:
+                raise ValueError("生成されたWAVファイルが無効です（録音が短すぎるか空）")
+    except Exception as e:
+        print("❌ WebM→WAV変換エラー:", e)
+        import traceback
+        traceback.print_exc()
+        raise
 
 def is_valid_wav(wav_path):
     try:
