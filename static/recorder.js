@@ -9,6 +9,7 @@ const audioPlayback = document.getElementById('audioPlayback');
 // 🔽 録音時間の表示
 let timerInterval;
 let seconds = 0;
+let autoStopTimer = null;
 
 function startTimer() {
     seconds = 0;
@@ -52,7 +53,6 @@ recordButton.addEventListener('click', async () => {
             audioPlayback.load();
             console.log("🎧 再生用URL生成");
 
-            // アップロード準備
             uploadButton.disabled = false;
             uploadButton.blob = blob;
         });
@@ -60,6 +60,17 @@ recordButton.addEventListener('click', async () => {
         mediaRecorder.start();
         console.log("🔴 録音スタート");
         startTimer();
+
+        // ✅ 自動停止タイマー（60秒後に自動停止）
+        autoStopTimer = setTimeout(() => {
+            if (mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                console.log("🕒 自動停止");
+                stopTimer();
+                recordButton.disabled = false;
+                stopButton.disabled = true;
+            }
+        }, 60000);
 
         recordButton.disabled = true;
         stopButton.disabled = false;
@@ -69,15 +80,17 @@ recordButton.addEventListener('click', async () => {
     }
 });
 
-setTimeout(() => {
+stopButton.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
+        clearTimeout(autoStopTimer); // ⛔ 自動停止タイマーをキャンセル
         mediaRecorder.stop();
-        console.log("🕒 自動停止：録音時間上限に達しました（60秒）");
+        console.log("🛑 手動停止");
         stopTimer();
+
         recordButton.disabled = false;
         stopButton.disabled = true;
     }
-}, 60000);  // ← 最大10秒録音
+});
 
 uploadButton.addEventListener('click', async () => {
     const blob = uploadButton.blob;
