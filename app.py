@@ -103,17 +103,12 @@ def is_valid_wav(wav_path):
 
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
+    signal = np.array(signal).flatten()
     print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
+    print(f"✅ 整形後の signal shape: {signal.shape}")
 
     if len(signal) == 0:
         raise ValueError("Empty audio file")
-
-    # 📌 正規化を追加（float型＆範囲[-1, 1]にスケーリング）
-    if signal.dtype != np.float32 and signal.dtype != np.float64:
-        signal = signal.astype(np.float32)
-    max_val = np.max(np.abs(signal))
-    if max_val > 0:
-        signal = signal / max_val
 
     duration_sec = len(signal) / sampling_rate
     print(f"🔍 音声の実長: {duration_sec:.2f} 秒")
@@ -122,21 +117,28 @@ def analyze_stress_from_wav(wav_path):
     if duration_sec < 5:
         raise ValueError("録音が短すぎます（最低5秒以上必要）")
 
+    # 長さに応じたウィンドウサイズ調整
     mt_win = min(2.0, duration_sec / 3)
     mt_step = mt_win / 2
     st_win, st_step = 0.05, 0.025
+
     print(f"🛠️ ウィンドウ設定: mt_win={mt_win}, mt_step={mt_step}, st_win={st_win}, st_step={st_step}")
 
-    mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
-        signal, sampling_rate, mt_win, mt_step, st_win, st_step
-    )
+    try:
+        mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
+            signal, sampling_rate, mt_win, mt_step, st_win, st_step
+        )
+    except Exception as e:
+        print("❌ mid_feature_extraction エラー:", e)
+        raise
 
     print(f"🧮 特徴量 shape: {mt_feats.shape}")
+
     if mt_feats.shape[1] == 0:
         print("⚠️ 特徴量が抽出できません（ウィンドウと録音の長さが合っていない）")
         energy = np.mean(signal ** 2)
         print(f"⚠️ 代替スコア計算: energy={energy}")
-        return min(100, max(0, int(energy * 100)))  # スケーリング調整可
+        return min(100, max(0, int(energy * 1e4)))
 
     feature_means = np.mean(mt_feats, axis=1)
     energy = feature_means[1]
