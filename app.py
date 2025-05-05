@@ -101,10 +101,14 @@ def is_valid_wav(wav_path):
 
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
-    print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")  # ← ここを追加！
+    print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
 
     if len(signal) == 0:
         raise ValueError("Empty audio file")
+
+    min_required_length = int(sampling_rate * 2.0)  # 2秒分のサンプル数が必要
+    if len(signal) < min_required_length:
+        raise ValueError(f"音声が短すぎます（必要: {min_required_length} サンプル, 実際: {len(signal)}）")
 
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
         signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
