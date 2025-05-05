@@ -138,14 +138,12 @@ def analyze_stress_from_wav(wav_path):
         mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
             signal, sampling_rate, mt_win, mt_step, st_win, st_step
         )
+
+        if mt_feats.shape[1] == 0:
+            raise ValueError("抽出された特徴量が空です")
+
     except Exception as e:
-        print("❌ mid_feature_extraction エラー:", e)
-        raise
-
-    print(f"🧮 特徴量 shape: {mt_feats.shape}")
-
-    if mt_feats.shape[1] == 0:
-        print("⚠️ 特徴量が抽出できません（ウィンドウと録音の長さが合っていない）")
+        print("❌ 特徴量抽出失敗（代替スコアを使用）:", e)
         energy = np.mean(signal ** 2)
         print(f"⚠️ 代替スコア計算: energy={energy}")
         return min(100, max(0, int(energy * 1e4)))
