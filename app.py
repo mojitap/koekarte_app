@@ -103,9 +103,14 @@ def is_valid_wav(wav_path):
 
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
-    signal = np.array(signal).flatten().astype(np.float32)
+    signal = np.asarray(signal).flatten()
+
+    # 明示的に float32 へ変換（pyAudioAnalysisの安定処理）
+    if signal.dtype != np.float32:
+        signal = signal.astype(np.float32)
+
     print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
-    print(f"✅ 整形後の signal shape: {signal.shape}")
+    print(f"✅ signal shape: {signal.shape}, dtype: {signal.dtype}")
 
     if len(signal) == 0:
         raise ValueError("Empty audio file")
@@ -117,11 +122,9 @@ def analyze_stress_from_wav(wav_path):
     if duration_sec < 5:
         raise ValueError("録音が短すぎます（最低5秒以上必要）")
 
-    # 長さに応じたウィンドウサイズ調整
     mt_win = min(2.0, duration_sec / 3)
     mt_step = mt_win / 2
     st_win, st_step = 0.05, 0.025
-
     print(f"🛠️ ウィンドウ設定: mt_win={mt_win}, mt_step={mt_step}, st_win={st_win}, st_step={st_step}")
 
     try:
