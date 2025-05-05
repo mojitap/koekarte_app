@@ -107,12 +107,14 @@ def analyze_stress_from_wav(wav_path):
 
     # pyAudioAnalysis expects float32 in range [-1, 1]
     if signal.dtype != np.float32:
-        signal = signal.astype(np.float32)
+    signal = signal.astype(np.float32)
 
-    # ★ここを追加：絶対最大値で正規化（-1〜1に）
     max_abs = np.max(np.abs(signal))
     if max_abs > 0:
         signal = signal / max_abs
+
+    # ←この下にログを移動
+    print(f"📊 正規化後の最小値: {np.min(signal)}, 最大値: {np.max(signal)}, 平均: {np.mean(signal):.4f}, 標準偏差: {np.std(signal):.4f}")
 
     print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
     print(f"✅ signal shape: {signal.shape}, dtype: {signal.dtype}")
