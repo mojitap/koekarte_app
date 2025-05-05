@@ -28,7 +28,9 @@ recordButton.addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("✅ マイクアクセス成功");
 
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'audio/webm;codecs=opus'
+        });
         recordedChunks = [];
 
         mediaRecorder.addEventListener('dataavailable', event => {
