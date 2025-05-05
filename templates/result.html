@@ -39,49 +39,19 @@
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
 
     <script>
-        const ctx = document.getElementById('stressChart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: {{ dates|tojson }},
-                datasets: [{
-                    label: 'ストレススコア',
-                    data: {{ scores|tojson }},
-                    fill: false,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    tension: 0.2
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        min: 0,
-                        max: 100,
-                        title: {
-                            display: true,
-                            text: 'スコア（0〜100）'
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            autoSkip: true,
-                            maxTicksLimit: 7
-                        }
-                    }
-                }
-            }
-        });
-
-        // 👇 アイコン表示スクリプト（追記）
+        const dates = {{ dates|tojson }};
         const scores = {{ scores|tojson }};
+
         const icons = scores.map(score => {
             if (score >= 80) return "😄";
             if (score >= 50) return "😐";
             return "😟";
         });
+
         const iconRow = document.getElementById('iconRow');
-        iconRow.innerHTML = icons.join(" ");
+        iconRow.innerHTML = dates.map((date, i) => {
+            return `<p>${date}：${scores[i]}点 ${icons[i]}</p>`;
+        }).join("");
     </script>
 </body>
 </html>
