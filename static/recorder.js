@@ -6,10 +6,10 @@ const stopButton = document.getElementById('stopButton');
 const uploadButton = document.getElementById('uploadButton');
 const audioPlayback = document.getElementById('audioPlayback');
 
-// 🔽 録音時間の表示
+// タイマー用
 let timerInterval;
-let seconds = 0;
 let autoStopTimer = null;
+let seconds = 0;
 
 function startTimer() {
     seconds = 0;
@@ -30,14 +30,14 @@ recordButton.addEventListener('click', async () => {
         console.log("✅ マイクアクセス成功");
 
         mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus'
+            mimeType: 'audio/webm;codecs=opus',
             audioBitsPerSecond: 128000
         });
         recordedChunks = [];
 
-        // 🔽 マイクの物理的な切断を検知（ここに追加）
+        // ✅ マイクの物理切断を検知
         stream.getAudioTracks()[0].onended = () => {
-            alert("⚠️ マイクが途中で切断されました。録音が途中で終了した可能性があります。");
+            alert("⚠️ マイクが途中で切断されました。");
             stopTimer();
             recordButton.disabled = false;
             stopButton.disabled = true;
@@ -70,7 +70,7 @@ recordButton.addEventListener('click', async () => {
         console.log("🔴 録音スタート");
         startTimer();
 
-        // ✅ 自動停止タイマー（60秒後に自動停止）
+        // ✅ 自動停止（60秒で）
         autoStopTimer = setTimeout(() => {
             if (mediaRecorder.state === "recording") {
                 mediaRecorder.stop();
@@ -91,11 +91,10 @@ recordButton.addEventListener('click', async () => {
 
 stopButton.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
-        clearTimeout(autoStopTimer); // ⛔ 自動停止タイマーをキャンセル
+        clearTimeout(autoStopTimer);
         mediaRecorder.stop();
         console.log("🛑 手動停止");
         stopTimer();
-
         recordButton.disabled = false;
         stopButton.disabled = true;
     }
