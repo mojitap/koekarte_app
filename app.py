@@ -265,6 +265,21 @@ def privacy():
 def legal():
     return render_template('legal.html')
 
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        current_user.username = request.form['username']
+        current_user.birthdate = request.form['birthdate']
+        current_user.gender = request.form['gender']
+        current_user.occupation = request.form['occupation']
+        current_user.prefecture = request.form['prefecture']
+        db.session.commit()
+        flash("プロフィールを更新しました")
+        return redirect(url_for('dashboard'))
+
+    return render_template('edit_profile.html', user=current_user)
+    
 try:
     with app.app_context():
         db.create_all()
