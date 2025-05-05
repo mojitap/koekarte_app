@@ -74,7 +74,9 @@ def convert_webm_to_wav(webm_path, wav_path):
     try:
         audio = AudioSegment.from_file(webm_path, format="webm")
         print(f"🔍 WebM録音長さ（秒）: {audio.duration_seconds}")
-        audio.export(wav_path, format="wav")
+        
+        # ⬇ PCM 16bitで保存（これが重要！）
+        audio.export(wav_path, format="wav", parameters=["-acodec", "pcm_s16le"])
 
         with wave.open(wav_path, 'rb') as wf:
             frames = wf.getnframes()
