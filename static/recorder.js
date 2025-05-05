@@ -58,7 +58,7 @@ recordButton.addEventListener('click', async () => {
             });
 
             if (response.ok) {
-                alert('✅ アップロード成功！');
+                window.location.href = '/dashboard';  // ✅ 自動でマイページに飛ぶ
             } else {
                 const err = await response.text();
                 alert('❌ アップロード失敗: ' + err);
