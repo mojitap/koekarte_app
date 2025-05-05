@@ -111,24 +111,27 @@ def analyze_stress_from_wav(wav_path):
     duration_sec = len(signal) / sampling_rate
     print(f"🔍 音声の実長: {duration_sec:.2f} 秒")
 
-    # 無音チェック用ログ
     print(f"📊 信号の最小値: {np.min(signal)}, 最大値: {np.max(signal)}, 平均: {np.mean(signal):.4f}, 標準偏差: {np.std(signal):.4f}")
 
-    if np.max(np.abs(signal)) < 0.01 or np.std(signal) < 0.005:
-        raise ValueError("録音ファイルが無音または極端に小さい音です")
+    # 🔽 録音時間に応じてウィンドウを調整
+    if duration_sec < 5:
+        raise ValueError("録音が短すぎます（5秒以上必要）")
 
-    # ウィンドウサイズ調整（必要に応じて固定でも可）
-    mt_win, mt_step = 2.0, 1.0
+    # ⬇ 長すぎるウィンドウを避けて柔軟に対応
+    mt_win = min(2.0, duration_sec / 3)
+    mt_step = mt_win / 2
     st_win, st_step = 0.05, 0.025
+
+    print(f"🛠️ ウィンドウ設定: mt_win={mt_win}, mt_step={mt_step}, st_win={st_win}, st_step={st_step}")
 
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
         signal, sampling_rate, mt_win, mt_step, st_win, st_step
     )
 
-    print(f"🧪 特徴量 shape: {mt_feats.shape}")
+    print(f"🧮 特徴量 shape: {mt_feats.shape}")
 
     if mt_feats.shape[1] == 0:
-        raise ValueError("No features extracted — 音声が短すぎるか、構造的に無効")
+        raise ValueError("特徴量が抽出できません（ウィンドウサイズを再確認）")
 
     feature_means = np.mean(mt_feats, axis=1)
     energy = feature_means[1]
