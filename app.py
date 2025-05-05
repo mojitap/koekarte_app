@@ -226,9 +226,9 @@ def reset_password(token):
         user.password = generate_password_hash(new_password)
         db.session.commit()
         flash("パスワードを更新しました")
-        return redirect(url_for('login'))
+        return render_template('reset_done.html')  # ✅ パスワード更新後に表示！
 
-    return render_template('reset_done.html')
+    return render_template('reset.html')  # ✅ 最初は入力フォーム！
 
 @app.route('/logout')
 @login_required
