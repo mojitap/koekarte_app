@@ -35,6 +35,14 @@ recordButton.addEventListener('click', async () => {
         });
         recordedChunks = [];
 
+        // 🔽 マイクの物理的な切断を検知（ここに追加）
+        stream.getAudioTracks()[0].onended = () => {
+            alert("⚠️ マイクが途中で切断されました。録音が途中で終了した可能性があります。");
+            stopTimer();
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+        };
+
         mediaRecorder.addEventListener('dataavailable', event => {
             if (event.data.size > 0) {
                 recordedChunks.push(event.data);
