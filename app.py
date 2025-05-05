@@ -107,7 +107,7 @@ def analyze_stress_from_wav(wav_path):
 
     # pyAudioAnalysis expects float32 in range [-1, 1]
     if signal.dtype != np.float32:
-    signal = signal.astype(np.float32)
+        signal = signal.astype(np.float32)
 
     max_abs = np.max(np.abs(signal))
     if max_abs > 0:
