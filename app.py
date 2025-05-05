@@ -105,9 +105,10 @@ def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
     signal = np.asarray(signal).flatten()
 
-    # 明示的に float32 へ変換（pyAudioAnalysisの安定処理）
     if signal.dtype != np.float32:
         signal = signal.astype(np.float32)
+
+    signal = signal * 32768  # 👈 必須！int16スケールに合わせる
 
     print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
     print(f"✅ signal shape: {signal.shape}, dtype: {signal.dtype}")
