@@ -242,7 +242,7 @@ def result():
 @app.route('/admin')
 @login_required
 def admin():
-    if current_user.email != 'koekarte.info@gmail.com':
+    if current_user.email != 'ta714kadvance@gmail.com':
         return 'アクセス権がありません', 403
 
     users = User.query.all()
