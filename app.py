@@ -15,6 +15,9 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from dotenv import load_dotenv
 import wave
+import csv
+from io import StringIO
+from flask import Response
 
 app = Flask(__name__)
 load_dotenv()
@@ -163,6 +166,22 @@ def login():
         return redirect(url_for('dashboard'))
     return render_template('login.html')
 
+@app.route('/export_csv')
+@login_required
+def export_csv():
+    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['日付', 'スコア'])
+    for log in logs:
+        cw.writerow([log.timestamp.strftime('%Y-%m-%d %H:%M:%S'), log.score])
+
+    output = si.getvalue()
+    return Response(output,
+                    mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment;filename=stress_scores.csv"})
+
 # --- パスワード再設定メール送信 ---
 def send_reset_email(user):
     token = serializer.dumps(user.email, salt='reset-password')
@@ -209,7 +228,7 @@ def reset_password(token):
         flash("パスワードを更新しました")
         return redirect(url_for('login'))
 
-    return render_template('reset.html')
+    return render_template('reset_done.html')
 
 @app.route('/logout')
 @login_required
@@ -220,6 +239,9 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    if not current_user.is_verified:
+        flash("メールアドレスの確認が完了していません。")
+        return redirect(url_for('home'))
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
     first_score = logs[0].score if logs else None
     latest_score = logs[-1].score if logs else None
