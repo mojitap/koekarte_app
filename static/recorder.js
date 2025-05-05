@@ -3,9 +3,10 @@ let recordedChunks = [];
 
 const recordButton = document.getElementById('recordButton');
 const stopButton = document.getElementById('stopButton');
+const uploadButton = document.getElementById('uploadButton');
 const audioPlayback = document.getElementById('audioPlayback');
 
-// 🔽 録音時間の表示（任意）
+// 🔽 録音時間の表示
 let timerInterval;
 let seconds = 0;
 
@@ -37,8 +38,8 @@ recordButton.addEventListener('click', async () => {
             }
         });
 
-        mediaRecorder.addEventListener('stop', async () => {
-            const blob = new Blob(recordedChunks, { type: 'audio/wav' }); // ← ここを wav に
+        mediaRecorder.addEventListener('stop', () => {
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
 
             if (blob.size === 0) {
                 alert("⚠️ 録音できていません。マイクを確認してください。");
@@ -49,29 +50,17 @@ recordButton.addEventListener('click', async () => {
             audioPlayback.load();
             console.log("🎧 再生用URL生成");
 
-            const formData = new FormData();
-            formData.append('audio_data', blob, 'recording.wav');  // ← ファイル名を正しく変更
-
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                window.location.href = '/dashboard';  // ✅ 自動でマイページに飛ぶ
-            } else {
-                const err = await response.text();
-                alert('❌ アップロード失敗: ' + err);
-            }
+            // アップロード準備
+            uploadButton.disabled = false;
+            uploadButton.blob = blob;
         });
 
         mediaRecorder.start();
         console.log("🔴 録音スタート");
-        startTimer();  // ← ここを追加！
+        startTimer();
 
         recordButton.disabled = true;
         stopButton.disabled = false;
-
     } catch (err) {
         console.error("❌ マイクの取得に失敗:", err);
         alert("マイクが使えません。ブラウザの設定をご確認ください。");
@@ -82,9 +71,33 @@ stopButton.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
         mediaRecorder.stop();
         console.log("🛑 録音ストップ");
-        stopTimer();  // ← ここを追加！
+        stopTimer();
 
         recordButton.disabled = false;
         stopButton.disabled = true;
+    }
+});
+
+uploadButton.addEventListener('click', async () => {
+    const blob = uploadButton.blob;
+    if (!blob) {
+        alert("録音データがありません");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('audio_data', blob, 'recording.webm');
+
+    const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+    });
+
+    if (response.ok) {
+        alert('✅ アップロード成功！マイページに移動します');
+        window.location.href = '/dashboard';
+    } else {
+        const err = await response.text();
+        alert('❌ アップロード失敗: ' + err);
     }
 });
