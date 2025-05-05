@@ -106,12 +106,15 @@ def analyze_stress_from_wav(wav_path):
     if len(signal) == 0:
         raise ValueError("Empty audio file")
 
-    min_required_length = int(sampling_rate * 2.0)  # 2秒分のサンプル数が必要
-    if len(signal) < min_required_length:
-        raise ValueError(f"音声が短すぎます（必要: {min_required_length} サンプル, 実際: {len(signal)}）")
+    duration_sec = len(signal) / sampling_rate
+    print(f"🔍 音声の実長: {duration_sec:.2f} 秒")
+
+    # ⬇ mid-termとshort-termを柔軟に（元は2.0, 1.0, 0.05, 0.025）
+    mt_win, mt_step = 1.0, 0.5
+    st_win, st_step = 0.05, 0.025
 
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
-        signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
+        signal, sampling_rate, mt_win, mt_step, st_win, st_step
     )
 
     if mt_feats.shape[1] == 0:
