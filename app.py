@@ -272,46 +272,46 @@ def upload():
     now = datetime.now()
     today = date.today()
 
-    # 拡張子は .webm で受け取る
+    # 🔽 元のwebmファイルと、変換後のwavファイルのパスを準備
     webm_path = os.path.join(UPLOAD_FOLDER, f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.webm")
     wav_path = webm_path.replace('.webm', '.wav')
 
     file.save(webm_path)
-    print(f"✅ ファイル保存: {webm_path}")
+    print(f"✅ WebMファイル保存完了: {webm_path}")
 
     try:
         convert_webm_to_wav(webm_path, wav_path)
+        print(f"✅ WAVファイルへ変換成功: {wav_path}")
     except Exception as e:
-        print("❌ 変換失敗:", e)
+        print("❌ WebM→WAV変換エラー:", e)
         return '音声変換に失敗しました'
 
     if not is_valid_wav(wav_path):
-        print("❌ WAVファイルが無効")
-        flash("録音に失敗しました。もう一度お試しください。")
-        return redirect(url_for("record"))
+        print("❌ WAVファイルが無効 or 長さ不足")
+        return '録音が短すぎます。もう一度お試しください。'
 
     try:
         stress_score = analyze_stress_from_wav(wav_path)
-        print(f"✅ 分析結果: ストレススコア = {stress_score}")
+        print(f"✅ 分析完了: ストレススコア = {stress_score}")
     except Exception as e:
-        print("❌ 分析エラー:", e)
-        return 'ストレス分析に失敗しました'
+        print("❌ 分析処理エラー:", e)
+        return '音声分析に失敗しました'
 
     existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
     if existing:
-        print("⚠️ 本日すでに記録あり。保存スキップ。")
+        print("⚠️ すでに今日のデータが存在します")
         return '本日はすでに保存済みです（1日1回制限）'
 
     try:
         new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
         db.session.add(new_log)
         db.session.commit()
-        app.logger.info("✅ スコア保存完了")
+        print("✅ スコア保存成功")
     except Exception as e:
-        print("❌ データベース保存失敗:", e)
+        print("❌ DB保存失敗:", e)
         return 'データベース保存失敗'
 
-    return redirect(url_for("dashboard"))
+    return redirect(url_for('dashboard'))
 
 @app.route('/result')
 @login_required
