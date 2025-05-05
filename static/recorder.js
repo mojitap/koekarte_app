@@ -31,6 +31,7 @@ recordButton.addEventListener('click', async () => {
 
         mediaRecorder = new MediaRecorder(stream, {
             mimeType: 'audio/webm;codecs=opus'
+            audioBitsPerSecond: 128000
         });
         recordedChunks = [];
 
