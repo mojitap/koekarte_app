@@ -1,0 +1,16 @@
+# Flask secret key
+SECRET_KEY=your-secret-key
+
+# メール送信用の設定（Flask-Mail）
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_DEFAULT_SENDER=your-email@gmail.com
+
+# PostgreSQL データベース接続情報
+DATABASE_URL=postgresql://your_user:your_password@your_host:5432/your_dbname
+
+# 管理者専用のメールアドレス
+ADMIN_EMAIL=your-admin@example.com
