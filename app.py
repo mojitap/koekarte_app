@@ -103,7 +103,7 @@ def is_valid_wav(wav_path):
 
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
-    signal = np.array(signal).flatten()
+    signal = np.array(signal).flatten().astype(np.float32)
     print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
     print(f"✅ 整形後の signal shape: {signal.shape}")
 
