@@ -109,9 +109,6 @@ def analyze_stress_from_wav(wav_path):
     if signal.dtype != np.float32:
         signal = signal.astype(np.float32)
 
-    # ✅ スケーリングはこの時点で初めて行う（繰り返し禁止）
-    signal = signal * 32768
-
     print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
     print(f"✅ signal shape: {signal.shape}, dtype: {signal.dtype}")
 
