@@ -69,16 +69,15 @@ recordButton.addEventListener('click', async () => {
     }
 });
 
-stopButton.addEventListener('click', () => {
+setTimeout(() => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
         mediaRecorder.stop();
-        console.log("🛑 録音ストップ");
+        console.log("🕒 自動停止：録音時間上限に達しました（60秒）");
         stopTimer();
-
         recordButton.disabled = false;
         stopButton.disabled = true;
     }
-});
+}, 60000);  // ← 最大10秒録音
 
 uploadButton.addEventListener('click', async () => {
     const blob = uploadButton.blob;
