@@ -12,6 +12,8 @@ matplotlib==3.7.1
 eyed3==0.9.7
 scipy==1.10.1
 tqdm==4.66.2
-psycopg2-binary
-imageio-ffmpeg==0.4.8
+psycopg2-binary==2.9.9
 itsdangerous==2.1.2
+imageio-ffmpeg==0.4.8
+Jinja2==3.1.2
+Werkzeug==2.3.7
