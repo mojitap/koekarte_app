@@ -1,0 +1,35 @@
+<!-- templates/edit_profile.html -->
+{% extends "base.html" %}
+
+{% block title %}プロフィール編集 - コエカルテ{% endblock %}
+
+{% block content %}
+  <div class="form-container">
+    <h2>📝 プロフィール編集</h2>
+    <form method="POST">
+      <label>ユーザー名：</label>
+      <input type="text" name="username" value="{{ user.username }}" required><br>
+
+      <label>生年月日：</label>
+      <input type="date" name="birthdate" value="{{ user.birthdate }}"><br>
+
+      <label>性別：</label>
+      <select name="gender">
+        <option value="">未選択</option>
+        <option value="男性" {% if user.gender == '男性' %}selected{% endif %}>男性</option>
+        <option value="女性" {% if user.gender == '女性' %}selected{% endif %}>女性</option>
+        <option value="その他" {% if user.gender == 'その他' %}selected{% endif %}>その他</option>
+      </select><br>
+
+      <label>職業：</label>
+      <input type="text" name="occupation" value="{{ user.occupation }}"><br>
+
+      <label>都道府県：</label>
+      <input type="text" name="prefecture" value="{{ user.prefecture }}"><br>
+
+      <button type="submit">✅ 保存する</button>
+    </form>
+    <br>
+    <a href="/dashboard">🏠 マイページに戻る</a>
+  </div>
+{% endblock %}
