@@ -1,6 +1,7 @@
 # 完全修正版 app.py
 # ✅ DBのみを使用、ScoreLogで記録管理、管理者ページ対応済み
 
+from flask import current_app as app
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -17,6 +18,8 @@ import wave
 
 app = Flask(__name__)
 load_dotenv()
+
+os.makedirs("uploads", exist_ok=True)
 
 app.permanent_session_lifetime = timedelta(days=30)
 app.secret_key = os.getenv('SECRET_KEY')
@@ -224,7 +227,7 @@ def upload():
         new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
         db.session.add(new_log)
         db.session.commit()
-        print("✅ スコア保存完了")
+        app.logger.info("✅ スコア保存完了")
     except Exception as e:
         print("❌ データベース保存失敗:", e)
         return 'データベース保存失敗'
