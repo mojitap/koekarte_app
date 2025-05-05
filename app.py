@@ -347,10 +347,10 @@ def upload():
         print("❌ 分析処理エラー:", e)
         return '音声分析に失敗しました'
 
-    # existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
-    # if existing:
-    #     print("⚠️ すでに今日のデータが存在します")
-    #     return '本日はすでに保存済みです（1日1回制限）'
+    existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
+    if existing:
+        print("⚠️ すでに今日のデータが存在します")
+        return '本日はすでに保存済みです（1日1回制限）'
 
     try:
         new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
