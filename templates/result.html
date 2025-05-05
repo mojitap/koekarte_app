@@ -34,6 +34,8 @@
     
     <canvas id="stressChart" style="width:100%; max-width:600px;"></canvas>
 
+    <div id="iconRow" style="margin-top: 20px; font-size: 24px;"></div>
+
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
 
     <script>
@@ -70,6 +72,16 @@
                 }
             }
         });
+
+        // 👇 アイコン表示スクリプト（追記）
+        const scores = {{ scores|tojson }};
+        const icons = scores.map(score => {
+            if (score >= 80) return "😄";
+            if (score >= 50) return "😐";
+            return "😟";
+        });
+        const iconRow = document.getElementById('iconRow');
+        iconRow.innerHTML = icons.join(" ");
     </script>
 </body>
 </html>
