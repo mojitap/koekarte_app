@@ -271,27 +271,36 @@ def upload():
 
     now = datetime.now()
     today = date.today()
-    filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.wav"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-    print(f"✅ ファイル保存: {filepath}")
 
-    existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
-    if existing:
-        print("⚠️ 本日すでに記録あり。保存スキップ。")
-        return '本日はすでに保存済みです（1日1回制限）'
+    # 拡張子は .webm で受け取る
+    webm_path = os.path.join(UPLOAD_FOLDER, f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.webm")
+    wav_path = webm_path.replace('.webm', '.wav')
 
-    if not is_valid_wav(filepath):
+    file.save(webm_path)
+    print(f"✅ ファイル保存: {webm_path}")
+
+    try:
+        convert_webm_to_wav(webm_path, wav_path)
+    except Exception as e:
+        print("❌ 変換失敗:", e)
+        return '音声変換に失敗しました'
+
+    if not is_valid_wav(wav_path):
         print("❌ WAVファイルが無効")
         flash("録音に失敗しました。もう一度お試しください。")
         return redirect(url_for("record"))
 
     try:
-        stress_score = analyze_stress_from_wav(filepath)
+        stress_score = analyze_stress_from_wav(wav_path)
         print(f"✅ 分析結果: ストレススコア = {stress_score}")
     except Exception as e:
         print("❌ 分析エラー:", e)
         return 'ストレス分析に失敗しました'
+
+    existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
+    if existing:
+        print("⚠️ 本日すでに記録あり。保存スキップ。")
+        return '本日はすでに保存済みです（1日1回制限）'
 
     try:
         new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
