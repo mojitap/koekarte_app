@@ -12,7 +12,7 @@ from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 import numpy as np
 from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from dotenv import load_dotenv
 import wave
 
@@ -162,6 +162,54 @@ def login():
         login_user(user)
         return redirect(url_for('dashboard'))
     return render_template('login.html')
+
+# --- パスワード再設定メール送信 ---
+def send_reset_email(user):
+    token = serializer.dumps(user.email, salt='reset-password')
+    reset_url = url_for('reset_password', token=token, _external=True, _scheme='https')
+    msg = Message('【koekarte】パスワード再設定リンク',
+                  sender=os.getenv('MAIL_USERNAME'),
+                  recipients=[user.email])
+    msg.body = f"""
+{user.username} 様
+
+以下のリンクよりパスワードの再設定を行ってください：
+{reset_url}
+
+このリンクは1時間で無効になります。
+"""
+    mail.send(msg)
+
+# --- パスワードリセット申請ページ ---
+@app.route('/forgot', methods=['GET', 'POST'])
+def forgot():
+    if request.method == 'POST':
+        email = request.form['email']
+        user = User.query.filter_by(email=email).first()
+        if user:
+            send_reset_email(user)
+        flash("パスワード再設定用のリンクを送信しました")
+        return redirect(url_for('login'))
+    return render_template('forgot.html')
+
+# --- リセットリンクからの再設定処理 ---
+@app.route('/reset/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = serializer.loads(token, salt='reset-password', max_age=3600)
+    except (SignatureExpired, BadSignature):
+        return 'リンクが無効または期限切れです'
+
+    user = User.query.filter_by(email=email).first_or_404()
+
+    if request.method == 'POST':
+        new_password = request.form['password']
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash("パスワードを更新しました")
+        return redirect(url_for('login'))
+
+    return render_template('reset.html')
 
 @app.route('/logout')
 @login_required
