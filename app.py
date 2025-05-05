@@ -101,13 +101,18 @@ def is_valid_wav(wav_path):
 
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
+    print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")  # ← ここを追加！
+
     if len(signal) == 0:
         raise ValueError("Empty audio file")
+
     mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
         signal, sampling_rate, 2.0, 1.0, 0.05, 0.025
     )
+
     if mt_feats.shape[1] == 0:
         raise ValueError("No features extracted")
+
     feature_means = np.mean(mt_feats, axis=1)
     energy = feature_means[1]
     zero_crossing_rate = feature_means[0]
