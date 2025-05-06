@@ -372,7 +372,7 @@ def upload():
 @login_required
 def result():
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
-    dates = [log.timestamp.strftime('%Y-%m-%d %H:%M:%S') for log in logs]
+    dates = [log.timestamp.strftime('%m/%d') for log in logs]
     scores = [log.score for log in logs]
     return render_template('result.html', dates=dates, scores=scores)
 
