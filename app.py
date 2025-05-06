@@ -371,8 +371,25 @@ def upload():
 @app.route('/result')
 @login_required
 def result():
-    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
-    dates = [log.timestamp.strftime('%m/%d') for log in logs]
+    range_type = request.args.get('range', 'all')
+    today = date.today()
+
+    if range_type == 'week':
+        start_date = today - timedelta(days=7)
+        logs = ScoreLog.query.filter(
+            ScoreLog.user_id == current_user.id,
+            ScoreLog.timestamp >= start_date
+        ).order_by(ScoreLog.timestamp).all()
+    elif range_type == 'month':
+        start_date = today.replace(day=1)
+        logs = ScoreLog.query.filter(
+            ScoreLog.user_id == current_user.id,
+            ScoreLog.timestamp >= start_date
+        ).order_by(ScoreLog.timestamp).all()
+    else:
+        logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+
+    dates = [log.timestamp.strftime('%Y-%m-%d %H:%M:%S') for log in logs]
     scores = [log.score for log in logs]
     return render_template('result.html', dates=dates, scores=scores)
 
