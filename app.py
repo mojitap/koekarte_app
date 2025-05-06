@@ -302,7 +302,8 @@ def dashboard():
     latest_score = logs[-1].score if logs else None
     diff = (latest_score - first_score) if (first_score is not None and latest_score is not None) else None
     first_score_date = logs[0].timestamp.strftime('%Y-%m-%d') if logs else None
-    return render_template('dashboard.html', user=current_user, first_score=first_score, latest_score=latest_score, diff=diff, first_score_date=first_score_date)
+    last_date = logs[-1].timestamp.strftime('%Y-%m-%d') if logs else "未記録"
+    return render_template('dashboard.html', user=current_user, first_score=first_score, latest_score=latest_score, diff=diff, first_score_date=first_score_date, last_date=last_date)
 
 @app.route('/record')
 @login_required
