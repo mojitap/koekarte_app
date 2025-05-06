@@ -212,7 +212,12 @@ def login():
             return 'ログイン失敗'
         if not user.is_verified:
             return 'メール確認が必要です'
+
         login_user(user)
+
+        # ✅ セッションを30日間持続させるために追加
+        session.permanent = True
+
         return redirect(url_for('dashboard'))
     return render_template('login.html')
 
