@@ -50,7 +50,7 @@
             type: 'line',
             data: {
                 labels: {{ dates|tojson }},
-                ddatasets: [
+                datasets: [
                     {
                         label: 'ストレススコア',
                         data: {{ scores|tojson }},
@@ -59,16 +59,16 @@
                         tension: 0.2
                     },
                     {
-                        label: '登録時スコア',
-                        data: Array({{ dates|length }}).fill({{ first_score }}),
-                        borderColor: 'red',
-                        borderDash: [5, 5],
-                        pointRadius: 0,
-                        fill: false
-                    }
-                ]
-            },
-            options: {
+                        label: '登録時のスコア',
+                        data: Array({{ scores|length }}).fill({{ first_score }}),
+                        fill: false,
+                        borderColor: 'rgba(255, 99, 132, 1)',  // 赤
+                        borderDash: [5, 5],  // 点線
+                         pointRadius: 0  // 点を非表示
+                     }
+                 ]
+             },
+             options: {
                 responsive: true,
                 scales: {
                     y: {
