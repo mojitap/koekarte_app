@@ -392,7 +392,9 @@ def result():
 
     dates = [log.timestamp.strftime('%m/%d') for log in logs]
     scores = [log.score for log in logs]
-    return render_template('result.html', dates=dates, scores=scores)
+    first_score = logs[0].score if logs else 0  # グラフ用
+
+    return render_template('result.html', dates=dates, scores=scores, first_score=first_score)
 
 @app.route('/admin')
 @login_required
