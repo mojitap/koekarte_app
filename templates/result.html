@@ -50,13 +50,23 @@
             type: 'line',
             data: {
                 labels: {{ dates|tojson }},
-                datasets: [{
-                    label: 'ストレススコア',
-                    data: {{ scores|tojson }},
-                    fill: false,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    tension: 0.2
-                }]
+                ddatasets: [
+                    {
+                        label: 'ストレススコア',
+                        data: {{ scores|tojson }},
+                        fill: false,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        tension: 0.2
+                    },
+                    {
+                        label: '登録時スコア',
+                        data: Array({{ dates|length }}).fill({{ first_score }}),
+                        borderColor: 'red',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
             },
             options: {
                 responsive: true,
