@@ -192,10 +192,21 @@ def register():
         gender = request.form.get('gender')
         occupation = request.form.get('occupation')
         prefecture = request.form.get('prefecture')
+
+        # ✅ 既にメール or ユーザー名が使われていたら弾く
         if User.query.filter_by(email=email).first():
-            return '既に登録されています'
-        user = User(username=username, email=email, password=password,
-                    birthdate=birthdate, gender=gender, occupation=occupation, prefecture=prefecture)
+            flash('このメールアドレスは既に登録されています。')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(username=username).first():
+            flash('このユーザー名は既に使われています。')
+            return redirect(url_for('register'))
+
+        user = User(
+            username=username, email=email, password=password,
+            birthdate=birthdate, gender=gender,
+            occupation=occupation, prefecture=prefecture
+        )
         db.session.add(user)
         db.session.commit()
         send_confirmation_email(email, username)
