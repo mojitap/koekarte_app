@@ -403,9 +403,12 @@ def result():
 
     dates = [log.timestamp.strftime('%m/%d') for log in logs]
     scores = [log.score for log in logs]
-    first_score = logs[0].score if logs else 0  # グラフ用
 
-    return render_template('result.html', dates=dates, scores=scores, first_score=first_score)
+    # ✅ 最初の3回分のスコアの平均（ベースライン）
+    first_three_scores = scores[:3]
+    baseline = round(sum(first_three_scores) / len(first_three_scores), 2) if first_three_scores else 0
+
+    return render_template('result.html', dates=dates, scores=scores, first_score=scores[0] if scores else 0, baseline=baseline)
 
 @app.route('/admin')
 @login_required
