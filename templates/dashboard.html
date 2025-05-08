@@ -20,7 +20,7 @@
   <div class="score-summary">
     <p>📅 <strong>登録日：</strong>{{ first_score_date }}</p>
     <p>🗓️ <strong>最終録音日：</strong>{{ last_date }}</p>
-    <p>🔢 <strong>初回スコア：</strong>{{ first_score }}</p>
+    <p>🔢 <strong>基準スコア（3日間平均）：</strong>{{ baseline }} 点</p>
     <p>📝 <strong>今日のスコア：</strong>{{ latest_score }}</p>
     <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}上昇{% elif diff < 0 %}減少{% else %}変化なし{% endif %}）</p>
   </div>
