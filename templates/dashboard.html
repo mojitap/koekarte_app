@@ -25,14 +25,16 @@
     <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}減少{% elif diff < 0 %}増加{% else %}変化なし{% endif %}）</p>
   </div>
   {% else %}
-  <p>
-    まだスコアが記録されていません。<br>
-    🎙️ 録音ページから初回スコアを登録してください。<br>
-    <small style="color: gray;">
-      ※ 無料期間（3日間）は登録日からカウントされます。<br>
-      ※ 初回録音が遅れると、無料期間中に分析データが記録されない場合があります。
-    </small>
-  </p>
+  <div class="no-score-warning">
+    <p>
+      まだスコアが記録されていません。<br>
+      🎙️ 録音ページから初回スコアを登録してください。<br>
+      <small style="color: gray;">
+        ※ 無料期間（3日間）は登録日からカウントされます。<br>
+        ※ 初回録音が遅れると、無料期間中に分析データが記録されない場合があります。
+      </small>
+    </p>
+  </div>
   {% endif %}
 
   <div class="actions">
@@ -40,6 +42,19 @@
     <p>📈 <a href="/result" class="button">グラフを見る</a></p>
     
     <p>📥 <a href="/export_csv" class="button">CSVでダウンロード</a></p>
+  </div>
+
+  <div class="free-trial-info" style="margin-top: 20px;">
+    <p style="font-size: 14px; color: gray;">
+      💡 無料期間は登録日から3日間です。<br>
+      無料期間が終了すると以下の機能はご利用いただけません：
+      <ul style="text-align: left; font-size: 13px; color: gray;">
+        <li>録音データのアップロード</li>
+        <li>ストレススコアの新規取得</li>
+        <li>スコアグラフの閲覧</li>
+      </ul>
+      継続してご利用いただくには、有料プラン（¥300/月）へのご登録が必要です。
+    </p>
   </div>
 
   <div class="logout">
