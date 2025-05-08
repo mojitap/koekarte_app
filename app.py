@@ -172,14 +172,16 @@ def send_confirmation_email(user_email, username):
 @app.route('/test-mail')
 def test_mail():
     try:
-        msg = Message('【koekarte】テストメール送信確認',
-                      recipients=['ta714kadvance@gmail.com'])  # ←受け取りたいアドレス
-        msg.body = 'これはkoekarteからのテストメール送信です。'
+        msg = Message(
+            subject="テスト送信【koekarte】",
+            sender=os.getenv("MAIL_USERNAME"),
+            recipients=[os.getenv("ADMIN_EMAIL")],
+            body="これはkoekarte.comからのテストメールです。"
+        )
         mail.send(msg)
-        return '✅ テストメール送信完了'
+        return "✅ メール送信成功"
     except Exception as e:
-        print("❌ メール送信エラー:", e)
-        return f'❌ エラー: {e}'
+        return f"❌ エラー: {str(e)}"
         
 @app.route('/')
 def home():
