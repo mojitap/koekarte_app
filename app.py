@@ -28,12 +28,15 @@ app.permanent_session_lifetime = timedelta(days=30)
 app.secret_key = os.getenv('SECRET_KEY')
 serializer = URLSafeTimedSerializer(app.secret_key)
 
-# メール設定
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+# メール設定（お名前メール対応版）
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')             # mail1019.onamae.ne.jp
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))            # 465
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True' # False
+app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL') == 'True' # True ←追加！
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')         # noreply@koekarte.com
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')         # 実パスワード
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER') # noreply@koekarte.com
+
 mail = Mail(app)
 
 # DB設定
