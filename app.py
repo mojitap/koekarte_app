@@ -169,6 +169,18 @@ def send_confirmation_email(user_email, username):
     mail.send(msg)
 
 # ======== ルート定義 =========
+@app.route('/test-mail')
+def test_mail():
+    try:
+        msg = Message('【koekarte】テストメール送信確認',
+                      recipients=['ta714kadvance@gmail.com'])  # ←受け取りたいアドレス
+        msg.body = 'これはkoekarteからのテストメール送信です。'
+        mail.send(msg)
+        return '✅ テストメール送信完了'
+    except Exception as e:
+        print("❌ メール送信エラー:", e)
+        return f'❌ エラー: {e}'
+        
 @app.route('/')
 def home():
     return render_template('home.html')
