@@ -22,16 +22,7 @@
     <p>🗓️ <strong>最終録音日：</strong>{{ last_date }}</p>
     <p>🔢 <strong>基準スコア（3日間平均）：</strong>{{ baseline }}点</p>
     <p>📝 <strong>今日のスコア：</strong>{{ latest_score }}</p>
-    <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス
-      {% if diff > 0 %}
-      　減少
-      {% elif diff < 0 %}
-      　増加
-      {% else %}
-      　変化なし
-      {% endif %}
-    ）
-  　</p>
+    <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}減少{% elif diff < 0 %}増加{% else %}変化なし{% endif %}）</p>
   </div>
   {% else %}
   <p>まだスコアが記録されていません。録音ページから初回スコアを登録してください。</p>
