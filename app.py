@@ -308,13 +308,40 @@ def dashboard():
     if not current_user.is_verified:
         flash("メールアドレスの確認が完了していません。")
         return redirect(url_for('home'))
+
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
-    first_score = logs[0].score if logs else None
-    latest_score = logs[-1].score if logs else None
-    diff = (latest_score - first_score) if (first_score is not None and latest_score is not None) else None
-    first_score_date = logs[0].timestamp.strftime('%Y-%m-%d') if logs else None
-    last_date = logs[-1].timestamp.strftime('%Y-%m-%d') if logs else "未記録"
-    return render_template('dashboard.html', user=current_user, first_score=first_score, latest_score=latest_score, diff=diff, first_score_date=first_score_date, last_date=last_date)
+
+    baseline = None
+    first_score = None
+    latest_score = None
+    diff = None
+    first_score_date = None
+    last_date = None
+
+    if logs:
+        scores = [log.score for log in logs]
+        dates = [log.timestamp.strftime('%Y-%m-%d') for log in logs]
+
+        first_score = logs[0].score
+        latest_score = logs[-1].score
+        first_score_date = dates[0]
+        last_date = dates[-1]
+        diff = latest_score - first_score
+
+        # ✅ 最初の3回分のスコアの平均をベースラインに
+        if len(scores) >= 3:
+            baseline = sum(scores[:3]) // 3
+        else:
+            baseline = sum(scores) // len(scores)
+
+    return render_template('dashboard.html',
+                           user=current_user,
+                           first_score=first_score,
+                           latest_score=latest_score,
+                           diff=diff,
+                           first_score_date=first_score_date,
+                           last_date=last_date,
+                           baseline=baseline)
 
 @app.route('/record')
 @login_required
