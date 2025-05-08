@@ -65,7 +65,15 @@
                         borderColor: 'rgba(255, 99, 132, 1)',  // 赤
                         borderDash: [5, 5],  // 点線
                          pointRadius: 0  // 点を非表示
-                     }
+                    },
+                     {
+                        label: 'ベースライン（登録初期の平均）',
+                        data: Array({{ scores|length }}).fill({{ baseline }}),
+                        fill: false,
+                        borderColor: 'rgba(255, 99, 132, 0.8)',
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }
                  ]
              },
              options: {
