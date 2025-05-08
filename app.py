@@ -326,13 +326,16 @@ def dashboard():
         latest_score = logs[-1].score
         first_score_date = dates[0]
         last_date = dates[-1]
-        diff = latest_score - first_score
 
         # ✅ 最初の3回分のスコアの平均をベースラインに
         if len(scores) >= 3:
             baseline = sum(scores[:3]) // 3
+
         else:
             baseline = sum(scores) // len(scores)
+
+        # ✅ ベースラインとの差分を計算（順番ここ！）
+        diff = latest_score - baseline
 
     return render_template('dashboard.html',
                            user=current_user,
