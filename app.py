@@ -176,7 +176,31 @@ def send_test_mail():
                   body="MailerSendのSMTP経由で送信されたテストメールです。")
     mail.send(msg)
     return "メールを送信しました！"
-        
+
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        message = request.form['message']
+
+        msg = Message(subject="【koekarte】お問い合わせ",
+                      sender='noreply@koekarte.com',
+                      recipients=['koekarte.info@gmail.com'])
+        msg.body = f"""
+【お問い合わせ】
+名前: {name}
+メール: {email}
+
+内容:
+{message}
+"""
+        mail.send(msg)
+        flash("お問い合わせを送信しました。ありがとうございます。")
+        return redirect(url_for('contact'))
+
+    return render_template('contact.html')
+      
 @app.route('/')
 def home():
     return render_template('home.html')
