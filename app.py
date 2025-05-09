@@ -161,8 +161,9 @@ def send_confirmation_email(user_email, username):
     token = serializer.dumps(user_email, salt='email-confirm')
     confirm_url = url_for('confirm_email', token=token, _external=True, _scheme='https')
     confirm_url = confirm_url.replace("localhost:5000", "koekarte.com")
+
     msg = Message('【koekarte】ご登録ありがとうございます',
-                  sender=os.getenv('MAIL_USERNAME'),
+                  sender='noreply@koekarte.com',  # ✅ 明示
                   recipients=[user_email])
     msg.body = f"""{username} 様\n\n以下のリンクをクリックして本登録を完了してください：\n{confirm_url}\n\nこのリンクは一定時間で無効になります。\n\n-- koekarte 運営"""
     mail.send(msg)
@@ -262,8 +263,9 @@ def export_csv():
 def send_reset_email(user):
     token = serializer.dumps(user.email, salt='reset-password')
     reset_url = url_for('reset_password', token=token, _external=True, _scheme='https')
+
     msg = Message('【koekarte】パスワード再設定リンク',
-                  sender=os.getenv('MAIL_USERNAME'),
+                  sender='noreply@koekarte.com',  # ✅ 明示
                   recipients=[user.email])
     msg.body = f"""
 {user.username} 様
