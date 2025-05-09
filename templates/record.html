@@ -4,18 +4,28 @@
 {% block content %}
   <div class="record-container">
     <h1>ストレスチェック録音ページ</h1>
-    <p>以下の定型文をすべて読み上げてください：</p>
-    <blockquote style="font-size: 1.1em; font-weight: bold; line-height: 1.6;">
-      1、「今日は落ち着いた気持ちで過ごしました」<br>
-      2、「人との関わりに安心感を感じています」<br>
-      3、「最近は夜によく眠れています」
-    </blockquote>
 
-    <p style="font-size: 0.9em; color: gray;">
-      ※声の大きさは自然に、普段のトーンでお話しください。<br>
-      ※録音後、音声が再生されます。確認してからアップロードしてください。
-    </p>
+    <h2>📣 ストレスチェック録音のご案内</h2>
+    <p>以下の3つの文章を、順番に、自然な声のトーンで読み上げてください。</p>
 
+    <ol>
+      <li>今日は落ち着いた気持ちで過ごしました</li>
+      <li>人との関わりに安心感を感じています</li>
+      <li>最近は夜によく眠れています</li>
+    </ol>
+
+    <div style="color: #d9534f; font-weight: bold; margin-top: 20px;">
+      <p>【ご注意とお願い】</p>
+      <ul>
+        <li>声の大きさは普段どおりで大丈夫です。</li>
+        <li><strong>録音ボタンは1回だけ押してください。</strong>2回押すと動作が不安定になる可能性があります。</li>
+        <li>録音が完了すると「再生ボタン」が押せます。</li>
+        <li>再生ボタンを押して音声を確認し、問題なければ「アップロード」を押してください。</li>
+        <li>うまく録音できなかった場合は、再度「録音開始」してやり直してください。</li>
+      </ul>
+    </div>
+
+    <br>
     <button id="recordButton">🎙️ 録音開始</button>
     <button id="stopButton" disabled>⏹️ 録音停止</button>
     <button id="uploadButton" disabled>⬆️ アップロード</button>
