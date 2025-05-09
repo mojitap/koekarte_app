@@ -14,17 +14,6 @@
       <li>最近は夜によく眠れています</li>
     </ol>
 
-    <div style="color: #d9534f; font-weight: bold; margin-top: 20px;">
-      <p>【ご注意とお願い】</p>
-      <ul>
-        <li>声の大きさは普段どおりで大丈夫です。</li>
-        <li><strong>録音ボタンは1回だけ押してください。</strong>2回押すと動作が不安定になる可能性があります。</li>
-        <li>録音が完了すると「再生ボタン」が押せます。</li>
-        <li>再生ボタンを押して音声を確認し、問題なければ「アップロード」を押してください。</li>
-        <li>うまく録音できなかった場合は、再度「録音開始」してやり直してください。</li>
-      </ul>
-    </div>
-
     <br>
     <button id="recordButton">🎙️ 録音開始</button>
     <button id="stopButton" disabled>⏹️ 録音停止</button>
@@ -32,6 +21,15 @@
     <br><br>
     <audio id="audioPlayback" controls></audio>
     <br><br>
+
+    <p style="color: #d9534f; font-size: 0.95em; font-weight: bold; margin-top: 20px;">
+      🔁 録音の流れ：<br>
+      「録音開始」 → 「録音停止」 → 「再生で確認」 → 「アップロード」<br><br>
+      ▶️ 再生ボタンで録音内容を確認できます。<br>
+      ✅ 確認せずにアップロードしても構いません。<br>
+      🔁 アップロードしなければ、録音は何回でもやり直し可能です。<br>
+      🎯 より正確なストレス分析のためには、<strong>1回の録音</strong>が理想です。
+    </p>
 
     <a href="/dashboard" class="auth-links">
       🏠 マイページに戻る
