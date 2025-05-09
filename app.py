@@ -29,13 +29,12 @@ app.secret_key = os.getenv('SECRET_KEY')
 serializer = URLSafeTimedSerializer(app.secret_key)
 
 # メール設定（お名前メール対応版）
-app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')             # mail1019.onamae.ne.jp
-app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))            # 465
-app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True' # False
-app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL') == 'True' # True ←追加！
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')         # noreply@koekarte.com
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')         # 実パスワード
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER') # noreply@koekarte.com
+app.config['MAIL_SERVER'] = os.getenv("MAIL_SERVER")
+app.config['MAIL_PORT'] = int(os.getenv("MAIL_PORT"))
+app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS") == "True"
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 
 mail = Mail(app)
 
@@ -169,19 +168,13 @@ def send_confirmation_email(user_email, username):
     mail.send(msg)
 
 # ======== ルート定義 =========
-@app.route('/test-mail')
-def test_mail():
-    try:
-        msg = Message(
-            subject="テスト送信【koekarte】",
-            sender=os.getenv("MAIL_USERNAME"),
-            recipients=[os.getenv("ADMIN_EMAIL")],
-            body="これはkoekarte.comからのテストメールです。"
-        )
-        mail.send(msg)
-        return "✅ メール送信成功"
-    except Exception as e:
-        return f"❌ エラー: {str(e)}"
+@app.route('/send-test-mail')
+def send_test_mail():
+    msg = Message(subject="テスト送信",
+                  recipients=["あなたのGmailなど"],
+                  body="MailerSendのSMTP経由で送信されたテストメールです。")
+    mail.send(msg)
+    return "メールを送信しました！"
         
 @app.route('/')
 def home():
