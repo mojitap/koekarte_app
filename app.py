@@ -209,10 +209,6 @@ def register():
             flash('このメールアドレスは既に登録されています。')
             return redirect(url_for('register'))
 
-        if User.query.filter_by(username=username).first():
-            flash('このユーザー名は既に使われています。')
-            return redirect(url_for('register'))
-
         user = User(
             username=username, email=email, password=password,
             birthdate=birthdate, gender=gender,
