@@ -171,7 +171,7 @@ def send_confirmation_email(user_email, username):
 @app.route('/send-test-mail')
 def send_test_mail():
     msg = Message(subject="テスト送信",
-                  recipients=["あなたのGmailなど"],
+                  recipients=["ta714kadvance@gmail.com"],
                   body="MailerSendのSMTP経由で送信されたテストメールです。")
     mail.send(msg)
     return "メールを送信しました！"
