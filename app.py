@@ -483,6 +483,22 @@ def admin():
         user.score_logs = ScoreLog.query.filter_by(user_id=user.id).order_by(ScoreLog.timestamp).all()
     return render_template('admin.html', users=users)
 
+@app.route('/admin/cleanup')
+@login_required
+def cleanup_users_without_scores():
+    if current_user.email != 'ta714kadvance@gmail.com':
+        return 'アクセス権がありません', 403
+
+    users_to_delete = User.query.outerjoin(ScoreLog).filter(ScoreLog.id == None).all()
+    deleted_count = 0
+
+    for user in users_to_delete:
+        db.session.delete(user)
+        deleted_count += 1
+
+    db.session.commit()
+    return f"{deleted_count} 件のスコアなしユーザーを削除しました"
+    
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
