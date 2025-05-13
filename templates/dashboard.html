@@ -14,7 +14,7 @@
       毎日1回、録音してスコアを記録しましょう。
     </p>
     <p style="font-size: 14px; color: gray;">
-      ※ 無料期間中は3回まで記録できます。以降は有料プランで継続可能です。
+      ※ 無料期間中は5回まで記録できます。以降は有料プランで継続可能です。
     </p>
   </div>
 
@@ -32,7 +32,7 @@
   <div class="score-summary">
     <p>📅 <strong>登録日：</strong>{{ first_score_date }}</p>
     <p>🗓️ <strong>最終録音日：</strong>{{ last_date }}</p>
-    <p>🔢 <strong>基準スコア（3日間平均）：</strong>{{ baseline }}点</p>
+    <p>🔢 <strong>基準スコア（5日間平均）：</strong>{{ baseline }}点</p>
     <p>📝 <strong>今日のスコア：</strong>{{ latest_score }}</p>
     <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}減少{% elif diff < 0 %}増加{% else %}変化なし{% endif %}）</p>
   </div>
@@ -42,7 +42,7 @@
       まだスコアが記録されていません。<br>
       🎙️ 録音ページから初回スコアを登録してください。<br>
       <small style="color: gray;">
-        ※ 無料期間（3日間）は登録日からカウントされます。<br>
+        ※ 無料期間（5日間）は登録日からカウントされます。<br>
         ※ 初回録音が遅れると、無料期間中に分析データが記録されない場合があります。
       </small>
     </p>
@@ -58,7 +58,7 @@
 
   <div class="free-trial-info" style="margin-top: 20px;">
     <p style="font-size: 14px; color: gray;">
-      💡 無料期間は登録日から3日間です。<br>
+      💡 無料期間は登録日から5日間です。<br>
       無料期間が終了すると以下の機能はご利用いただけません：
       <ul style="text-align: left; font-size: 13px; color: gray;">
         <li>録音データのアップロード</li>
