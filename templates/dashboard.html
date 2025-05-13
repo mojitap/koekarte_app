@@ -8,15 +8,31 @@
 
   <div class="user-guide" style="margin-bottom: 20px;">
     <p>
-      💬 <strong>このツールについて</strong><br>
-      「コエカルテ」は、<strong>声の元気さ・活力</strong>をもとにストレス傾向を測定する<br>
-      自己チェック用のオンラインツールです。<br>
-      毎日1回、録音してスコアを記録しましょう。
-    </p>
-    <p style="font-size: 14px; color: gray;">
-      ※ 無料期間中は3回まで記録できます。以降は有料プランで継続可能です。
+      このページでは、あなたの<strong>ストレススコア</strong>と、その記録の推移を確認できます。<br>
+      録音は1日1回。継続的に記録することで、<strong>自分の心の変化を可視化</strong>できます。
     </p>
   </div>
+
+  <hr>
+
+  <h3>📘 このツールについて</h3>
+  <p>
+    「コエカルテ」は、<strong>声のトーン・リズム・活力</strong>をもとにストレス傾向を測定する<br>
+    <strong>匿名・無料</strong>のオンラインメンタルチェックツールです。<br>
+    音声を録音するだけでスコアを算出し、毎日のグラフで変化を追うことができます。
+  </p>
+
+  <ul>
+    <li>✅ ストレス傾向の数値化・記録</li>
+    <li>✅ ベースライン（最初の3回平均）と比較して日々の状態を把握</li>
+    <li>✅ スコアはCSVでエクスポート可能</li>
+  </ul>
+
+  <p style="font-size: 0.9em; color: #777;">
+    ※ストレススコアはあくまで参考値であり、診断を目的としたものではありません。
+  </p>
+
+  <hr>
 
   <div class="profile-info">
     <p>📧 <strong>メールアドレス：</strong>{{ user.email }}</p>
@@ -52,7 +68,6 @@
   <div class="actions">
     <p>🎙️ <a href="/record" class="button">録音ページへ</a></p>
     <p>📈 <a href="/result" class="button">グラフを見る</a></p>
-    
     <p>📥 <a href="/export_csv" class="button">CSVでダウンロード</a></p>
   </div>
 
