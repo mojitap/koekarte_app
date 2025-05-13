@@ -359,9 +359,9 @@ def dashboard():
         first_score_date = dates[0]
         last_date = dates[-1]
 
-        # ✅ 最初の3回分のスコアの平均をベースラインに
-        if len(scores) >= 3:
-            baseline = sum(scores[:3]) // 3
+        # ✅ 最初の5回分のスコアの平均をベースラインに
+        if len(scores) >= 5:
+            baseline = sum(scores[:5]) // 5
 
         else:
             baseline = sum(scores) // len(scores)
@@ -466,9 +466,9 @@ def result():
     dates = [log.timestamp.strftime('%m/%d') for log in logs]
     scores = [log.score for log in logs]
 
-    # ✅ 最初の3回分のスコアの平均（ベースライン）
-    first_three_scores = scores[:3]
-    baseline = round(sum(first_three_scores) / len(first_three_scores), 2) if first_three_scores else 0
+    # ✅ 最初の5回分のスコアの平均（ベースライン）
+    first_five_scores = scores[:5]
+    baseline = round(sum(first_five_scores) / len(first_five_scores), 2) if first_five_scores else 0
 
     return render_template('result.html', dates=dates, scores=scores, first_score=scores[0] if scores else 0, baseline=baseline)
 
