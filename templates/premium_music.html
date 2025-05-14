@@ -7,8 +7,8 @@
   <h1>🎵 有料音源プレイヤー</h1>
 
   <p>
-    以下は、有料プランで聴ける音源です。<br>
-    1曲ずつ再生できますので、お好みに合わせてご利用ください。
+    コエカルテでは、心の状態や目的に合わせた音源を<strong>有料プラン（全18曲）</strong>でもご用意しています。<br>
+    リラックス・集中・気分転換など、あなたのコンディションに寄り添った音をお楽しみください。
   </p>
 
   {% set categories = {'ポジティブ': [], 'リラックス': [], 'マインドフルネス': []} %}
@@ -24,22 +24,50 @@
   {% endfor %}
 
   {% for label, group in categories.items() %}
-    <h2 style="margin-top: 30px;">🎧 {{ label }}系</h2>
-    <ul style="list-style: none; padding: 0;">
-      {% for track in group %}
-      <li style="margin-bottom: 20px;">
-        <p>{{ track.display }}</p>
-        <audio controls style="width: 100%;">
-          <source src="{{ url_for('static', filename='audio/paid/' + track.filename) }}" type="audio/mpeg">
-          お使いのブラウザは音声再生に対応していません。
-        </audio>
-      </li>
-      {% endfor %}
-    </ul>
+    <h2 class="toggle-header">🎧 {{ label }}系</h2>
+    <div class="toggle-content">
+      <ul style="list-style: none; padding: 0;">
+        {% for track in group %}
+        <li style="margin-bottom: 20px;">
+          <p>{{ track.display }}</p>
+          <audio controls style="width: 100%;">
+            <source src="{{ url_for('static', filename='audio/paid/' + track.filename) }}" type="audio/mpeg">
+            お使いのブラウザは音声再生に対応していません。
+          </audio>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
   {% endfor %}
 
-  <div class="auth-links">
-    <a href="/dashboard">🏠 マイページに戻る</a>
+  <div style="margin-top: 40px;">
+    <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
   </div>
 </div>
+
+<style>
+.toggle-header {
+  cursor: pointer;
+  background-color: #f2f2f2;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 25px;
+}
+.toggle-content {
+  display: none;
+  margin-top: 10px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const headers = document.querySelectorAll('.toggle-header');
+  headers.forEach(header => {
+    header.addEventListener('click', () => {
+      const content = header.nextElementSibling;
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+});
+</script>
 {% endblock %}
