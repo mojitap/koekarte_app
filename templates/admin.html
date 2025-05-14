@@ -1,25 +1,30 @@
-<!-- templates/admin.html -->
 {% extends "base.html" %}
-
-{% block title %}管理者ページ - コエカルテ{% endblock %}
-
+{% block title %}管理者ページ{% endblock %}
 {% block content %}
-  <div class="admin-container">
-    <h1>👩‍💼 管理者ページ（全ユーザーの記録一覧）</h1>
-    <p>ユーザーごとのスコア履歴を確認できます。</p>
-    <hr>
-    {% for user in users %}
-      <div style="margin-bottom: 25px; padding: 15px; border: 1px solid #ccc; border-radius: 8px;">
-        <h3>👤 {{ user.username }}（{{ user.email }}）</h3>
-        <ul>
-          {% for log in user.score_logs %}
-            <li>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}：スコア {{ log.score }}</li>
-          {% else %}
-            <li><em>記録なし</em></li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endfor %}
-  </div>
-  <a href="/dashboard" class="button">🏠 マイページに戻る</a>
+<h1>管理者ページ</h1>
+
+<table border="1" cellpadding="10">
+  <tr>
+    <th>ユーザー名</th>
+    <th>メール</th>
+    <th>現在の状態</th>
+    <th>操作</th>
+  </tr>
+  {% for user in users %}
+  <tr>
+    <td>{{ user.username }}</td>
+    <td>{{ user.email }}</td>
+    <td>{{ '有料' if user.is_paid else '無料' }}</td>
+    <td>
+      <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}">
+        <button type="submit">
+          {% if user.is_paid %}無料にする{% else %}有料にする{% endif %}
+        </button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+
+<a href="/dashboard">マイページに戻る</a>
 {% endblock %}
