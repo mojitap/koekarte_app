@@ -2,6 +2,7 @@
 # ✅ DBのみを使用、ScoreLogで記録管理、管理者ページ対応済み
 
 import time
+import glob
 from flask import current_app as app
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -559,11 +560,9 @@ def free_music():
 @app.route('/music/premium')
 @login_required
 def premium_music():
-    # if not current_user.is_paid:
-    #     flash("このページは有料プランの方のみご利用いただけます。")
-    #     return redirect(url_for('dashboard'))
+    # filenames を定義
+    filenames = [os.path.basename(f) for f in glob.glob("static/audio/paid/*.mp3")]
 
-    # ファイル名と表示名の対応表（必要に応じて拡張してください）
     display_names = {
         "positive1.mp3": "ポジティブ音源１",
         "positive2.mp3": "ポジティブ音源２",
@@ -580,10 +579,8 @@ def premium_music():
         "mindfulness3.mp3": "マインドフルネス音源３",
         "mindfulness4.mp3": "マインドフルネス音源４",
         "mindfulness5.mp3": "マインドフルネス音源５",
-        # 他のファイルも順次ここに追加（例：relax3.mp3 → "リラックス音源３"）
     }
 
-    # 表示名がある場合はそれを使う。なければファイル名そのまま
     tracks = [
         {"filename": f, "display": display_names.get(f, f)}
         for f in filenames
