@@ -622,6 +622,7 @@ def stripe_webhook():
 
 try:
     with app.app_context():
+        time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
         db.create_all()
 except Exception as e:
     print("❌ データベース接続に失敗しました:", e)
