@@ -18,6 +18,7 @@ import wave
 import csv
 from io import StringIO
 from flask import Response
+from scipy.signal import butter, lfilter
 
 app = Flask(__name__)
 load_dotenv()
@@ -103,6 +104,13 @@ def is_valid_wav(wav_path):
     except Exception:
         return False
 
+def bandpass_filter(signal, rate, lowcut=300, highcut=3400, order=5):
+    nyquist = 0.5 * rate
+    low = lowcut / nyquist
+    high = highcut / nyquist
+    b, a = butter(order, [low, high], btype='band')
+    return lfilter(b, a, signal)
+    
 def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
     signal = np.asarray(signal).flatten()
@@ -114,6 +122,8 @@ def analyze_stress_from_wav(wav_path):
     max_abs = np.max(np.abs(signal))
     if max_abs > 0:
         signal = signal / max_abs
+
+    signal = bandpass_filter(signal, sampling_rate)  # ←★この1行を追加
 
     # ←この下にログを移動
     print(f"📊 正規化後の最小値: {np.min(signal)}, 最大値: {np.max(signal)}, 平均: {np.mean(signal):.4f}, 標準偏差: {np.std(signal):.4f}")
