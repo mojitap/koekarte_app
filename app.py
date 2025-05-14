@@ -19,6 +19,8 @@ import csv
 from io import StringIO
 from flask import Response
 from scipy.signal import butter, lfilter
+from flask import request, jsonify
+import stripe
 
 app = Flask(__name__)
 load_dotenv()
@@ -587,7 +589,37 @@ def premium_music():
     ]
 
     return render_template('premium_music.html', tracks=tracks)
-    
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")  # .env に追加が必要！
+
+@app.route("/webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get("Stripe-Signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
+        )
+    except ValueError:
+        return "Invalid payload", 400
+    except stripe.error.SignatureVerificationError:
+        return "Invalid signature", 400
+
+    # ✅ 支払い完了時に実行
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        email = session.get("customer_email")
+        from your_app_file import db, User  # ←ファイル名が app.py なら不要です
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.is_paid = True
+            db.session.commit()
+            print(f"✅ {email} を有料プランに更新しました")
+
+    return jsonify(success=True)
+
 try:
     with app.app_context():
         db.create_all()
