@@ -1,6 +1,7 @@
 # 完全修正版 app.py
 # ✅ DBのみを使用、ScoreLogで記録管理、管理者ページ対応済み
 
+import time
 from flask import current_app as app
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -611,7 +612,6 @@ def stripe_webhook():
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         email = session.get("customer_email")
-        from your_app_file import db, User  # ←ファイル名が app.py なら不要です
         user = User.query.filter_by(email=email).first()
         if user:
             user.is_paid = True
