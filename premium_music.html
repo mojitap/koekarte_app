@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}有料音源 - コエカルテ{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px; padding: 0 10px;">
+  <h1>🎵 有料音源プレイヤー</h1>
+
+  <p>
+    以下は、有料プランで聴ける音源です。<br>
+    1曲ずつ再生できますので、お好みに合わせてご利用ください。
+  </p>
+
+  <ul style="list-style: none; padding: 0;">
+    {% for filename in filenames %}
+    <li style="margin-bottom: 20px;">
+      <p>{{ loop.index }}. {{ filename }}</p>
+      <audio controls style="width: 100%;">
+        <source src="{{ url_for('static', filename='audio/paid/' + filename) }}" type="audio/mpeg">
+        お使いのブラウザは音声再生に対応していません。
+      </audio>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="auth-links">
+    <a href="/dashboard">マイページに戻る</a>
+  </div>
+</div>
+{% endblock %}
