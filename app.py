@@ -526,6 +526,17 @@ def edit_profile():
 
     return render_template('edit_profile.html', user=current_user)
     
+@app.route('/music/free')
+def free_music():
+    return render_template('free_music.html')
+
+@app.route('/music/premium')
+@login_required
+def premium_music():
+    paid_folder = os.path.join(app.static_folder, 'audio', 'paid')
+    filenames = sorted([f for f in os.listdir(paid_folder) if f.endswith('.MP3')])
+    return render_template('premium_music.html', filenames=filenames)
+    
 try:
     with app.app_context():
         db.create_all()
