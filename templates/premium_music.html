@@ -11,17 +11,32 @@
     1曲ずつ再生できますので、お好みに合わせてご利用ください。
   </p>
 
-  <ul style="list-style: none; padding: 0;">
-    {% for track in tracks %}
-    <li style="margin-bottom: 20px;">
-      <p>{{ loop.index }}. {{ track.display }}</p>
-      <audio controls style="width: 100%;">
-        <source src="{{ url_for('static', filename='audio/paid/' + track.filename) }}" type="audio/mpeg">
-        お使いのブラウザは音声再生に対応していません。
-      </audio>
-    </li>
-    {% endfor %}
-  </ul>
+  {% set categories = {'ポジティブ': [], 'リラックス': [], 'マインドフルネス': []} %}
+
+  {% for track in tracks %}
+    {% if 'positive' in track.filename %}
+      {% set _ = categories['ポジティブ'].append(track) %}
+    {% elif 'relax' in track.filename %}
+      {% set _ = categories['リラックス'].append(track) %}
+    {% elif 'mindfulness' in track.filename %}
+      {% set _ = categories['マインドフルネス'].append(track) %}
+    {% endif %}
+  {% endfor %}
+
+  {% for label, group in categories.items() %}
+    <h2 style="margin-top: 30px;">🎧 {{ label }}系</h2>
+    <ul style="list-style: none; padding: 0;">
+      {% for track in group %}
+      <li style="margin-bottom: 20px;">
+        <p>{{ track.display }}</p>
+        <audio controls style="width: 100%;">
+          <source src="{{ url_for('static', filename='audio/paid/' + track.filename) }}" type="audio/mpeg">
+          お使いのブラウザは音声再生に対応していません。
+        </audio>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
 
   <div class="auth-links">
     <a href="/dashboard">マイページに戻る</a>
