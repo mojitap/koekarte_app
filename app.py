@@ -61,6 +61,7 @@ class User(UserMixin, db.Model):
     prefecture = db.Column(db.String(20))
     is_verified = db.Column(db.Boolean, default=False)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
+    is_paid = db.Column(db.Boolean, default=False)
 
 class ScoreLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -543,8 +544,9 @@ def free_music():
 @app.route('/music/premium')
 @login_required
 def premium_music():
-    paid_folder = os.path.join(app.static_folder, 'audio', 'paid')
-    filenames = sorted([f for f in os.listdir(paid_folder) if f.lower().endswith('.mp3')])
+    if not current_user.is_paid:
+        flash("このページは有料プランの方のみご利用いただけます。")
+        return redirect(url_for('dashboard'))
 
     # ファイル名と表示名の対応表（必要に応じて拡張してください）
     display_names = {
