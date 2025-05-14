@@ -64,7 +64,7 @@ class User(UserMixin, db.Model):
     prefecture = db.Column(db.String(20))
     is_verified = db.Column(db.Boolean, default=False)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
-    is_paid = db.Column(db.Boolean, default=False)
+    # is_paid = db.Column(db.Boolean, default=False)  ← コメントアウト！
 
 class ScoreLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -520,7 +520,7 @@ def set_paid(user_id):
         return "アクセス拒否", 403
 
     user = User.query.get(user_id)
-    user.is_paid = not user.is_paid  # ← 有料 ⇔ 無料 を切り替え
+    # user.is_paid = not user.is_paid  # ← 有料 ⇔ 無料 を切り替え
     db.session.commit()
     flash(f"{user.email} の有料状態を {'有効化' if user.is_paid else '無効化'} しました。")
     return redirect(url_for('admin'))
@@ -559,9 +559,9 @@ def free_music():
 @app.route('/music/premium')
 @login_required
 def premium_music():
-    if not current_user.is_paid:
-        flash("このページは有料プランの方のみご利用いただけます。")
-        return redirect(url_for('dashboard'))
+    # if not current_user.is_paid:
+    #     flash("このページは有料プランの方のみご利用いただけます。")
+    #     return redirect(url_for('dashboard'))
 
     # ファイル名と表示名の対応表（必要に応じて拡張してください）
     display_names = {
@@ -614,7 +614,7 @@ def stripe_webhook():
         email = session.get("customer_email")
         user = User.query.filter_by(email=email).first()
         if user:
-            user.is_paid = True
+            # user.is_paid = True  # ← コメントアウト
             db.session.commit()
             print(f"✅ {email} を有料プランに更新しました")
 
