@@ -510,6 +510,18 @@ def cleanup_users_without_scores():
     db.session.commit()
     return f"{deleted_count} 件のスコアなしユーザーを削除しました"
     
+@app.route('/admin/set_paid/<int:user_id>', methods=['POST'])
+@login_required
+def set_paid(user_id):
+    if current_user.email != 'ta714kadvance@gmail.com':
+        return "アクセス拒否", 403
+
+    user = User.query.get(user_id)
+    user.is_paid = not user.is_paid  # ← 有料 ⇔ 無料 を切り替え
+    db.session.commit()
+    flash(f"{user.email} の有料状態を {'有効化' if user.is_paid else '無効化'} しました。")
+    return redirect(url_for('admin'))
+
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
