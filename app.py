@@ -534,8 +534,35 @@ def free_music():
 @login_required
 def premium_music():
     paid_folder = os.path.join(app.static_folder, 'audio', 'paid')
-    filenames = sorted([f for f in os.listdir(paid_folder) if f.endswith('.MP3')])
-    return render_template('premium_music.html', filenames=filenames)
+    filenames = sorted([f for f in os.listdir(paid_folder) if f.lower().endswith('.mp3')])
+
+    # ファイル名と表示名の対応表（必要に応じて拡張してください）
+    display_names = {
+        "positive1.mp3": "ポジティブ音源１",
+        "positive2.mp3": "ポジティブ音源２",
+        "positive3.mp3": "ポジティブ音源３",
+        "positive4.mp3": "ポジティブ音源４",
+        "positive5.mp3": "ポジティブ音源５",
+        "relax1.mp3": "リラックス音源１",
+        "relax2.mp3": "リラックス音源２",
+        "relax3.mp3": "リラックス音源３",
+        "relax4.mp3": "リラックス音源４",
+        "relax5.mp3": "リラックス音源５",
+        "mindfulness1.mp3": "マインドフルネス音源１",
+        "mindfulness2.mp3": "マインドフルネス音源２",
+        "mindfulness3.mp3": "マインドフルネス音源３",
+        "mindfulness4.mp3": "マインドフルネス音源４",
+        "mindfulness5.mp3": "マインドフルネス音源５",
+        # 他のファイルも順次ここに追加（例：relax3.mp3 → "リラックス音源３"）
+    }
+
+    # 表示名がある場合はそれを使う。なければファイル名そのまま
+    tracks = [
+        {"filename": f, "display": display_names.get(f, f)}
+        for f in filenames
+    ]
+
+    return render_template('premium_music.html', tracks=tracks)
     
 try:
     with app.app_context():
