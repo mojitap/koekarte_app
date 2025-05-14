@@ -12,11 +12,11 @@
   </p>
 
   <ul style="list-style: none; padding: 0;">
-    {% for filename in filenames %}
+    {% for track in tracks %}
     <li style="margin-bottom: 20px;">
-      <p>{{ loop.index }}. {{ filename }}</p>
+      <p>{{ loop.index }}. {{ track.display }}</p>
       <audio controls style="width: 100%;">
-        <source src="{{ url_for('static', filename='audio/paid/' + filename) }}" type="audio/mpeg">
+        <source src="{{ url_for('static', filename='audio/paid/' + track.filename) }}" type="audio/mpeg">
         お使いのブラウザは音声再生に対応していません。
       </audio>
     </li>
