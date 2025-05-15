@@ -560,8 +560,11 @@ def free_music():
 @app.route('/music/premium')
 @login_required
 def premium_music():
-    # filenames を定義
-    filenames = sorted([os.path.basename(f) for f in glob.glob("static/paid/*.mp3")])
+    if not current_user.is_paid:
+        flash("プレミアム音源は有料プラン専用です。")
+        return redirect(url_for('dashboard'))
+
+    filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
 
     display_names = {
         "positive1.mp3": "サウンドトラック 01",
