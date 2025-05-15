@@ -588,6 +588,30 @@ def premium_music():
 
     return render_template('premium_music.html', tracks=tracks)
 
+@app.route('/checkout')
+@login_required
+def checkout():
+    return render_template('checkout.html')
+
+@app.route('/create-checkout-session', methods=['POST'])
+@login_required
+def create_checkout_session():
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': os.getenv("STRIPE_PRICE_ID"),  # .env に設定済み
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=url_for('dashboard', _external=True),
+            cancel_url=url_for('dashboard', _external=True),
+            customer_email=current_user.email
+        )
+        return redirect(checkout_session.url, code=303)
+    except Exception as e:
+        return str(e), 400
+        
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")  # .env に追加が必要！
 
