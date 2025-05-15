@@ -33,6 +33,8 @@ app.permanent_session_lifetime = timedelta(days=30)
 app.secret_key = os.getenv('SECRET_KEY')
 serializer = URLSafeTimedSerializer(app.secret_key)
 
+app.jinja_env.globals['date'] = date
+
 # メール設定（お名前メール対応版）
 app.config['MAIL_SERVER'] = os.getenv("MAIL_SERVER")
 app.config['MAIL_PORT'] = int(os.getenv("MAIL_PORT"))
