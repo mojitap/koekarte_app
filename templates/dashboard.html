@@ -74,6 +74,14 @@
     </p>
   </div>
 
+  {% if not current_user.is_paid %}
+  <div style="margin-top: 20px; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
+    <p>現在は <strong>無料プラン</strong> をご利用中です。</p>
+    <p>🎧 プレミアム音源の全曲再生、ストレススコアの無制限記録などの機能をご希望の場合は、以下よりご登録ください。</p>
+    <a href="{{ url_for('checkout') }}" class="btn btn-primary">🎟 有料プランに今すぐ登録する（¥300/月）</a>
+  </div>
+  {% endif %}
+
   <div class="free-trial-info" style="margin-top: 20px;">
     <p style="font-size: 14px; color: gray;">
       💡 無料期間は登録日から5日間です。<br>
