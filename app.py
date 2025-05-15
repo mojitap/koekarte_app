@@ -65,7 +65,7 @@ class User(UserMixin, db.Model):
     prefecture = db.Column(db.String(20))
     is_verified = db.Column(db.Boolean, default=False)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
-    # is_paid = db.Column(db.Boolean, default=False)  ← コメントアウト！
+    is_paid = db.Column(db.Boolean, default=False)
 
 class ScoreLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -561,24 +561,24 @@ def free_music():
 @login_required
 def premium_music():
     # filenames を定義
-    filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
+    filenames = sorted([os.path.basename(f) for f in glob.glob("static/paid/*.mp3")])
 
     display_names = {
-        "positive1.mp3": "サウンドトラック 01（ポジティブ）",
-        "positive2.mp3": "サウンドトラック 02（ポジティブ）",
-        "positive3.mp3": "サウンドトラック 03（ポジティブ）",
-        "positive4.mp3": "サウンドトラック 04（ポジティブ）",
-        "positive5.mp3": "サウンドトラック 05（ポジティブ）",
-        "relax1.mp3": "サウンドトラック 06（リラックス）",
-        "relax2.mp3": "サウンドトラック 07（リラックス）",
-        "relax3.mp3": "サウンドトラック 08（リラックス）",
-        "relax4.mp3": "サウンドトラック 09（リラックス）",
-        "relax5.mp3": "サウンドトラック 10（リラックス）",
-        "mindfulness1.mp3": "サウンドトラック 11（マインドフルネス）",
-        "mindfulness2.mp3": "サウンドトラック 12（マインドフルネス）",
-        "mindfulness3.mp3": "サウンドトラック 13（マインドフルネス）",
-        "mindfulness4.mp3": "サウンドトラック 14（マインドフルネス）",
-        "mindfulness5.mp3": "サウンドトラック 15（マインドフルネス）",
+        "positive1.mp3": "サウンドトラック 01",
+        "positive2.mp3": "サウンドトラック 02",
+        "positive3.mp3": "サウンドトラック 03",
+        "positive4.mp3": "サウンドトラック 04",
+        "positive5.mp3": "サウンドトラック 05",
+        "relax1.mp3": "サウンドトラック 06",
+        "relax2.mp3": "サウンドトラック 07",
+        "relax3.mp3": "サウンドトラック 08",
+        "relax4.mp3": "サウンドトラック 09",
+        "relax5.mp3": "サウンドトラック 10",
+        "mindfulness1.mp3": "サウンドトラック 11",
+        "mindfulness2.mp3": "サウンドトラック 12",
+        "mindfulness3.mp3": "サウンドトラック 13",
+        "mindfulness4.mp3": "サウンドトラック 14",
+        "mindfulness5.mp3": "サウンドトラック 15",
     }
 
     tracks = [
@@ -611,7 +611,7 @@ def create_checkout_session():
         return redirect(checkout_session.url, code=303)
     except Exception as e:
         return str(e), 400
-        
+
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")  # .env に追加が必要！
 
@@ -635,7 +635,7 @@ def stripe_webhook():
         email = session.get("customer_email")
         user = User.query.filter_by(email=email).first()
         if user:
-            # user.is_paid = True  # ← コメントアウト
+            user.is_paid = True
             db.session.commit()
             print(f"✅ {email} を有料プランに更新しました")
 
