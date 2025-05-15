@@ -561,7 +561,7 @@ def free_music():
 @login_required
 def premium_music():
     # filenames を定義
-    filenames = [os.path.basename(f) for f in glob.glob("static/audio/paid/*.mp3")]
+    filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
 
     display_names = {
         "positive1.mp3": "ポジティブ音源１",
