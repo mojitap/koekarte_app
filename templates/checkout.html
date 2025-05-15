@@ -1,3 +1,11 @@
-<h1>プレミアムプランに加入</h1>
-<p>有料プラン（月額480円）に加入すると、すべての機能・音源が聴けるようになります。</p>
-<a href="https://buy.stripe.com/あなたのリンク" class="button">Stripeで支払う</a>
+{% extends "base.html" %}
+{% block title %}プレミアム登録{% endblock %}
+{% block content %}
+<div style="max-width: 700px; margin: 0 auto; text-align: center;">
+  <h1>🎧 プレミアムプランのご案内</h1>
+  <p>ストレス解析 + 音源18曲が使える月額300円プランです。</p>
+  <form action="/create-checkout-session" method="POST">
+    <button type="submit">月額プランに登録する</button>
+  </form>
+</div>
+{% endblock %}
