@@ -18,6 +18,26 @@
     </p>
   </div>
 
+  <!-- ✅ これはテンプレートに組み込む "無料期間あと◯日" 表示ブロック例です -->
+{% if not current_user.is_paid and current_user.created_at %}
+  {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
+  {% if remaining_days > 0 %}
+    <div style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 10px 0;">
+      <p style="font-size: 14px; color: #444;">
+        🕒 無料期間はあと <strong>{{ remaining_days }}</strong> 日で終了します。<br>
+        無料期間終了後は録音・分析・スコアグラフの利用に制限がかかります。
+      </p>
+    </div>
+  {% elif remaining_days <= 0 %}
+    <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
+      <p style="font-size: 14px; color: #a00;">
+        ⚠️ 無料期間は終了しました。引き続きご利用いただくには、有料プラン（月額300円）への登録が必要です。
+      </p>
+      <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
+    </div>
+  {% endif %}
+{% endif %}
+
   <div class="profile-info">
     <p>📧 <strong>メールアドレス：</strong>{{ user.email }}</p>
     <p>🏠 <strong>地域：</strong>{{ user.prefecture }}</p>
