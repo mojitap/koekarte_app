@@ -564,21 +564,21 @@ def premium_music():
     filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
 
     display_names = {
-        "positive1.mp3": "ポジティブ音源１",
-        "positive2.mp3": "ポジティブ音源２",
-        "positive3.mp3": "ポジティブ音源３",
-        "positive4.mp3": "ポジティブ音源４",
-        "positive5.mp3": "ポジティブ音源５",
-        "relax1.mp3": "リラックス音源１",
-        "relax2.mp3": "リラックス音源２",
-        "relax3.mp3": "リラックス音源３",
-        "relax4.mp3": "リラックス音源４",
-        "relax5.mp3": "リラックス音源５",
-        "mindfulness1.mp3": "マインドフルネス音源１",
-        "mindfulness2.mp3": "マインドフルネス音源２",
-        "mindfulness3.mp3": "マインドフルネス音源３",
-        "mindfulness4.mp3": "マインドフルネス音源４",
-        "mindfulness5.mp3": "マインドフルネス音源５",
+        "positive1.mp3": "サウンドトラック 01（ポジティブ）",
+        "positive2.mp3": "サウンドトラック 02（ポジティブ）",
+        "positive3.mp3": "サウンドトラック 03（ポジティブ）",
+        "positive4.mp3": "サウンドトラック 04（ポジティブ）",
+        "positive5.mp3": "サウンドトラック 05（ポジティブ）",
+        "relax1.mp3": "サウンドトラック 06（リラックス）",
+        "relax2.mp3": "サウンドトラック 07（リラックス）",
+        "relax3.mp3": "サウンドトラック 08（リラックス）",
+        "relax4.mp3": "サウンドトラック 09（リラックス）",
+        "relax5.mp3": "サウンドトラック 10（リラックス）",
+        "mindfulness1.mp3": "サウンドトラック 11（マインドフルネス）",
+        "mindfulness2.mp3": "サウンドトラック 12（マインドフルネス）",
+        "mindfulness3.mp3": "サウンドトラック 13（マインドフルネス）",
+        "mindfulness4.mp3": "サウンドトラック 14（マインドフルネス）",
+        "mindfulness5.mp3": "サウンドトラック 15（マインドフルネス）",
     }
 
     tracks = [
