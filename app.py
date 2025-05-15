@@ -66,8 +66,9 @@ class User(UserMixin, db.Model):
     occupation = db.Column(db.String(100))
     prefecture = db.Column(db.String(20))
     is_verified = db.Column(db.Boolean, default=False)
-    score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
     is_paid = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
 class ScoreLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
