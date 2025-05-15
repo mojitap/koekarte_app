@@ -8,8 +8,8 @@
     <th>ユーザー名</th>
     <th>メール</th>
     <th>現在の状態</th>
-    <th>登録日</th>
-    <th>操作</th>
+    <th>登録日</th>  <!-- 🟩 ここが先 -->
+    <th>操作</th>    <!-- 🟥 ここが後 -->
   </tr>
   {% for user in users %}
   <tr>
@@ -17,12 +17,19 @@
     <td>{{ user.email }}</td>
     <td>{{ '有料' if user.is_paid else '無料' }}</td>
     <td>
+      {% if user.created_at %}
+        {{ user.created_at.strftime('%Y-%m-%d') }}
+      {% else %}
+        ---
+      {% endif %}
+    </td> <!-- 🟩 ここも先 -->
+    <td>
       <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}">
         <button type="submit">
           {% if user.is_paid %}無料にする{% else %}有料にする{% endif %}
         </button>
       </form>
-    </td>
+    </td> <!-- 🟥 ここが後 -->
   </tr>
   {% endfor %}
 </table>
