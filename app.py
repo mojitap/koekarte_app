@@ -157,7 +157,6 @@ def analyze_stress_from_wav(wav_path):
     [sampling_rate, signal] = audioBasicIO.read_audio_file(wav_path)
     signal = np.asarray(signal).flatten()
 
-    # pyAudioAnalysis expects float32 in range [-1, 1]
     if signal.dtype != np.float32:
         signal = signal.astype(np.float32)
 
@@ -165,34 +164,23 @@ def analyze_stress_from_wav(wav_path):
     if max_abs > 0:
         signal = signal / max_abs
 
-    signal = bandpass_filter(signal, sampling_rate)  # ←★この1行を追加
-
-    # ←この下にログを移動
-    print(f"📊 正規化後の最小値: {np.min(signal)}, 最大値: {np.max(signal)}, 平均: {np.mean(signal):.4f}, 標準偏差: {np.std(signal):.4f}")
-
-    print(f"🔍 読み込んだデータ長: {len(signal)}, サンプリングレート: {sampling_rate}")
-    print(f"✅ signal shape: {signal.shape}, dtype: {signal.dtype}")
+    signal = bandpass_filter(signal, sampling_rate)
 
     if len(signal) == 0:
         raise ValueError("Empty audio file")
 
     duration_sec = len(signal) / sampling_rate
-    print(f"🔍 音声の実長: {duration_sec:.2f} 秒")
-    print(f"📊 信号の最小値: {np.min(signal)}, 最大値: {np.max(signal)}, 平均: {np.mean(signal):.4f}, 標準偏差: {np.std(signal):.4f}")
-
     if duration_sec < 5:
         raise ValueError("録音が短すぎます（最低5秒以上必要）")
 
     mt_win = min(2.0, duration_sec / 3)
     mt_step = mt_win / 2
     st_win, st_step = 0.05, 0.025
-    print(f"🛠️ ウィンドウ設定: mt_win={mt_win}, mt_step={mt_step}, st_win={st_win}, st_step={st_step}")
 
     try:
         mt_feats, _, _ = MidTermFeatures.mid_feature_extraction(
             signal, sampling_rate, mt_win, mt_step, st_win, st_step
         )
-
         if mt_feats.shape[1] == 0:
             raise ValueError("抽出された特徴量が空です")
 
@@ -201,38 +189,24 @@ def analyze_stress_from_wav(wav_path):
         energy = feature_means[1]
         entropy = feature_means[2]
 
-        start = time.time()
-        # 処理
-        end = time.time()
-        print(f"処理時間: {end - start:.2f} 秒")
-
-            # --- 追加特徴量の抽出（軽量で安全） ---
-
-        # Pitch（音の高さ）
+        # --- 追加特徴量の抽出（軽量） ---
         pitches, magnitudes = librosa.piptrack(y=signal, sr=sampling_rate)
         pitch_values = pitches[magnitudes > np.median(magnitudes)]
         pitch_mean = np.mean(pitch_values) if len(pitch_values) > 0 else 0
-
-        # Pitch Variation（抑揚の変化）
         pitch_var = np.var(pitch_values) if len(pitch_values) > 0 else 0
 
-        # Speech Rate（話すスピード）：0-crossingの多さで代用
         zcr_rate = np.mean(librosa.feature.zero_crossing_rate(y=signal))
 
-        # Pause Ratio（無音の割合）：-40dB以下の部分を無音とする
         intervals = librosa.effects.split(signal, top_db=40)
         voiced_duration = sum((e - s) for s, e in intervals)
         total_duration = len(signal)
         pause_ratio = 1.0 - (voiced_duration / total_duration)
 
-        # MFCC（音色特徴）：13次元 → 平均のみ使用
         mfccs = librosa.feature.mfcc(y=signal, sr=sampling_rate, n_mfcc=13)
-        mfcc_mean = np.mean(mfccs, axis=1)  # 13次元 → ベクトル
+        mfcc_mean = np.mean(mfccs, axis=1)
 
-        # 特徴量を1つの配列にまとめる（ZCR, energy, entropy, pitch, pitch_var, zcr_rate, pause, MFCC13個）
         all_features = [zcr, energy, entropy, pitch_mean, pitch_var, zcr_rate, pause_ratio] + list(mfcc_mean)
 
-        # モデルの読み込みと予測
         model = joblib.load("light_model.pkl")
         X_input = np.array([all_features])
         score = model.predict(X_input)[0]
