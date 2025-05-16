@@ -19,3 +19,4 @@ Jinja2==3.1.2
 Werkzeug==2.3.7
 stripe==8.6.0
 joblib
+librosa==0.10.1
