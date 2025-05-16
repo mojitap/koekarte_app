@@ -23,6 +23,7 @@ from flask import Response
 from scipy.signal import butter, lfilter
 from flask import request, jsonify
 import stripe
+import joblib
 
 app = Flask(__name__)
 load_dotenv()
@@ -162,17 +163,22 @@ def analyze_stress_from_wav(wav_path):
         if mt_feats.shape[1] == 0:
             raise ValueError("抽出された特徴量が空です")
 
-    except Exception as e:
-        print("❌ 特徴量抽出失敗（代替スコアを使用）:", e)
-        energy = np.mean(signal ** 2)
-        print(f"⚠️ 代替スコア計算: energy={energy}")
-        return min(100, max(0, int(energy * 1e4)))
+        # ✅ 特徴量を3つに絞ってスコア算出に使う
+        feature_means = np.mean(mt_feats, axis=1)
+        zcr = feature_means[0]
+        energy = feature_means[1]
+        entropy = feature_means[2]
 
-    feature_means = np.mean(mt_feats, axis=1)
-    energy = feature_means[1]
-    zero_crossing_rate = feature_means[0]
-    score = int((energy + zero_crossing_rate) * 50)
-    return max(0, min(score, 100))
+        # ✅ 保存済みモデルを使ってスコアを予測
+        model = joblib.load("light_model.pkl")
+        X_input = np.array([[zcr, energy, entropy]])
+        score = model.predict(X_input)[0]
+        return max(0, min(int(score), 100))
+
+    except Exception as e:
+        print("❌ 特徴量抽出失敗（代替スコア使用）:", e)
+        energy = np.mean(signal ** 2)
+        return min(100, max(0, int(energy * 1e4)))
 
 # ======== メール送信 =========
 def send_confirmation_email(user_email, username):
@@ -524,7 +530,7 @@ def set_paid(user_id):
         return "アクセス拒否", 403
 
     user = User.query.get(user_id)
-    # user.is_paid = not user.is_paid  # ← 有料 ⇔ 無料 を切り替え
+    user.is_paid = not user.is_paid
     db.session.commit()
     flash(f"{user.email} の有料状態の切り替え機能は現在停止中です。")
     return redirect(url_for('admin'))
