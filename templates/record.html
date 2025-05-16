@@ -18,6 +18,28 @@
       </ol>
     </div>
 
+      <p style="color: #555; font-size: 14px;">
+      ※現在のスコアは「声の大きさ・元気さ・活力」などに反応しやすい傾向があります。<br>
+      小声やささやき声で録音した場合、実際の気分に関係なくスコアが低く表示されることがあります。
+      </p>
+
+    <br>
+    <button id="recordButton">🎙️ 録音開始</button>
+    <button id="stopButton" disabled>⏹️ 録音停止</button>
+    <button id="uploadButton" disabled>⬆️ アップロード</button>
+    <br><br>
+    <audio id="audioPlayback" controls></audio>
+    <br><br>
+
+    <div style="text-align: left; font-size: 0.95em; line-height: 1.7; margin-top: 30px;">
+      <p>📘 <strong>※使い方（録音の流れ）</strong></p>
+      <p>🔁 <strong>録音の流れ：</strong>「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
+      <p>▶️ 再生ボタンで録音内容を確認できます</p>
+      <p>✅ 確認せずにアップロードしても構いません</p>
+      <p>🔁 アップロードしなければ、録音は何回でもやり直し可能です</p>
+      <p>🎯 より正確なストレス分析のためには、<strong>1回の録音</strong>が理想です</p>
+    </div>
+
 {% if not current_user.is_paid and current_user.created_at %}
   {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
   {% if remaining_days > 0 %}
@@ -36,23 +58,6 @@
     </div>
   {% endif %}
 {% endif %}
-
-    <br>
-    <button id="recordButton">🎙️ 録音開始</button>
-    <button id="stopButton" disabled>⏹️ 録音停止</button>
-    <button id="uploadButton" disabled>⬆️ アップロード</button>
-    <br><br>
-    <audio id="audioPlayback" controls></audio>
-    <br><br>
-
-    <div style="text-align: left; font-size: 0.95em; line-height: 1.7; margin-top: 30px;">
-      <p>📘 <strong>※使い方（録音の流れ）</strong></p>
-      <p>🔁 <strong>録音の流れ：</strong>「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
-      <p>▶️ 再生ボタンで録音内容を確認できます</p>
-      <p>✅ 確認せずにアップロードしても構いません</p>
-      <p>🔁 アップロードしなければ、録音は何回でもやり直し可能です</p>
-      <p>🎯 より正確なストレス分析のためには、<strong>1回の録音</strong>が理想です</p>
-    </div>
 
     <a href="/dashboard" class="auth-links">
       🏠 マイページに戻る
