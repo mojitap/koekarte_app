@@ -24,6 +24,8 @@ from scipy.signal import butter, lfilter
 from flask import request, jsonify
 import stripe
 import joblib
+import python_speech_features
+import librosa
 
 app = Flask(__name__)
 load_dotenv()
@@ -82,7 +84,38 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # ======== 音声処理 =========
-def convert_webm_to_wav(webm_path, wav_path):
+def extract_advanced_features(signal, sr):
+    features = {}
+
+    # Pitch（高さ） + 抑揚の変動
+    pitches, magnitudes = librosa.piptrack(y=signal, sr=sr)
+    pitches_nonzero = pitches[pitches > 0]
+    features['pitch_mean'] = np.mean(pitches_nonzero) if pitches_nonzero.size > 0 else 0
+    features['pitch_std'] = np.std(pitches_nonzero) if pitches_nonzero.size > 0 else 0
+
+    # MFCC（音色特徴量）
+    mfcc = librosa.feature.mfcc(y=signal, sr=sr, n_mfcc=13)
+    for i, val in enumerate(np.mean(mfcc, axis=1)):
+        features[f'mfcc_{i+1}'] = val
+
+    # 話すスピード（有声音）と無音の割合
+    frame_length = 2048
+    hop_length = 512
+    energy = np.array([
+        sum(abs(signal[i:i+frame_length]**2))
+        for i in range(0, len(signal), hop_length)
+    ])
+    threshold = 0.0005
+    speech_frames = np.sum(energy > threshold)
+    pause_frames = np.sum(energy <= threshold)
+    total_frames = speech_frames + pause_frames
+
+    features['speech_rate'] = speech_frames / (len(signal)/sr)
+    features['pause_ratio'] = pause_frames / total_frames if total_frames > 0 else 0
+
+    return features
+
+    def convert_webm_to_wav(webm_path, wav_path):
     try:
         audio = AudioSegment.from_file(webm_path, format="webm")
         print(f"🔍 WebM録音長さ（秒）: {audio.duration_seconds}")
@@ -163,15 +196,62 @@ def analyze_stress_from_wav(wav_path):
         if mt_feats.shape[1] == 0:
             raise ValueError("抽出された特徴量が空です")
 
-        # ✅ 特徴量を3つに絞ってスコア算出に使う
         feature_means = np.mean(mt_feats, axis=1)
         zcr = feature_means[0]
         energy = feature_means[1]
         entropy = feature_means[2]
 
-        # ✅ 保存済みモデルを使ってスコアを予測
+        start = time.time()
+        # 処理
+        end = time.time()
+        print(f"処理時間: {end - start:.2f} 秒")
+
+            # --- 追加特徴量の抽出（軽量で安全） ---
+
+        # Pitch（音の高さ）
+        pitches, magnitudes = librosa.piptrack(y=signal, sr=sampling_rate)
+        pitch_values = pitches[magnitudes > np.median(magnitudes)]
+        pitch_mean = np.mean(pitch_values) if len(pitch_values) > 0 else 0
+
+        # Pitch Variation（抑揚の変化）
+        pitch_var = np.var(pitch_values) if len(pitch_values) > 0 else 0
+
+        # Speech Rate（話すスピード）：0-crossingの多さで代用
+        zcr_rate = np.mean(librosa.feature.zero_crossing_rate(y=signal))
+
+        # Pause Ratio（無音の割合）：-40dB以下の部分を無音とする
+        intervals = librosa.effects.split(signal, top_db=40)
+        voiced_duration = sum((e - s) for s, e in intervals)
+        total_duration = len(signal)
+        pause_ratio = 1.0 - (voiced_duration / total_duration)
+
+        # MFCC（音色特徴）：13次元 → 平均のみ使用
+        mfccs = librosa.feature.mfcc(y=signal, sr=sampling_rate, n_mfcc=13)
+        mfcc_mean = np.mean(mfccs, axis=1)  # 13次元 → ベクトル
+
+        # 特徴量を1つの配列にまとめる（ZCR, energy, entropy, pitch, pitch_var, zcr_rate, pause, MFCC13個）
+        all_features = [zcr, energy, entropy, pitch_mean, pitch_var, zcr_rate, pause_ratio] + list(mfcc_mean)
+
+        # モデルの読み込みと予測
         model = joblib.load("light_model.pkl")
-        X_input = np.array([[zcr, energy, entropy]])
+        X_input = np.array([all_features])
+        score = model.predict(X_input)[0]
+        return max(0, min(int(score), 100))
+
+        # ✅ 新しい特徴量を抽出
+        advanced = extract_advanced_features(signal, sampling_rate)
+
+        # ✅ モデル入力に追加（MFCCは最初の3つを使用）
+        X_input = np.array([[
+            zcr, energy, entropy,
+            advanced['pitch_mean'],
+            advanced['pitch_std'],
+            advanced['speech_rate'],
+            advanced['pause_ratio'],
+            advanced['mfcc_1'], advanced['mfcc_2'], advanced['mfcc_3']
+        ]])
+
+        model = joblib.load("light_model.pkl")
         score = model.predict(X_input)[0]
         return max(0, min(int(score), 100))
 
