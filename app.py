@@ -207,9 +207,9 @@ def analyze_stress_from_wav(wav_path):
 
         all_features = [zcr, energy, entropy, pitch_mean, pitch_var, zcr_rate, pause_ratio] + list(mfcc_mean)
 
-        model = joblib.load("light_model.pkl")
-        X_input = np.array([all_features])
-        score = model.predict(X_input)[0]
+        scaler, model = joblib.load("light_model.pkl")
+        X_scaled = scaler.transform([all_features])
+        score = model.predict(X_scaled)[0]
         return max(0, min(int(score), 100))
 
         # ✅ 新しい特徴量を抽出
