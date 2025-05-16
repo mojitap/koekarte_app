@@ -32,6 +32,9 @@ uploads/*.wav
 uploads/*.mp3
 uploads/*.ogg
 
+# --- モデルファイル（学習済みファイルは除外） ---
+light_model.pkl
+
 # --- Flaskやビルド系 ---
 instance/
 .webassets-cache
