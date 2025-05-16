@@ -115,7 +115,7 @@ def extract_advanced_features(signal, sr):
 
     return features
 
-    def convert_webm_to_wav(webm_path, wav_path):
+def convert_webm_to_wav(webm_path, wav_path):
     try:
         audio = AudioSegment.from_file(webm_path, format="webm")
         print(f"🔍 WebM録音長さ（秒）: {audio.duration_seconds}")
