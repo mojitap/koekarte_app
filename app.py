@@ -9,7 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 import numpy as np
@@ -476,8 +476,9 @@ def upload():
     UPLOAD_FOLDER = 'uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    now = datetime.now()
-    today = date.today()
+    jst = timezone(timedelta(hours=9))
+    now = datetime.now(jst)
+    today = now.date()
 
     # 🔽 元のwebmファイルと、変換後のwavファイルのパスを準備
     webm_path = os.path.join(UPLOAD_FOLDER, f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.webm")
