@@ -521,6 +521,35 @@ def upload():
 
     return redirect(url_for('dashboard'))
 
+@app.route('/api/upload', methods=['POST'])
+def api_upload():
+    if 'audio_data' not in request.files:
+        return jsonify({'error': '音声データが見つかりません'}), 400
+
+    file = request.files['audio_data']
+    if file.filename == '':
+        return jsonify({'error': 'ファイルが選択されていません'}), 400
+
+    UPLOAD_FOLDER = 'uploads'
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+    now = datetime.now()
+    webm_path = os.path.join(UPLOAD_FOLDER, f"temp_{now.strftime('%Y%m%d_%H%M%S')}.webm")
+    wav_path = webm_path.replace('.webm', '.wav')
+    file.save(webm_path)
+
+    try:
+        convert_webm_to_wav(webm_path, wav_path)
+        if not is_valid_wav(wav_path):
+            raise ValueError("録音が短すぎます")
+
+        score = analyze_stress_from_wav(wav_path)
+        return jsonify({'score': score})
+
+    except Exception as e:
+        print("❌ API処理中エラー:", e)
+        return jsonify({'error': '処理に失敗しました'}), 500
+
 @app.route('/result')
 @login_required
 def result():
@@ -714,3 +743,6 @@ try:
         db.create_all()
 except Exception as e:
     print("❌ データベース接続に失敗しました:", e)
+
+if __name__ == "__main__":
+    app.run(debug=True)
