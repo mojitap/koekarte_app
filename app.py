@@ -656,6 +656,22 @@ def edit_profile():
         return redirect(url_for('dashboard'))
 
     return render_template('edit_profile.html', user=current_user)
+
+@app.route('/api/update_profile', methods=['POST'])
+@login_required
+def update_profile():
+    try:
+        data = request.get_json()
+        current_user.username = data.get('username', current_user.username)
+        current_user.birthdate = data.get('birthdate', current_user.birthdate)
+        current_user.gender = data.get('gender', current_user.gender)
+        current_user.occupation = data.get('occupation', current_user.occupation)
+        current_user.prefecture = data.get('prefecture', current_user.prefecture)
+        db.session.commit()
+        return jsonify({"message": "プロフィールを更新しました"})
+    except Exception as e:
+        print("❌ プロフィール更新失敗:", e)
+        return jsonify({"error": "更新できませんでした"}), 500
     
 @app.route('/music/free')
 def free_music():
