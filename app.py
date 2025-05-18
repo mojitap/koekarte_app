@@ -771,19 +771,23 @@ try:
 except Exception as e:
     print("❌ データベース接続に失敗しました:", e
 
-# ✅ APIはここから追加
-@app.route('/api/scores', methods=['GET'])
-@login_required
-def get_scores():
+@app.route('/api/score_history', methods=['GET'])
+# 一時的に @login_required を外してください
+def api_score_history():
     try:
-        logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
-        result = [
-            {"date": log.timestamp.strftime('%Y-%m-%d'), "score": log.score}
-            for log in logs
-        ]
-        return jsonify({"scores": result})
+        user_id = 1  # テスト中は仮で固定
+        logs = ScoreLog.query.filter_by(user_id=user_id).order_by(ScoreLog.date.desc()).all()
+
+        result = []
+        for log in logs:
+            result.append({
+                "score": log.score,
+                "date": log.date.strftime('%Y-%m-%d')
+            })
+
+        return jsonify({"history": result})
     except Exception as e:
-        print("❌ /api/scores エラー:", e)
+        print("❌ /api/score_history エラー:", e)
         return jsonify({"error": "履歴取得に失敗しました"}), 500
 
 # 👇 一番最後にこれがあるのはOK
