@@ -769,7 +769,7 @@ try:
         time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
         db.create_all()
 except Exception as e:
-    print("❌ データベース接続に失敗しました:", e
+    print("❌ データベース接続に失敗しました:", e)
 
 @app.route('/api/score_history', methods=['GET'])
 # 一時的に @login_required を外してください
