@@ -49,7 +49,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 mail = Mail(app)
 
 # DB設定
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local.db'  # ✅ SQLiteでローカル用に変更
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -117,16 +117,10 @@ def extract_advanced_features(signal, sr):
 
 def convert_webm_to_wav(webm_path, wav_path):
     try:
-        # 🔽 拡張子でフォーマットを自動判別
-        if webm_path.endswith(".webm"):
-            audio = AudioSegment.from_file(webm_path, format="webm")
-        elif webm_path.endswith(".m4a"):
-            audio = AudioSegment.from_file(webm_path, format="m4a")
-        else:
-            audio = AudioSegment.from_file(webm_path)  # 自動判別
-
-        print(f"🔍 録音長さ（秒）: {audio.duration_seconds}")
-
+        audio = AudioSegment.from_file(webm_path, format="webm")
+        print(f"🔍 WebM録音長さ（秒）: {audio.duration_seconds}")
+        
+        # ⬇ PCM 16bitで保存（これが重要！）
         audio.export(wav_path, format="wav", parameters=["-acodec", "pcm_s16le"])
 
         with wave.open(wav_path, 'rb') as wf:
@@ -137,9 +131,8 @@ def convert_webm_to_wav(webm_path, wav_path):
 
             if frames == 0 or duration < 1.0:
                 raise ValueError("生成されたWAVファイルが無効です（録音が短すぎるか空）")
-
     except Exception as e:
-        print("❌ WebM/M4A→WAV変換エラー:", e)
+        print("❌ WebM→WAV変換エラー:", e)
         import traceback
         traceback.print_exc()
         raise
@@ -528,39 +521,6 @@ def upload():
 
     return redirect(url_for('dashboard'))
 
-@app.route('/api/upload', methods=['POST'])
-def api_upload():
-    if 'audio_data' not in request.files:
-        return jsonify({'error': '音声データが見つかりません'}), 400
-
-    file = request.files['audio_data']
-    if file.filename == '':
-        return jsonify({'error': 'ファイルが選択されていません'}), 400
-
-    UPLOAD_FOLDER = 'uploads'
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-    now = datetime.now()
-
-    # ✅ 拡張子を保持する（例: .m4a, .webm）
-    ext = os.path.splitext(file.filename)[1]
-    webm_path = os.path.join(UPLOAD_FOLDER, f"temp_{now.strftime('%Y%m%d_%H%M%S')}{ext}")
-    wav_path = webm_path.replace(ext, '.wav')
-
-    file.save(webm_path)
-
-    try:
-        convert_webm_to_wav(webm_path, wav_path)
-        if not is_valid_wav(wav_path):
-            raise ValueError("録音が短すぎます")
-
-        score = analyze_stress_from_wav(wav_path)
-        return jsonify({'score': score})
-
-    except Exception as e:
-        print("❌ API処理中エラー:", e)
-        return jsonify({'error': '処理に失敗しました'}), 500
-
 @app.route('/result')
 @login_required
 def result():
@@ -656,22 +616,6 @@ def edit_profile():
         return redirect(url_for('dashboard'))
 
     return render_template('edit_profile.html', user=current_user)
-
-@app.route('/api/update_profile', methods=['POST'])
-@login_required
-def update_profile():
-    try:
-        data = request.get_json()
-        current_user.username = data.get('username', current_user.username)
-        current_user.birthdate = data.get('birthdate', current_user.birthdate)
-        current_user.gender = data.get('gender', current_user.gender)
-        current_user.occupation = data.get('occupation', current_user.occupation)
-        current_user.prefecture = data.get('prefecture', current_user.prefecture)
-        db.session.commit()
-        return jsonify({"message": "プロフィールを更新しました"})
-    except Exception as e:
-        print("❌ プロフィール更新失敗:", e)
-        return jsonify({"error": "更新できませんでした"}), 500
     
 @app.route('/music/free')
 def free_music():
@@ -770,26 +714,3 @@ try:
         db.create_all()
 except Exception as e:
     print("❌ データベース接続に失敗しました:", e)
-
-@app.route('/api/score_history', methods=['GET'])
-# 一時的に @login_required を外してください
-def api_score_history():
-    try:
-        user_id = 1  # テスト中は仮で固定
-        logs = ScoreLog.query.filter_by(user_id=user_id).order_by(ScoreLog.date.desc()).all()
-
-        result = []
-        for log in logs:
-            result.append({
-                "score": log.score,
-                "date": log.date.strftime('%Y-%m-%d')
-            })
-
-        return jsonify({"history": result})
-    except Exception as e:
-        print("❌ /api/score_history エラー:", e)
-        return jsonify({"error": "履歴取得に失敗しました"}), 500
-
-# 👇 一番最後にこれがあるのはOK
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
