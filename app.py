@@ -707,7 +707,16 @@ def stripe_webhook():
             print(f"✅ {email} を有料プランに更新しました")
 
     return jsonify(success=True)
-
+    
+@app.route('/api/profile')
+@login_required
+def api_profile():
+    return jsonify({
+        'email': current_user.email,
+        'is_paid': current_user.is_paid,
+        'created_at': current_user.created_at.isoformat()
+    })
+    
 try:
     with app.app_context():
         time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
