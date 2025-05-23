@@ -26,7 +26,6 @@ import stripe
 import joblib
 import python_speech_features
 import librosa
-@app.route('/api/update-profile', methods=['POST'])
 
 app = Flask(__name__)
 load_dotenv()
