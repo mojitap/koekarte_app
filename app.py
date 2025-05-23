@@ -26,6 +26,7 @@ import stripe
 import joblib
 import python_speech_features
 import librosa
+@app.route('/api/update-profile', methods=['POST'])
 
 app = Flask(__name__)
 load_dotenv()
@@ -616,6 +617,18 @@ def edit_profile():
         return redirect(url_for('dashboard'))
 
     return render_template('edit_profile.html', user=current_user)
+    
+@app.route('/api/update-profile', methods=['POST'])
+@login_required
+def update_profile():
+    data = request.json
+    current_user.username = data.get('username')
+    current_user.birthdate = data.get('birthdate')
+    current_user.gender = data.get('gender')
+    current_user.occupation = data.get('occupation')
+    current_user.prefecture = data.get('prefecture')
+    db.session.commit()
+    return jsonify(success=True)
     
 @app.route('/music/free')
 def free_music():
