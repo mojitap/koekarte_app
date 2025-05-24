@@ -6,6 +6,7 @@ import glob
 from flask import current_app as app
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
@@ -53,6 +54,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# CORS設定（セッション対応）
+CORS(app, supports_credentials=True)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -721,7 +725,7 @@ def stripe_webhook():
     return jsonify(success=True)
     
 @app.route('/api/profile')
-@login_required
+# @login_required
 def api_profile():
     return jsonify({
         'email': current_user.email,
@@ -738,3 +742,4 @@ except Exception as e:
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+    
