@@ -27,6 +27,7 @@ import stripe
 import joblib
 import python_speech_features
 import librosa
+from models import ScoreLog
 
 app = Flask(__name__)
 load_dotenv()
@@ -746,6 +747,26 @@ try:
         db.create_all()
 except Exception as e:
     print("❌ データベース接続に失敗しました:", e)
+
+@app.route('/api/scores')
+@login_required
+def api_scores():
+    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+
+    scores = [{
+        'date': log.timestamp.strftime('%Y-%m-%d'),
+        'score': log.score
+    } for log in logs]
+
+    if len(logs) >= 5:
+        baseline = sum(log.score for log in logs[:5]) / 5
+    else:
+        baseline = sum(log.score for log in logs) / len(logs) if logs else 0
+
+    return jsonify({
+        'scores': scores,
+        'baseline': round(baseline, 1)
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
