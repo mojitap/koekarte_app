@@ -212,22 +212,42 @@ def analyze_stress_from_wav(wav_path):
         all_features = [zcr, energy, entropy, pitch_mean, pitch_var, zcr_rate, pause_ratio] + list(mfcc_mean)
 
         model = joblib.load("light_model.pkl")
+        
+        # モデルからスコアを取得
         score = model.predict([all_features])[0]
 
-        # ✅ 極端なスコアを制限（スパム防止）
+        # 小声補正（energyベース）
+        raw_energy = np.mean(signal ** 2)
+        if raw_energy < 0.001:
+            score += 5
+        elif raw_energy < 0.005:
+            score += 3
+        elif raw_energy > 0.05:
+            score -= 3
+
+        # ✅ スパム的な極端なスコア制限
         score = max(15, min(int(score), 85))
 
         # ✅ ベースラインとの比較補正
         from flask_login import current_user
-        recent_logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).limit(5).all()
+        recent_logs = (
+            ScoreLog.query
+            .filter_by(user_id=current_user.id)
+            .order_by(ScoreLog.timestamp.asc())  # ✅ 昇順で「登録初期」から取得
+            .limit(5)
+            .all()
+        )
+
         if recent_logs and len(recent_logs) >= 5:
-            baseline = sum([log.score for log in recent_logs]) / len(recent_logs)
+            baseline = sum(log.score for log in recent_logs) / len(recent_logs)
             deviation = score - baseline
+            # ±30点以上の差が出たら、30点以内に丸める
             if deviation > 30:
                 score = int(baseline + 30)
             elif deviation < -30:
                 score = int(baseline - 30)
 
+        # 最終的なスコアを 0〜100 に収める
         return max(0, min(score, 100))
 
     except Exception as e:
