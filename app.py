@@ -27,7 +27,6 @@ import stripe
 import joblib
 import python_speech_features
 import librosa
-from models import ScoreLog
 
 app = Flask(__name__)
 load_dotenv()
