@@ -725,8 +725,15 @@ def stripe_webhook():
     return jsonify(success=True)
     
 @app.route('/api/profile')
-# @login_required
 def api_profile():
+    if not current_user.is_authenticated:
+        return jsonify({
+            'email': None,
+            'is_paid': False,
+            'created_at': None,
+            'error': '未ログイン状態です'
+        }), 401
+
     return jsonify({
         'email': current_user.email,
         'is_paid': current_user.is_paid,
