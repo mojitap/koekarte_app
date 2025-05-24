@@ -193,7 +193,7 @@ def analyze_stress_from_wav(wav_path):
         energy = feature_means[1]
         entropy = feature_means[2]
 
-        # --- 追加特徴量の抽出（軽量） ---
+        # --- 追加特徴量 ---
         pitches, magnitudes = librosa.piptrack(y=signal, sr=sampling_rate)
         pitch_values = pitches[magnitudes > np.median(magnitudes)]
         pitch_mean = np.mean(pitch_values) if len(pitch_values) > 0 else 0
@@ -211,27 +211,24 @@ def analyze_stress_from_wav(wav_path):
 
         all_features = [zcr, energy, entropy, pitch_mean, pitch_var, zcr_rate, pause_ratio] + list(mfcc_mean)
 
-        scaler, model = joblib.load("light_model.pkl")
-        X_scaled = scaler.transform([all_features])
-        score = model.predict(X_scaled)[0]
-        return max(0, min(int(score), 100))
-
-        # ✅ 新しい特徴量を抽出
-        advanced = extract_advanced_features(signal, sampling_rate)
-
-        # ✅ モデル入力に追加（MFCCは最初の3つを使用）
-        X_input = np.array([[
-            zcr, energy, entropy,
-            advanced['pitch_mean'],
-            advanced['pitch_std'],
-            advanced['speech_rate'],
-            advanced['pause_ratio'],
-            advanced['mfcc_1'], advanced['mfcc_2'], advanced['mfcc_3']
-        ]])
-
         model = joblib.load("light_model.pkl")
-        score = model.predict(X_input)[0]
-        return max(0, min(int(score), 100))
+        score = model.predict([all_features])[0]
+
+        # ✅ 極端なスコアを制限（スパム防止）
+        score = max(15, min(int(score), 85))
+
+        # ✅ ベースラインとの比較補正
+        from flask_login import current_user
+        recent_logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).limit(5).all()
+        if recent_logs and len(recent_logs) >= 5:
+            baseline = sum([log.score for log in recent_logs]) / len(recent_logs)
+            deviation = score - baseline
+            if deviation > 30:
+                score = int(baseline + 30)
+            elif deviation < -30:
+                score = int(baseline - 30)
+
+        return max(0, min(score, 100))
 
     except Exception as e:
         print("❌ 特徴量抽出失敗（代替スコア使用）:", e)
