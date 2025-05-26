@@ -600,16 +600,16 @@ def cleanup_users_without_scores():
     db.session.commit()
     return f"{deleted_count} 件のスコアなしユーザーを削除しました"
     
-@app.route('/admin/set_paid/<int:user_id>', methods=['POST'])
+@app.route('/admin/set_free_extended/<int:user_id>', methods=['POST'])
 @login_required
-def set_paid(user_id):
+def set_free_extended(user_id):
     if current_user.email != 'ta714kadvance@gmail.com':
         return "アクセス拒否", 403
 
     user = User.query.get(user_id)
-    user.is_paid = not user.is_paid
+    user.is_free_extended = not user.is_free_extended
     db.session.commit()
-    flash(f"{user.email} の有料状態の切り替え機能は現在停止中です。")
+    flash(f"{user.email} の無料延長状態を変更しました。")
     return redirect(url_for('admin'))
 
 @app.route('/terms')
