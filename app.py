@@ -471,6 +471,21 @@ def dashboard():
                            last_date=last_date,
                            baseline=baseline)
 
+@app.route('/api/forgot-password', methods=['POST'])
+def api_forgot_password():
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({'error': 'メールアドレスが必要です'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user:
+        send_reset_email(user)  # ✅ これは既存の関数を呼び出すだけ！
+
+    return jsonify({'message': '再設定メールを送信しました（存在する場合）'})
+    
+
 @app.route('/record')
 @login_required
 def record():
