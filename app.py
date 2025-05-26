@@ -760,7 +760,7 @@ def api_profile():
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
-        'is_free_extended': False,  # ← ここを将来的にDBや管理画面で制御可能に
+        'is_free_extended': current_user.is_free_extended,
         'created_at': current_user.created_at.isoformat()
     })
     
