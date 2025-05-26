@@ -753,7 +753,13 @@ def api_profile():
 
     return jsonify({
         'email': current_user.email,
+        'username': current_user.username,
+        'birthdate': current_user.birthdate,
+        'gender': current_user.gender,
+        'occupation': current_user.occupation,
+        'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
+        'is_free_extended': False,  # ← ここを将来的にDBや管理画面で制御可能に
         'created_at': current_user.created_at.isoformat()
     })
     
