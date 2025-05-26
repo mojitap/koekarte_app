@@ -645,16 +645,20 @@ def update_profile():
     try:
         data = request.get_json()
 
-        # 各項目を安全に取り出して代入
         current_user.email = data.get('email', current_user.email)
         current_user.username = data.get('username', current_user.username)
-        current_user.birthdate = data.get('birthdate', current_user.birthdate)
+
+        # birthdate はISO文字列からDate型に変換
+        birth_str = data.get('birthdate')
+        if birth_str:
+            current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
+
         current_user.gender = data.get('gender', current_user.gender)
         current_user.occupation = data.get('occupation', current_user.occupation)
         current_user.prefecture = data.get('prefecture', current_user.prefecture)
 
         db.session.commit()
-        return jsonify({'message': 'プロフィール更新に成功しました'})
+        return jsonify({'message': 'プロフィールを更新しました'})
     except Exception as e:
         return jsonify({'error': f'プロフィール更新エラー: {str(e)}'}), 400
     
