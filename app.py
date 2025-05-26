@@ -4,6 +4,8 @@
 import time
 import glob
 from flask import current_app as app
+from app import app, db
+from your_model_file import User
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -640,25 +642,54 @@ def edit_profile():
     return render_template('edit_profile.html', user=current_user)
     
 @app.route('/api/update-profile', methods=['POST'])
-@login_required
 def update_profile():
-    try:
-        data = request.get_json()
+    data = request.get_json()
 
+    print("📥 POSTデータ:", data)
+
+    # ✅ 開発者だけはログイン不要で処理許可
+    if data and data.get('email') == 'ta714kadvance@gmail.com':
+        user = User.query.filter_by(email=data['email']).first()
+        if user:
+            user.username = data.get('username', user.username)
+
+            birth_str = data.get('birthdate')
+            if birth_str:
+                try:
+                    user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
+                except Exception:
+                    pass  # フォーマット不正なら無視
+
+            user.gender = data.get('gender', user.gender)
+            user.occupation = data.get('occupation', user.occupation)
+            user.prefecture = data.get('prefecture', user.prefecture)
+
+            db.session.commit()
+            return jsonify({'message': '✅ 開発者プロフィール更新成功'})
+
+        return jsonify({'error': '開発者アカウントが見つかりません'}), 404
+
+    # ✅ 通常ユーザーはログイン必須
+    if not current_user.is_authenticated:
+        return jsonify({'error': '未ログインのため更新できません'}), 401
+
+    try:
         current_user.email = data.get('email', current_user.email)
         current_user.username = data.get('username', current_user.username)
 
-        # birthdate はISO文字列からDate型に変換
         birth_str = data.get('birthdate')
         if birth_str:
-            current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
+            try:
+                current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
+            except Exception:
+                pass
 
         current_user.gender = data.get('gender', current_user.gender)
         current_user.occupation = data.get('occupation', current_user.occupation)
         current_user.prefecture = data.get('prefecture', current_user.prefecture)
 
         db.session.commit()
-        return jsonify({'message': 'プロフィールを更新しました'})
+        return jsonify({'message': '✅ 通常プロフィール更新成功'})
     except Exception as e:
         return jsonify({'error': f'プロフィール更新エラー: {str(e)}'}), 400
     
