@@ -1,37 +1,34 @@
 # 完全修正版 app.py
 # ✅ DBのみを使用、ScoreLogで記録管理、管理者ページ対応済み
 
-import time
-import glob
-from flask import current_app as app
-from app import app, db
-from your_model_file import User
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+import os, time, glob, wave, csv, joblib
+import numpy as np
+import stripe
+import python_speech_features
+import librosa
+from datetime import datetime, date, timedelta, timezone
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
-from datetime import datetime, date, timedelta, timezone
-from pydub import AudioSegment
-from pyAudioAnalysis import audioBasicIO, MidTermFeatures
-import numpy as np
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from dotenv import load_dotenv
-import wave
-import csv
 from io import StringIO
-from flask import Response
 from scipy.signal import butter, lfilter
-from flask import request, jsonify
-import stripe
-import joblib
-import python_speech_features
-import librosa
+from pydub import AudioSegment
+from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 
+# ✅ Flask アプリと DB の初期化
 app = Flask(__name__)
-load_dotenv()
+load_dotenv()  # ← これが先に必要
+
+# ✅ DB設定（ここで .env から読み込む）
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 os.makedirs("uploads", exist_ok=True)
 
@@ -50,12 +47,6 @@ app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 
 mail = Mail(app)
-
-# DB設定
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
 
 # CORS設定（セッション対応）
 CORS(app, supports_credentials=True)
@@ -641,6 +632,39 @@ def edit_profile():
 
     return render_template('edit_profile.html', user=current_user)
     
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        username = data.get('username')
+        password = data.get('password')
+
+        if not email or not username or not password:
+            return jsonify({'error': 'メール・名前・パスワードは必須です'}), 400
+
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({'error': 'このメールアドレスは既に使われています'}), 400
+
+        hashed_pw = generate_password_hash(password)
+
+        user = User(
+            email=email,
+            username=username,
+            password=hashed_pw,
+            is_verified=True
+        )
+        db.session.add(user)
+        db.session.commit()
+
+        login_user(user)
+
+        return jsonify({'message': '登録完了'})
+    except Exception as e:
+        print("❌ 登録エラー:", e)
+        return jsonify({'error': '登録中にエラーが発生しました'}), 500
+    
 @app.route('/api/update-profile', methods=['POST'])
 def update_profile():
     data = request.get_json()
@@ -809,7 +833,7 @@ def api_profile():
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
-        'is_free_extended': is_free_extended,
+        'is_free_extended': is_free_extended,  # ← ここが True になるべき
         'created_at': current_user.created_at.isoformat()
     })
     
