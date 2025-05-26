@@ -1,38 +1,32 @@
-{% extends "base.html" %}
-{% block title %}管理者ページ{% endblock %}
-{% block content %}
-<h1>管理者ページ</h1>
+<tr>
+  <th>ユーザー名</th>
+  <th>メール</th>
+  <th>現在の状態</th>
+  <th>登録日</th>
+  <th>無料延長</th> <!-- ✅ 追加 -->
+  <th>操作</th>
+</tr>
+{% for user in users %}
+<tr>
+  <td>{{ user.username }}</td>
+  <td>{{ user.email }}</td>
+  <td>{{ '有料' if user.is_paid else '無料' }}</td>
+  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '---' }}</td>
+  <td>{{ '延長中' if user.is_free_extended else '-' }}</td> <!-- ✅ 表示追加 -->
+  <td>
+    <!-- 有料切り替えボタン -->
+    <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}" style="display:inline-block;">
+      <button type="submit">
+        {{ '無料にする' if user.is_paid else '有料にする' }}
+      </button>
+    </form>
 
-<table border="1" cellpadding="10">
-  <tr>
-    <th>ユーザー名</th>
-    <th>メール</th>
-    <th>現在の状態</th>
-    <th>登録日</th>  <!-- 🟩 ここが先 -->
-    <th>操作</th>    <!-- 🟥 ここが後 -->
-  </tr>
-  {% for user in users %}
-  <tr>
-    <td>{{ user.username }}</td>
-    <td>{{ user.email }}</td>
-    <td>{{ '有料' if user.is_paid else '無料' }}</td>
-    <td>
-      {% if user.created_at %}
-        {{ user.created_at.strftime('%Y-%m-%d') }}
-      {% else %}
-        ---
-      {% endif %}
-    </td> <!-- 🟩 ここも先 -->
-    <td>
-      <form method="POST" action="{{ url_for('set_free_extended', user_id=user.id) }}">
-        <button type="submit">
-          {% if user.is_free_extended %}延長解除{% else %}延長する{% endif %}
-        </button>
-      </form>
-    </td> <!-- 🟥 ここが後 -->
-  </tr>
-  {% endfor %}
-</table>
-
-<a href="/dashboard">マイページに戻る</a>
-{% endblock %}
+    <!-- 無料延長切り替えボタン -->
+    <form method="POST" action="{{ url_for('set_free_extended', user_id=user.id) }}" style="display:inline-block; margin-left: 10px;">
+      <button type="submit">
+        {{ '延長解除' if user.is_free_extended else '延長する' }}
+      </button>
+    </form>
+  </td>
+</tr>
+{% endfor %}
