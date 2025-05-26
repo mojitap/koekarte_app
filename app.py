@@ -642,14 +642,21 @@ def edit_profile():
 @app.route('/api/update-profile', methods=['POST'])
 @login_required
 def update_profile():
-    data = request.json
-    current_user.username = data.get('username')
-    current_user.birthdate = data.get('birthdate')
-    current_user.gender = data.get('gender')
-    current_user.occupation = data.get('occupation')
-    current_user.prefecture = data.get('prefecture')
-    db.session.commit()
-    return jsonify(success=True)
+    try:
+        data = request.get_json()
+
+        # 各項目を安全に取り出して代入
+        current_user.email = data.get('email', current_user.email)
+        current_user.username = data.get('username', current_user.username)
+        current_user.birthdate = data.get('birthdate', current_user.birthdate)
+        current_user.gender = data.get('gender', current_user.gender)
+        current_user.occupation = data.get('occupation', current_user.occupation)
+        current_user.prefecture = data.get('prefecture', current_user.prefecture)
+
+        db.session.commit()
+        return jsonify({'message': 'プロフィール更新に成功しました'})
+    except Exception as e:
+        return jsonify({'error': f'プロフィール更新エラー: {str(e)}'}), 400
     
 @app.route('/music/free')
 def free_music():
