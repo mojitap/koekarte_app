@@ -24,9 +24,9 @@
       {% endif %}
     </td> <!-- 🟩 ここも先 -->
     <td>
-      <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}">
+      <form method="POST" action="{{ url_for('set_free_extended', user_id=user.id) }}">
         <button type="submit">
-          {% if user.is_paid %}無料にする{% else %}有料にする{% endif %}
+          {% if user.is_free_extended %}延長解除{% else %}延長する{% endif %}
         </button>
       </form>
     </td> <!-- 🟥 ここが後 -->
