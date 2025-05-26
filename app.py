@@ -753,15 +753,22 @@ def stripe_webhook():
 
     return jsonify(success=True)
     
+# ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
+ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
+
 @app.route('/api/profile')
 def api_profile():
     if not current_user.is_authenticated:
         return jsonify({
             'email': None,
             'is_paid': False,
+            'is_free_extended': False,
             'created_at': None,
             'error': '未ログイン状態です'
         }), 401
+
+    # ✅ 条件：管理画面設定 or メールアドレス特例
+    is_free_extended = current_user.is_free_extended or current_user.email in ALLOWED_FREE_EMAILS
 
     return jsonify({
         'email': current_user.email,
@@ -771,7 +778,7 @@ def api_profile():
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
-        'is_free_extended': current_user.is_free_extended,
+        'is_free_extended': is_free_extended,
         'created_at': current_user.created_at.isoformat()
     })
     
