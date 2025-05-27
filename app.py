@@ -19,21 +19,26 @@ from io import StringIO
 from scipy.signal import butter, lfilter
 from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
+from models import db, User, ScoreLog
 
-# ✅ Flask アプリと DB の初期化
+# ✅ Flaskアプリ作成
 app = Flask(__name__)
-load_dotenv()  # ← これが先に必要
+load_dotenv()
 
-# ✅ DB設定（ここで .env から読み込む）
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+# ✅ 設定読み込み
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'  # ← ローカル用
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
-
-os.makedirs("uploads", exist_ok=True)
-
-app.permanent_session_lifetime = timedelta(days=30)
 app.secret_key = os.getenv('SECRET_KEY')
+
+# ✅ DBとアプリを紐付け
+db.init_app(app)
+
+# ✅ LoginManagerなど初期化（必要なら）
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+# ✅ そのほか
+app.permanent_session_lifetime = timedelta(days=30)
 serializer = URLSafeTimedSerializer(app.secret_key)
 
 app.jinja_env.globals['date'] = date
