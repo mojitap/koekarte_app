@@ -60,28 +60,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# モデル定義
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    birthdate = db.Column(db.String(20))
-    gender = db.Column(db.String(10))
-    occupation = db.Column(db.String(100))
-    prefecture = db.Column(db.String(20))
-    is_verified = db.Column(db.Boolean, default=False)
-    is_paid = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
-    is_free_extended = db.Column(db.Boolean, default=False)
-
-class ScoreLog(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    timestamp = db.Column(db.DateTime, nullable=False)
-    score = db.Column(db.Integer, nullable=False)
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
