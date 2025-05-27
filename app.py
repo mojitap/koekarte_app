@@ -680,6 +680,34 @@ def api_register():
         print("❌ 登録エラー:", e)
         return jsonify({'error': '登録中にエラーが発生しました'}), 500
     
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user or not check_password_hash(user.password, password):
+            return jsonify({'error': 'メールアドレスまたはパスワードが間違っています'}), 401
+
+        login_user(user)
+
+        return jsonify({
+            'message': 'ログイン成功',
+            'user': {
+                'email': user.email,
+                'username': user.username,
+                'created_at': user.created_at,
+                'is_paid': user.is_paid,
+                'is_free_extended': user.is_free_extended
+            }
+        })
+    except Exception as e:
+        print("❌ ログインエラー:", e)
+        return jsonify({'error': 'ログイン中にエラーが発生しました'}), 500
+        
 @app.route('/api/update-profile', methods=['POST'])
 def update_profile():
     data = request.get_json()
