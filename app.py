@@ -637,6 +637,10 @@ def api_register():
         email = data.get('email')
         username = data.get('username')
         password = data.get('password')
+        birthdate = data.get('birthdate')
+        gender = data.get('gender')
+        occupation = data.get('occupation')
+        prefecture = data.get('prefecture')
 
         if not email or not username or not password:
             return jsonify({'error': 'メール・名前・パスワードは必須です'}), 400
@@ -649,9 +653,13 @@ def api_register():
 
         user = User(
             email=email,
-            username=username,
-            password=hashed_pw,
-            is_verified=True
+        username=username,
+        password=hashed_pw,
+        is_verified=True,
+        birthdate=birthdate,
+        gender=gender,
+        occupation=occupation,
+        prefecture=prefecture
         )
         db.session.add(user)
         db.session.commit()
