@@ -841,11 +841,11 @@ ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 def api_profile():
     if not current_user.is_authenticated:
         return jsonify({
+            'error': '未ログイン状態です',
             'email': None,
             'is_paid': False,
             'is_free_extended': False,
-            'created_at': None,
-            'error': '未ログイン状態です'
+            'created_at': None
         }), 401
 
     # ✅ 条件：管理画面設定 or メールアドレス特例
