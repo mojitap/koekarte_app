@@ -658,7 +658,15 @@ def api_register():
 
         login_user(user)
 
-        return jsonify({'message': '登録完了'})
+        # ✅ ここを修正して詳細情報を返す
+        return jsonify({
+            'message': '登録完了',
+            'email': user.email,
+            'username': user.username,
+            'created_at': user.created_at,
+            'is_paid': user.is_paid,
+            'is_free_extended': user.is_free_extended
+        })
     except Exception as e:
         print("❌ 登録エラー:", e)
         return jsonify({'error': '登録中にエラーが発生しました'}), 500
