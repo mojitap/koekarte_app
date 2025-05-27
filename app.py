@@ -668,7 +668,6 @@ def api_register():
 
         # ✅ ここを修正して詳細情報を返す
         return jsonify({
-            'message': '登録完了',
             'email': user.email,
             'username': user.username,
             'created_at': user.created_at,
