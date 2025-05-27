@@ -4,8 +4,9 @@ from flask_login import UserMixin
 db = SQLAlchemy()
 
 class User(UserMixin, db.Model):
-    __table_args__ = {'extend_existing': True}  # ←★これを追加！
-    
+    __tablename__ = 'user'
+    __table_args__ = {'extend_existing': True}
+
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     username = db.Column(db.String(100), nullable=False)
@@ -16,7 +17,9 @@ class User(UserMixin, db.Model):
     is_free_extended = db.Column(db.Boolean, default=False)
 
 class ScoreLog(db.Model):
-    __table_args__ = {'extend_existing': True}  # ←★同様にこれも
+    __tablename__ = 'score_log'
+    __table_args__ = {'extend_existing': True}
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     score = db.Column(db.Integer)
