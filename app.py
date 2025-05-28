@@ -865,7 +865,7 @@ def api_profile():
             'created_at': None
         }), 401
 
-    # ✅ 条件：管理画面設定 or メールアドレス特例
+    # 無料延長判定
     is_free_extended = current_user.is_free_extended or current_user.email in ALLOWED_FREE_EMAILS
 
     return jsonify({
@@ -876,7 +876,7 @@ def api_profile():
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
-        'is_free_extended': is_free_extended,  # ← ここが True になるべき
+        'is_free_extended': is_free_extended,
         'created_at': current_user.created_at.isoformat()
     })
     
