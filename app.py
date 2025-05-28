@@ -54,7 +54,10 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 mail = Mail(app)
 
 # CORS設定（セッション対応）
-CORS(app, supports_credentials=True)
+CORS(app, origins=[
+    "http://localhost:19006",         # ← Expo GoのWebプレビュー
+    "http://192.168.0.16:19006",      # ← ローカルWi-Fi経由のExpoアプリ
+], supports_credentials=True)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
