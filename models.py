@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -11,10 +12,21 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     username = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(200), nullable=False)
+
+    # ✅ 新規に追加するカラム
+    birthdate = db.Column(db.Date)
+    gender = db.Column(db.String(50))
+    occupation = db.Column(db.String(100))
+    prefecture = db.Column(db.String(100))
+
     is_verified = db.Column(db.Boolean, default=False)
     is_paid = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=db.func.now())
     is_free_extended = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # スコアログとのリレーション（オプション）
+    score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
+
 
 class ScoreLog(db.Model):
     __tablename__ = 'score_log'
