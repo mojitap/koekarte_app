@@ -59,6 +59,9 @@ CORS(app, origins=[
     "http://192.168.0.16:19006",      # ← ローカルWi-Fi経由のExpoアプリ
 ], supports_credentials=True)
 
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -684,10 +687,14 @@ def api_register():
 def api_login():
     try:
         data = request.get_json()
-        email = data.get('email')
+        identifier = data.get('email')  # フロント側では「email」に入れて送ってる（←identifierと見なす）
+
         password = data.get('password')
 
-        user = User.query.filter_by(email=email).first()
+        # メール or ユーザー名で検索
+        user = User.query.filter(
+            (User.email == identifier) | (User.username == identifier)
+        ).first()
 
         if not user or not check_password_hash(user.password, password):
             return jsonify({'error': 'メールアドレスまたはパスワードが間違っています'}), 401
