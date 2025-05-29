@@ -7,7 +7,7 @@ import stripe
 import python_speech_features
 import librosa
 from datetime import datetime, date, timedelta, timezone
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, session, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -26,9 +26,14 @@ from flask_migrate import Migrate
 app = Flask(__name__)
 load_dotenv()
 
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # セキュリティ強化（任意）
+
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'  # ← ローカル用
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.logger.debug(f"🔍 SQLALCHEMY_DATABASE_URI = {app.config['SQLALCHEMY_DATABASE_URI']}")
 app.secret_key = os.getenv('SECRET_KEY')
 
 # ✅ DBとアプリを紐付け
@@ -60,9 +65,6 @@ CORS(app, origins=[
     "http://localhost:19006",         # ← Expo GoのWebプレビュー
     "http://192.168.0.16:19006",      # ← ローカルWi-Fi経由のExpoアプリ
 ], supports_credentials=True)
-
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -641,27 +643,35 @@ def edit_profile():
 @app.route('/api/register', methods=['POST'])
 def api_register():
     try:
+        # 1) リクエストボディ受信＆ログ
+        all_emails = [u.email for u in User.query.all()]
+        app.logger.debug(f"🗂️ 現在のユーザー（count={len(all_emails)}）: {all_emails}")
+
         data = request.get_json()
+        app.logger.debug(f"🔷 /api/register 受信データ: {data!r}")
+
+        # 2) 必須チェック
         email = data.get('email')
         username = data.get('username')
         password = data.get('password')
-
-        birthdate_str = data.get('birthdate')
-        birthdate = datetime.strptime(birthdate_str, '%Y-%m-%d').date() if birthdate_str else None
-
-        gender = data.get('gender')
-        occupation = data.get('occupation')
-        prefecture = data.get('prefecture')
-
         if not email or not username or not password:
             return jsonify({'error': 'メール・名前・パスワードは必須です'}), 400
 
-        existing_user = User.query.filter_by(email=email).first()
-        if existing_user:
+        # 3) 重複チェック
+        if User.query.filter_by(email=email).first():
             return jsonify({'error': 'このメールアドレスは既に使われています'}), 400
 
-        hashed_pw = generate_password_hash(password)
+        # 4) オプション情報のパース
+        birthdate = None
+        birthdate_str = data.get('birthdate')
+        if birthdate_str:
+            birthdate = datetime.strptime(birthdate_str, '%Y-%m-%d').date()
+        gender     = data.get('gender')
+        occupation = data.get('occupation')
+        prefecture = data.get('prefecture')
 
+        # 5) 新規ユーザー作成
+        hashed_pw = generate_password_hash(password)
         user = User(
             email=email,
             username=username,
@@ -675,16 +685,23 @@ def api_register():
         db.session.add(user)
         db.session.commit()
 
+        # 6) セッション登録＆ログ出力
         login_user(user)
+        app.logger.debug(f"🔷 login_user() 後の session: {dict(session)}")
 
-        return jsonify({
+        # 7) レスポンス生成（Set-Cookie ヘッダ有無確認用）
+        resp = make_response(jsonify({
             "email": user.email,
             "created_at": user.created_at.isoformat(),
             "is_paid": user.is_paid,
             "is_free_extended": bool(user.is_free_extended),
-        })
+        }), 200)
+        app.logger.debug(f"🔷 レスポンスヘッダ: {dict(resp.headers)}")
+
+        return resp
+
     except Exception as e:
-        print("❌ 登録エラー:", e)
+        app.logger.error("❌ /api/register 内部エラー:", exc_info=e)
         return jsonify({'error': '登録中にエラーが発生しました'}), 500
     
 @app.route('/api/login', methods=['POST'])
