@@ -63,7 +63,7 @@ mail = Mail(app)
 # CORS設定（セッション対応）
 CORS(app, origins=[
     "http://localhost:19006",         # ← Expo GoのWebプレビュー
-    "http://192.168.0.28:19006",      # ← ローカルWi-Fi経由のExpoアプリ
+    "http://192.168.0.12:19006",      # ← ローカルWi-Fi経由のExpoアプリ
 ], supports_credentials=True)
 
 login_manager = LoginManager()
@@ -937,7 +937,7 @@ def api_scores():
 
 @app.after_request
 def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'http://192.168.0.28:19006'
+    response.headers['Access-Control-Allow-Origin'] = 'http://192.168.0.12:19006'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
     
