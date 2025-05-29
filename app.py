@@ -20,6 +20,7 @@ from scipy.signal import butter, lfilter
 from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
+from flask_migrate import Migrate
 
 # ✅ Flaskアプリ作成
 app = Flask(__name__)
@@ -32,6 +33,7 @@ app.secret_key = os.getenv('SECRET_KEY')
 
 # ✅ DBとアプリを紐付け
 db.init_app(app)
+migrate = Migrate(app, db)
 
 # ✅ LoginManagerなど初期化（必要なら）
 login_manager = LoginManager()
@@ -643,7 +645,10 @@ def api_register():
         email = data.get('email')
         username = data.get('username')
         password = data.get('password')
-        birthdate = data.get('birthdate')
+
+        birthdate_str = data.get('birthdate')
+        birthdate = datetime.strptime(birthdate_str, '%Y-%m-%d').date() if birthdate_str else None
+
         gender = data.get('gender')
         occupation = data.get('occupation')
         prefecture = data.get('prefecture')
@@ -659,20 +664,19 @@ def api_register():
 
         user = User(
             email=email,
-        username=username,
-        password=hashed_pw,
-        is_verified=True,
-        birthdate=birthdate,
-        gender=gender,
-        occupation=occupation,
-        prefecture=prefecture
+            username=username,
+            password=hashed_pw,
+            is_verified=True,
+            birthdate=birthdate,
+            gender=gender,
+            occupation=occupation,
+            prefecture=prefecture
         )
         db.session.add(user)
         db.session.commit()
 
         login_user(user)
 
-        # ✅ ここを修正して詳細情報を返す
         return jsonify({
             "email": user.email,
             "created_at": user.created_at.isoformat(),
@@ -914,6 +918,12 @@ def api_scores():
         'baseline': round(baseline, 1)
     })
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = 'http://192.168.0.16:19006'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
+    
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
     
