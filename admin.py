@@ -27,3 +27,4 @@ class AdminModelView(ModelView):
 def init_admin(app, db):
     admin = Admin(app, name='管理画面', template_mode='bootstrap4', index_view=MyAdminIndexView())
     admin.add_view(AdminModelView(User, db.session))
+    admin.add_view(AdminModelView(ActionLog, db.session))  # admin.py に追加
