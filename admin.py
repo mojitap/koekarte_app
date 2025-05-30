@@ -4,18 +4,18 @@ from flask_login import current_user
 from flask import redirect, url_for
 from models import User  # あなたのUserモデル
 
-# ── 管理者アクセス制限 ──
+ADMIN_EMAIL = 'ta714kadvance@gmail.com'  # ← あなた専用のアドレスに変更
+
 class MyAdminIndexView(AdminIndexView):
     @expose('/')
     def index(self):
-        if not current_user.is_authenticated or not current_user.email == 'ta714kadvance@gmail.com':
-            return redirect(url_for('login'))  # または abort(403)
+        if not current_user.is_authenticated or not current_user.email == ADMIN_EMAIL:
+            return redirect(url_for('login'))
         return super(MyAdminIndexView, self).index()
 
-# ── 管理者専用のモデル表示制限 ──
 class AdminModelView(ModelView):
     def is_accessible(self):
-        return current_user.is_authenticated and current_user.email == 'ta714kadvance@gmail.com'
+        return current_user.is_authenticated and current_user.email == ADMIN_EMAIL
 
     def inaccessible_callback(self, name, **kwargs):
         return redirect(url_for('login'))
