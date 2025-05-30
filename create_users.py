@@ -1,27 +1,22 @@
-# create_users.py
-
+from datetime import datetime
+from werkzeug.security import generate_password_hash
 from app import app, db
 from models import User
-from werkzeug.security import generate_password_hash
-
-# 🔐 管理者情報（変更する場合はここを編集）
-ADMIN_EMAIL    = 'admin@example.com'
-ADMIN_PASSWORD = 'your_admin_password'  # ←任意の安全なパスワードに変更
-ADMIN_NAME     = '管理者'
 
 with app.app_context():
-    # すでに登録済みならスキップ
-    existing_user = User.query.filter_by(email=ADMIN_EMAIL).first()
+    # 既に同じメールのユーザーがいないか確認
+    existing_user = User.query.filter_by(email='admin@example.com').first()
     if existing_user:
-        print(f"⚠️ すでに登録済み: {existing_user.email}")
+        print("⚠️ すでに admin@example.com は存在します。作成をスキップします。")
     else:
-        hashed_password = generate_password_hash(ADMIN_PASSWORD)
         user = User(
-            email=ADMIN_EMAIL,
-            password=hashed_password,
-            name=ADMIN_NAME,
-            is_paid=True,  # 管理者は有料ステータスでもOK
+            email='ta714kadvance@gmail.com',
+            username='管理者',
+            password=generate_password_hash('your_secure_password'),
+            is_verified=True,
+            is_paid=True,
+            is_free_extended=True
         )
         db.session.add(user)
         db.session.commit()
-        print(f"✅ 管理者ユーザーを追加しました: {user.email}")
+        print("✅ 管理者ユーザー admin@example.com を作成しました。")
