@@ -26,6 +26,10 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
+    @property
+    def is_admin(self):
+        return self.email == 'ta714kadvance@gmail.com'
+
 
 class ScoreLog(db.Model):
     __tablename__ = 'score_log'
@@ -35,7 +39,3 @@ class ScoreLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     score = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=db.func.now())
-
-    @property
-    def is_admin(self):
-        return self.email == 'ta714kadvance@gmail.com'
