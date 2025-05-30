@@ -338,18 +338,19 @@ def login():
     if request.method == 'POST':
         identifier = request.form['username']
         password = request.form['password']
+
         user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+
         if not user or not check_password_hash(user.password, password):
             return 'ログイン失敗'
         if not user.is_verified:
             return 'メール確認が必要です'
 
         login_user(user)
+        session.permanent = True  # 30日間ログイン継続
 
-        # ✅ セッションを30日間持続させるために追加
-        session.permanent = True
+        return redirect(url_for('admin.index'))  # ← ここだけ修正！
 
-        return redirect(url_for('dashboard'))
     return render_template('login.html')
 
 @app.route('/export_csv')
