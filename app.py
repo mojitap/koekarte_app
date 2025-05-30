@@ -352,7 +352,7 @@ def login():
         login_user(user)
         session.permanent = True  # 30日間ログイン継続
 
-        return redirect(url_for('admin.index'))  # ← ここだけ修正！
+        return redirect(url_for('dashboard'))  # ✅ ← 修正ポイント
 
     return render_template('login.html')
         
