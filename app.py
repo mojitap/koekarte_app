@@ -354,16 +354,6 @@ def login():
         return redirect(url_for('admin.index'))  # ← ここだけ修正！
 
     return render_template('login.html')
-
-@app.route('/fix-schema')
-def fix_schema():
-    try:
-        from sqlalchemy import text
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN is_free_extended BOOLEAN DEFAULT FALSE'))
-        db.session.commit()
-        return "✅ is_free_extended カラムを追加しました"
-    except Exception as e:
-        return f"❌ エラーが発生しました: {e}"
         
 @app.route('/export_csv')
 @login_required
