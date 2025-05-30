@@ -21,7 +21,7 @@ from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
-from flask_wtf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, csrf_exempt
 
 # ✅ Flaskアプリ作成
 app = Flask(__name__)
