@@ -25,15 +25,18 @@ load_dotenv()
 # ✅ 本番環境かどうか判定（SESSION_COOKIE_SECUREに使用）
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 
-# ✅ Flaskアプリ作成
+# Flaskアプリ作成
 app = Flask(__name__)
 
+# セッションCookie設定
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_HTTPONLY'] = True  # セキュリティ強化（任意）
+app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
+app.config['REMEMBER_COOKIE_SECURE'] = IS_PRODUCTION
 
 # ✅ 設定読み込み
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'  # ← ローカル用
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = os.getenv('SECRET_KEY')
 app.logger.debug(f"\ud83d\udd0d SQLALCHEMY_DATABASE_URI = {app.config['SQLALCHEMY_DATABASE_URI']}")
@@ -64,8 +67,8 @@ mail = Mail(app)
 
 # CORS設定（セッション対応）
 CORS(app, origins=[
-    "http://localhost:19006",         # ← Expo GoのWebプレビュー
-    "http://192.168.0.12:19006",      # ← ローカルWi-Fi経由のExpoアプリ
+    "https://koekarte.com",                    # ← Webからのアクセス
+    "https://koekarte-app.mobile.app",         # ← React Native EASビルド後のドメイン（仮）
 ], supports_credentials=True)
 
 login_manager = LoginManager()
