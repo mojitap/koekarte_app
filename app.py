@@ -941,12 +941,6 @@ def api_scores():
         'baseline': round(baseline, 1)
     })
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'https://koekarte.com'
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
-
 @app.route('/create-admin')
 def create_admin():
     from werkzeug.security import generate_password_hash
