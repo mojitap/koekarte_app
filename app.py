@@ -945,6 +945,27 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
 
+@app.route('/create-admin')
+def create_admin():
+    from werkzeug.security import generate_password_hash
+    from models import db, User
+
+    # すでに存在していたらスキップ
+    existing = User.query.filter_by(email='ta714kadvance@gmail.com').first()
+    if existing:
+        return 'すでに作成済みです'
+
+    user = User(
+        email='ta714kadvance@gmail.com',
+        username='管理者',
+        password=generate_password_hash('taka0714'),
+        is_verified=True
+    )
+    db.session.add(user)
+    db.session.commit()
+    return '管理者ユーザーを作成しました'
+    
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Render対応
     app.run(debug=True, host='0.0.0.0', port=port)
+    
