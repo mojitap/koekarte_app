@@ -21,7 +21,6 @@ from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
-from flask_wtf.csrf import CSRFProtect, csrf_exempt
 
 # ✅ Flaskアプリ作成
 app = Flask(__name__)
@@ -40,9 +39,6 @@ app.secret_key = os.getenv('SECRET_KEY')
 # ✅ DBとアプリを紐付け
 db.init_app(app)
 migrate = Migrate(app, db)
-
-csrf = CSRFProtect()
-csrf.init_app(app)
 
 # 👇この位置に追加
 from admin import init_admin
