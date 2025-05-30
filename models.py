@@ -26,10 +26,10 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
+    # ✅ ここに追加してください！
     @property
     def is_admin(self):
         return self.email == 'ta714kadvance@gmail.com'
-
 
 class ScoreLog(db.Model):
     __tablename__ = 'score_log'
@@ -39,3 +39,11 @@ class ScoreLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     score = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=db.func.now())
+
+class ActionLog(db.Model):
+    __tablename__ = 'action_log'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_email = db.Column(db.String(150))  # 操作した管理者
+    user_email = db.Column(db.String(150))   # 対象ユーザー
+    action = db.Column(db.String(100))       # 内容（例: 有料に変更）
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
