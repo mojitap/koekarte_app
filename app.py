@@ -940,7 +940,3 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = 'http://192.168.0.12:19006'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
-    
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-    
