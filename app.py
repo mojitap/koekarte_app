@@ -21,6 +21,7 @@ from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
+from flask_wtf import CSRFProtect
 
 # ✅ Flaskアプリ作成
 app = Flask(__name__)
@@ -43,6 +44,12 @@ migrate = Migrate(app, db)
 # ✅ LoginManagerなど初期化（必要なら）
 login_manager = LoginManager()
 login_manager.init_app(app)
+csrf = CSRFProtect()
+csrf.init_app(app)
+
+# 👇この位置に追加
+from admin import init_admin
+init_admin(app, db)
 
 # ✅ そのほか
 app.permanent_session_lifetime = timedelta(days=30)
