@@ -24,3 +24,4 @@ python_speech_features==0.6
 flask-cors==3.0.10
 flask-migrate==4.0.5
 flask-wtf
+flask-admin
