@@ -18,3 +18,6 @@ imageio-ffmpeg==0.4.8
 Jinja2==3.1.2
 Werkzeug==2.3.7
 stripe==8.6.0
+joblib==1.4.2
+librosa==0.10.1
+python_speech_features==0.6
