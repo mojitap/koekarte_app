@@ -53,3 +53,7 @@ db.sqlite3-journal
 # --- ドキュメントビルド ---
 docs/_build/
 site/
+
+# --- 管理用スクリプト（アップロード禁止） ---
+create_users.py
+delete_user.py
