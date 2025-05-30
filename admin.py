@@ -8,14 +8,14 @@ from models import User  # あなたのUserモデル
 class MyAdminIndexView(AdminIndexView):
     @expose('/')
     def index(self):
-        if not current_user.is_authenticated or not current_user.email == 'admin@example.com':
+        if not current_user.is_authenticated or not current_user.email == 'ta714kadvance@gmail.com':
             return redirect(url_for('login'))  # または abort(403)
         return super(MyAdminIndexView, self).index()
 
 # ── 管理者専用のモデル表示制限 ──
 class AdminModelView(ModelView):
     def is_accessible(self):
-        return current_user.is_authenticated and current_user.email == 'admin@example.com'
+        return current_user.is_authenticated and current_user.email == 'ta714kadvance@gmail.com'
 
     def inaccessible_callback(self, name, **kwargs):
         return redirect(url_for('login'))
