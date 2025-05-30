@@ -338,6 +338,7 @@ def register():
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf_exempt  # ← これを追加
 def login():
     if request.method == 'POST':
         identifier = request.form['username']
