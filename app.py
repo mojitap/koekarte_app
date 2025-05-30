@@ -1,13 +1,10 @@
-# 完全修正版 app.py
-# ✅ DBのみを使用、ScoreLogで記録管理、管理者ページ対応済み
-
 import os, time, glob, wave, csv, joblib
 import numpy as np
 import stripe
 import python_speech_features
 import librosa
 from datetime import datetime, date, timedelta, timezone
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -22,12 +19,14 @@ from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
 
+# .env 読み込み（FLASK_ENV の取得より先）
+load_dotenv()
+
 # ✅ 本番環境かどうか判定（SESSION_COOKIE_SECUREに使用）
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 
 # ✅ Flaskアプリ作成
 app = Flask(__name__)
-load_dotenv()
 
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
@@ -36,8 +35,8 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True  # セキュリティ強化（任�
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'  # ← ローカル用
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.logger.debug(f"🔍 SQLALCHEMY_DATABASE_URI = {app.config['SQLALCHEMY_DATABASE_URI']}")
 app.secret_key = os.getenv('SECRET_KEY')
+app.logger.debug(f"\ud83d\udd0d SQLALCHEMY_DATABASE_URI = {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 # ✅ DBとアプリを紐付け
 db.init_app(app)
