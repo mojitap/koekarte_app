@@ -29,7 +29,7 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 app = Flask(__name__)
 
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # セキュリティ強化（任意）
 
 # ✅ 設定読み込み
@@ -940,7 +940,7 @@ def api_scores():
 
 @app.after_request
 def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'http://192.168.0.12:19006'
+    response.headers['Access-Control-Allow-Origin'] = 'https://koekarte.com'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
 
@@ -964,7 +964,4 @@ def create_admin():
     db.session.commit()
     return '管理者ユーザーを作成しました'
     
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))  # Render対応
-    app.run(debug=True, host='0.0.0.0', port=port)
     
