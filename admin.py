@@ -2,7 +2,7 @@ from flask_admin import Admin, AdminIndexView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_login import current_user
 from flask import redirect, url_for
-from models import User  # Userモデルをインポート
+from models import User, ActionLog  # ✅ ActionLog を忘れずに追加！
 
 # 管理者として許可するメールアドレス
 ADMIN_EMAIL = 'ta714kadvance@gmail.com'
