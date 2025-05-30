@@ -438,6 +438,19 @@ def logout():
     logout_user()
     return redirect(url_for('home'))
 
+@app.route('/set-paid/<int:user_id>')
+@login_required
+def set_paid(user_id):
+    if not current_user.is_admin:
+        return "アクセス権がありません", 403
+
+    user = User.query.get(user_id)
+    if user:
+        user.is_paid = True
+        db.session.commit()
+        return redirect(url_for('admin.index'))
+    return 'User not found', 404
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -972,3 +985,4 @@ def create_admin():
     db.session.add(user)
     db.session.commit()
     return '管理者ユーザーを作成しました'
+    
