@@ -973,4 +973,25 @@ def create_admin():
     db.session.commit()
     return '管理者ユーザーを作成しました'
     
-    
+@app.route('/fix-schema')
+def fix_schema():
+    from werkzeug.security import generate_password_hash
+    from datetime import datetime
+    from models import User  # モデルの読み込み（上でimport済なら不要）
+
+    user = User.query.filter_by(email='ta714kadvance@gmail.com').first()
+    if user:
+        return '✅ すでに存在します'
+
+    user = User(
+        email='ta714kadvance@gmail.com',
+        username='管理者',
+        password=generate_password_hash('taka0714', method='pbkdf2:sha256'),
+        is_verified=True,
+        is_paid=True,
+        is_free_extended=True,
+        created_at=datetime.utcnow()
+    )
+    db.session.add(user)
+    db.session.commit()
+    return '✅ 作成完了'
