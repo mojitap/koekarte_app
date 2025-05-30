@@ -448,6 +448,17 @@ def set_paid(user_id):
     if user:
         user.is_paid = True
         db.session.commit()
+
+        # ✅ 操作ログを保存
+        from models import ActionLog  # 必要なら上でimport
+        log = ActionLog(
+            admin_email=current_user.email,
+            user_email=user.email,
+            action='有料に変更'
+        )
+        db.session.add(log)
+        db.session.commit()
+
         return redirect(url_for('admin.index'))
     return 'User not found', 404
 
