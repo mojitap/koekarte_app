@@ -36,6 +36,6 @@ class ScoreLog(db.Model):
     score = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=db.func.now())
 
-　　　@property
-　　　def is_admin(self):
-    　　　return self.email == 'ta714kadvance@gmail.com
+    @property
+    def is_admin(self):
+        return self.email == 'ta714kadvance@gmail.com'
