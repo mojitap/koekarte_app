@@ -22,9 +22,8 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     is_paid = db.Column(db.Boolean, default=False)
     is_free_extended = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # スコアログとのリレーション（オプション）
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
 
@@ -36,3 +35,7 @@ class ScoreLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     score = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=db.func.now())
+
+　　　@property
+　　　def is_admin(self):
+    　　　return self.email == 'ta714kadvance@gmail.com
