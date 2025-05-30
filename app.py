@@ -41,9 +41,6 @@ app.secret_key = os.getenv('SECRET_KEY')
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# ✅ LoginManagerなど初期化（必要なら）
-login_manager = LoginManager()
-login_manager.init_app(app)
 csrf = CSRFProtect()
 csrf.init_app(app)
 
