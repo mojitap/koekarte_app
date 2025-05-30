@@ -339,20 +339,31 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        identifier = request.form['username']
-        password = request.form['password']
+        print("📥 request.form:", request.form)
+
+        identifier = request.form.get('username')
+        password = request.form.get('password')
+
+        print(f"入力値: identifier={identifier}, password={password}")
 
         user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
 
-        if not user or not check_password_hash(user.password, password):
+        if not user:
+            print("❌ 該当ユーザーなし")
             return 'ログイン失敗'
+        if not check_password_hash(user.password, password):
+            print("❌ パスワード不一致")
+            return 'ログイン失敗'
+
         if not user.is_verified:
+            print("⚠️ 未確認アカウント")
             return 'メール確認が必要です'
 
         login_user(user)
-        session.permanent = True  # 30日間ログイン継続
+        session.permanent = True
+        print("✅ ログイン成功:", current_user.is_authenticated)
 
-        return redirect(url_for('dashboard'))  # ✅ ← 修正ポイント
+        return redirect(url_for('dashboard'))
 
     return render_template('login.html')
         
