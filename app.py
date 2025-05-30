@@ -22,12 +22,15 @@ from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
 
+# ✅ 本番環境かどうか判定（SESSION_COOKIE_SECUREに使用）
+IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
+
 # ✅ Flaskアプリ作成
 app = Flask(__name__)
 load_dotenv()
 
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # セキュリティ強化（任意）
 
 # ✅ 設定読み込み
