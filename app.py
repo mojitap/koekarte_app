@@ -363,7 +363,7 @@ def login():
         session.permanent = True
         print("✅ ログイン成功:", current_user.is_authenticated)
 
-        return redirect(url_for('dashboard'))
+        return jsonify({'message': '保存完了', 'score': stress_score})
 
     return render_template('login.html')
         
@@ -531,12 +531,12 @@ def record():
 def upload():
     if 'audio_data' not in request.files:
         print("❌ audio_data が見つかりません")
-        return '音声データが見つかりません'
+        return jsonify({'error': '音声データが見つかりません'}), 400
 
     file = request.files['audio_data']
     if file.filename == '':
         print("❌ ファイル名が空です")
-        return 'ファイルが選択されていません'
+        return jsonify({'error': 'ファイルが選択されていません'}), 400
 
     UPLOAD_FOLDER = 'uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -545,7 +545,6 @@ def upload():
     now = datetime.now(jst)
     today = now.date()
 
-    # 🔽 元のwebmファイルと、変換後のwavファイルのパスを準備
     webm_path = os.path.join(UPLOAD_FOLDER, f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.webm")
     wav_path = webm_path.replace('.webm', '.wav')
 
@@ -557,23 +556,23 @@ def upload():
         print(f"✅ WAVファイルへ変換成功: {wav_path}")
     except Exception as e:
         print("❌ WebM→WAV変換エラー:", e)
-        return '音声変換に失敗しました'
+        return jsonify({'error': '音声変換に失敗しました'}), 500
 
     if not is_valid_wav(wav_path):
         print("❌ WAVファイルが無効 or 長さ不足")
-        return '録音が短すぎます。もう一度お試しください。'
+        return jsonify({'error': '録音が短すぎます。もう一度お試しください。'}), 400
 
     try:
         stress_score = analyze_stress_from_wav(wav_path)
         print(f"✅ 分析完了: ストレススコア = {stress_score}")
     except Exception as e:
         print("❌ 分析処理エラー:", e)
-        return '音声分析に失敗しました'
+        return jsonify({'error': '音声分析に失敗しました'}), 500
 
     existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
     if existing:
         print("⚠️ すでに今日のデータが存在します")
-        return '本日はすでに保存済みです（1日1回制限）'
+        return jsonify({'error': '本日はすでに保存済みです（1日1回制限）'}), 400
 
     try:
         new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
@@ -582,9 +581,9 @@ def upload():
         print("✅ スコア保存成功")
     except Exception as e:
         print("❌ DB保存失敗:", e)
-        return 'データベース保存失敗'
+        return jsonify({'error': 'データベース保存失敗'}), 500
 
-    return redirect(url_for('dashboard'))
+    return jsonify({'message': '保存完了', 'score': stress_score}), 200
 
 @app.route('/result')
 @login_required
@@ -678,7 +677,7 @@ def edit_profile():
         current_user.prefecture = request.form['prefecture']
         db.session.commit()
         flash("プロフィールを更新しました")
-        return redirect(url_for('dashboard'))
+        return jsonify({'message': '保存完了', 'score': stress_score})
 
     return render_template('edit_profile.html', user=current_user)
     
@@ -839,7 +838,7 @@ def free_music():
 def premium_music():
     if not current_user.is_paid:
         flash("プレミアム音源は有料プラン専用です。")
-        return redirect(url_for('dashboard'))
+        return jsonify({'message': '保存完了', 'score': stress_score})
 
     filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
 
