@@ -18,6 +18,7 @@ from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
+from utils.audio_utils import convert_webm_to_wav, is_valid_wav
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -545,10 +546,11 @@ def upload():
     now = datetime.now(jst)
     today = now.date()
 
-    webm_path = os.path.join(UPLOAD_FOLDER, f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.webm")
-    wav_path = webm_path.replace('.webm', '.wav')
-
-    file.save(webm_path)
+    original_ext = file.filename.split('.')[-1]
+    filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    wav_path = save_path.replace(f".{original_ext}", ".wav")
+    file.save(save_path)
     print(f"✅ WebMファイル保存完了: {webm_path}")
 
     try:
