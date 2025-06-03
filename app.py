@@ -553,17 +553,33 @@ def upload():
     print(f"✅ 録音ファイル保存完了: {save_path}")
 
     try:
+        print(f"📂 ファイル名: {file.filename}")
+        print(f"📂 拡張子: {original_ext}")
+
+        wav_path = save_path.replace(f".{original_ext}", ".wav")
+
+        if original_ext.lower() == "m4a":
+            print("▶️ M4A → WAV 変換を実行")
+            convert_m4a_to_wav(save_path, wav_path)
+        elif original_ext.lower() == "webm":
+            print("▶️ WebM → WAV 変換を実行")
+            convert_webm_to_wav(save_path, wav_path)
+        else:
+            print("❌ 対応外の拡張子")
+            raise ValueError("対応していないファイル形式です")
+
+        print(f"✅ WAV変換完了: {wav_path}")
+
         # 音量正規化
-        normalized_path = save_path.replace(f".{original_ext}", "_normalized.wav")
-        normalize_volume(save_path, normalized_path)
+        normalized_path = wav_path.replace(".wav", "_normalized.wav")
+        print("▶️ 音量正規化を実行")
+        normalize_volume(wav_path, normalized_path)
         print(f"✅ 音量正規化完了: {normalized_path}")
 
-        # 正規化済みファイルを WAV に変換（PCM 16bit）
-        wav_path = normalized_path.replace("_normalized.wav", ".wav")
-        convert_webm_to_wav(normalized_path, wav_path)
-        print(f"✅ WAVファイル変換完了: {wav_path}")
     except Exception as e:
-        print("❌ WebM→WAV変換エラー:", e)
+        import traceback
+        traceback.print_exc()  # 🔍 スタックトレースも出力
+        print("❌ 音声変換エラー:", e)
         return jsonify({'error': '音声変換に失敗しました'}), 500
 
     if not is_valid_wav(wav_path):
@@ -1003,4 +1019,13 @@ def create_admin():
     db.session.add(user)
     db.session.commit()
     return '管理者ユーザーを作成しました'
+
+@app.route('/admin/upgrade-db')
+def upgrade_db():
+    from flask_migrate import upgrade
+    try:
+        upgrade()
+        return "✅ DB upgrade executed successfully", 200
+    except Exception as e:
+        return f"❌ Error: {e}", 500
     
