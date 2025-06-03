@@ -31,7 +31,7 @@
         <li style="margin-bottom: 20px;">
           <p>{{ track.display }}</p>
           <audio controls style="width: 100%;">
-            <source src="{{ url_for('static', filename='audio/paid/' + track.filename) }}" type="audio/mpeg">
+            <source src="{{ url_for('static', filename='paid/' + track.filename) }}" type="audio/mpeg">
             お使いのブラウザは音声再生に対応していません。
           </audio>
         </li>

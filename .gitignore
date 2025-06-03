@@ -32,6 +32,9 @@ uploads/*.wav
 uploads/*.mp3
 uploads/*.ogg
 
+# --- モデルファイル（学習済みファイルは除外） ---
+light_model.pkl
+
 # --- Flaskやビルド系 ---
 instance/
 .webassets-cache
@@ -50,3 +53,7 @@ db.sqlite3-journal
 # --- ドキュメントビルド ---
 docs/_build/
 site/
+
+# --- 管理用スクリプト（アップロード禁止） ---
+create_users.py
+delete_user.py

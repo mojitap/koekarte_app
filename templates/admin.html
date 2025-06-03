@@ -8,6 +8,8 @@
     <th>ユーザー名</th>
     <th>メール</th>
     <th>現在の状態</th>
+    <th>登録日</th>
+    <th>無料延長</th>  <!-- ✅ 追加 -->
     <th>操作</th>
   </tr>
   {% for user in users %}
@@ -16,9 +18,25 @@
     <td>{{ user.email }}</td>
     <td>{{ '有料' if user.is_paid else '無料' }}</td>
     <td>
-      <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}">
+      {% if user.created_at %}
+        {{ user.created_at.strftime('%Y-%m-%d') }}
+      {% else %}
+        ---
+      {% endif %}
+    </td>
+    <td>{{ '延長中' if user.is_free_extended else '-' }}</td> <!-- ✅ 表示 -->
+    <td>
+      <!-- 有料状態切替 -->
+      <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}" style="display:inline-block;">
         <button type="submit">
-          {% if user.is_paid %}無料にする{% else %}有料にする{% endif %}
+          {{ '無料にする' if user.is_paid else '有料にする' }}
+        </button>
+      </form>
+
+      <!-- 無料延長切替 -->
+      <form method="POST" action="{{ url_for('set_free_extended', user_id=user.id) }}" style="display:inline-block; margin-left: 10px;">
+        <button type="submit">
+          {{ '延長解除' if user.is_free_extended else '延長する' }}
         </button>
       </form>
     </td>

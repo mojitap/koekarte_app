@@ -21,3 +21,7 @@ stripe==8.6.0
 joblib==1.4.2
 librosa==0.10.1
 python_speech_features==0.6
+flask-cors==3.0.10
+flask-migrate==4.0.5
+flask-wtf==1.2.2
+flask-admin==1.6.1
