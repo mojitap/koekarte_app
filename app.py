@@ -118,7 +118,7 @@ def convert_webm_to_wav(webm_path, wav_path):
         audio = AudioSegment.from_file(webm_path, format="webm")
         print(f"🔍 WebM録音長さ（秒）: {audio.duration_seconds}")
         
-        # ⬇ PCM 16bitで保存（これが重要！）
+        # PCM 16bitで保存（WAVの仕様に準拠）
         audio.export(wav_path, format="wav", parameters=["-acodec", "pcm_s16le"])
 
         with wave.open(wav_path, 'rb') as wf:
@@ -549,13 +549,19 @@ def upload():
     original_ext = file.filename.split('.')[-1]
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
     save_path = os.path.join(UPLOAD_FOLDER, filename)
-    wav_path = save_path.replace(f".{original_ext}", ".wav")
     file.save(save_path)
-    print(f"✅ WebMファイル保存完了: {webm_path}")
+    print(f"✅ 録音ファイル保存完了: {save_path}")
 
     try:
-        convert_webm_to_wav(webm_path, wav_path)
-        print(f"✅ WAVファイルへ変換成功: {wav_path}")
+        # 音量正規化
+        normalized_path = save_path.replace(f".{original_ext}", "_normalized.wav")
+        normalize_volume(save_path, normalized_path)
+        print(f"✅ 音量正規化完了: {normalized_path}")
+
+        # 正規化済みファイルを WAV に変換（PCM 16bit）
+        wav_path = normalized_path.replace("_normalized.wav", ".wav")
+        convert_webm_to_wav(normalized_path, wav_path)
+        print(f"✅ WAVファイル変換完了: {wav_path}")
     except Exception as e:
         print("❌ WebM→WAV変換エラー:", e)
         return jsonify({'error': '音声変換に失敗しました'}), 500
