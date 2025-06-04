@@ -567,6 +567,10 @@ def api_forgot_password():
 
     return jsonify({'message': '再設定メールを送信しました（存在する場合）'})
     
+@app.route('/record')
+@login_required
+def record():
+    return render_template('record.html')  # ← ファイル名は適宜変更
 
 @app.route('/api/record')
 @login_required
