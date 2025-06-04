@@ -585,7 +585,7 @@ def upload():
         print("❌ ファイル名が空です")
         return jsonify({'error': 'ファイルが選択されていません'}), 400
 
-    UPLOAD_FOLDER = 'uploads'
+    UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
     jst = timezone(timedelta(hours=9))
