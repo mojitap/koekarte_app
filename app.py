@@ -569,13 +569,13 @@ def api_forgot_password():
     
 @app.route('/record')
 @login_required
-def record():
+def record_page():  # ← 関数名変更
     return render_template('record.html')  # ← ファイル名は適宜変更
 
 @app.route('/api/record')
 @login_required
-def record():
-    return render_template('record.html')
+def record_api():  # ← こちらも別名にしておくと安心
+    return jsonify({"status": "ok"})
 
 @app.route('/api/upload', methods=['POST'])
 @login_required
