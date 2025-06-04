@@ -636,8 +636,13 @@ def upload():
         stress_score = analyze_stress_from_wav(wav_path)
         print(f"✅ 分析完了: ストレススコア = {stress_score}")
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print("❌ 分析処理エラー:", e)
         return jsonify({'error': '音声分析に失敗しました'}), 500
+
+    if 'stress_score' not in locals():
+        return jsonify({'error': 'スコア生成に失敗しました'}), 500
 
     existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
     if existing:
