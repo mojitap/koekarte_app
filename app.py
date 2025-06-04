@@ -364,7 +364,7 @@ def login():
         session.permanent = True
         print("✅ ログイン成功:", current_user.is_authenticated)
 
-        return jsonify({'message': '保存完了', 'score': stress_score})
+        return redirect(url_for('dashboard'))
 
     return render_template('login.html')
         
@@ -383,6 +383,20 @@ def export_csv():
     return Response(output,
                     mimetype="text/csv",
                     headers={"Content-Disposition": "attachment;filename=stress_scores.csv"})
+
+@app.route('/api/score-history')
+@login_required
+def api_score_history():
+    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+
+    result = [
+        {
+            'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'score': log.score
+        }
+        for log in logs
+    ]
+    return jsonify(result), 200
 
 # --- パスワード再設定メール送信 ---
 def send_reset_email(user):
@@ -433,11 +447,18 @@ def reset_password(token):
 
     return render_template('reset.html')  # ✅ 最初は入力フォーム！
 
+# --- アプリからのパスワード再設定申請用エンドポイント ---
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
+@app.route('/api/logout', methods=['POST'])
+@login_required
+def api_logout():
+    logout_user()
+    return jsonify({'message': 'ログアウトしました'}), 200
 
 @app.route('/set-paid/<int:user_id>')
 @login_required
@@ -507,6 +528,31 @@ def dashboard():
                            last_date=last_date,
                            baseline=baseline)
 
+@app.route('/api/dashboard')
+@login_required
+def api_dashboard():
+    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+
+    if not logs:
+        return jsonify({'message': 'ログがありません'}), 200
+
+    scores = [log.score for log in logs]
+    dates = [log.timestamp.strftime('%Y-%m-%d') for log in logs]
+    first_score = logs[0].score
+    latest_score = logs[-1].score
+
+    baseline = sum(scores[:5]) // 5 if len(scores) >= 5 else sum(scores) // len(scores)
+    diff = latest_score - baseline
+
+    return jsonify({
+        'first_score': first_score,
+        'latest_score': latest_score,
+        'first_score_date': dates[0],
+        'last_date': dates[-1],
+        'baseline': baseline,
+        'diff': diff,
+    }), 200
+
 @app.route('/api/forgot-password', methods=['POST'])
 def api_forgot_password():
     data = request.get_json()
@@ -522,12 +568,12 @@ def api_forgot_password():
     return jsonify({'message': '再設定メールを送信しました（存在する場合）'})
     
 
-@app.route('/record')
+@app.route('/api/record')
 @login_required
 def record():
     return render_template('record.html')
 
-@app.route('/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 @login_required
 def upload():
     if 'audio_data' not in request.files:
@@ -639,6 +685,7 @@ def result():
 
     return render_template('result.html', dates=dates, scores=scores, first_score=scores[0] if scores else 0, baseline=baseline)
 
+
 @app.route('/admin')
 @login_required
 def admin():
@@ -665,7 +712,7 @@ def cleanup_users_without_scores():
 
     db.session.commit()
     return f"{deleted_count} 件のスコアなしユーザーを削除しました"
-    
+
 @app.route('/admin/set_free_extended/<int:user_id>', methods=['POST'])
 @login_required
 def set_free_extended(user_id):
@@ -891,6 +938,47 @@ def premium_music():
 
     return render_template('premium_music.html', tracks=tracks)
 
+@app.route('/api/music')
+@login_required
+def api_music():
+    if not current_user.is_paid:
+        return jsonify({
+            'error': 'プレミアム音源は有料プラン専用です。'
+        }), 403
+
+    filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
+
+    display_names = {
+        "positive1.mp3": "サウンドトラック 01",
+        "positive2.mp3": "サウンドトラック 02",
+        "positive3.mp3": "サウンドトラック 03",
+        "positive4.mp3": "サウンドトラック 04",
+        "positive5.mp3": "サウンドトラック 05",
+        "relax1.mp3": "サウンドトラック 06",
+        "relax2.mp3": "サウンドトラック 07",
+        "relax3.mp3": "サウンドトラック 08",
+        "relax4.mp3": "サウンドトラック 09",
+        "relax5.mp3": "サウンドトラック 10",
+        "mindfulness1.mp3": "サウンドトラック 11",
+        "mindfulness2.mp3": "サウンドトラック 12",
+        "mindfulness3.mp3": "サウンドトラック 13",
+        "mindfulness4.mp3": "サウンドトラック 14",
+        "mindfulness5.mp3": "サウンドトラック 15",
+    }
+
+    tracks = [
+        {
+            "filename": f,
+            "display": display_names.get(f, f),
+            "url": f"/static/paid/{f}"
+        }
+        for f in filenames
+    ]
+
+    return jsonify({
+        "tracks": tracks
+    })
+
 @app.route('/checkout')
 @login_required
 def checkout():
@@ -943,7 +1031,7 @@ def stripe_webhook():
             print(f"✅ {email} を有料プランに更新しました")
 
     return jsonify(success=True)
-    
+
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
@@ -983,22 +1071,38 @@ except Exception as e:
 @app.route('/api/scores')
 @login_required
 def api_scores():
-    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+    range_type = request.args.get('range', 'all')
+    today = date.today()
+
+    if range_type == 'week':
+        start_date = today - timedelta(days=7)
+        logs = ScoreLog.query.filter(
+            ScoreLog.user_id == current_user.id,
+            ScoreLog.timestamp >= start_date
+        ).order_by(ScoreLog.timestamp).all()
+    elif range_type == 'month':
+        start_date = today.replace(day=1)
+        logs = ScoreLog.query.filter(
+            ScoreLog.user_id == current_user.id,
+            ScoreLog.timestamp >= start_date
+        ).order_by(ScoreLog.timestamp).all()
+    else:
+        logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
 
     scores = [{
         'date': log.timestamp.strftime('%Y-%m-%d'),
         'score': log.score
     } for log in logs]
 
-    if len(logs) >= 5:
-        baseline = sum(log.score for log in logs[:5]) / 5
+    if logs:
+        baseline = sum(log.score for log in logs[:5]) / min(len(logs), 5)
     else:
-        baseline = sum(log.score for log in logs) / len(logs) if logs else 0
+        baseline = 0
 
     return jsonify({
         'scores': scores,
         'baseline': round(baseline, 1)
-    })
+    }), 200
 
 @app.route('/create-admin')
 def create_admin():
