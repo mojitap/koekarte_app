@@ -18,7 +18,7 @@ from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog
 from flask_migrate import Migrate
-from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav
+from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -401,7 +401,7 @@ def api_score_history():
         }
         for log in logs
     ]
-    return jsonify(result), 200
+    return jsonify({ "scores": result }), 200
 
 # --- パスワード再設定メール送信 ---
 def send_reset_email(user):
@@ -586,12 +586,10 @@ def record_api():  # ← こちらも別名にしておくと安心
 @login_required
 def upload():
     if 'audio_data' not in request.files:
-        print("❌ audio_data が見つかりません")
         return jsonify({'error': '音声データが見つかりません'}), 400
 
     file = request.files['audio_data']
     if file.filename == '':
-        print("❌ ファイル名が空です")
         return jsonify({'error': 'ファイルが選択されていません'}), 400
 
     UPLOAD_FOLDER = '/tmp/uploads'
@@ -605,69 +603,57 @@ def upload():
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
     save_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(save_path)
-    print(f"✅ 録音ファイル保存完了: {save_path}")
 
     try:
-        print(f"📂 ファイル名: {file.filename}")
-        print(f"📂 拡張子: {original_ext}")
-
         wav_path = save_path.replace(f".{original_ext}", ".wav")
 
         if original_ext.lower() == "m4a":
-            print("▶️ M4A → WAV 変換を実行")
             convert_m4a_to_wav(save_path, wav_path)
         elif original_ext.lower() == "webm":
-            print("▶️ WebM → WAV 変換を実行")
             convert_webm_to_wav(save_path, wav_path)
         else:
-            print("❌ 対応外の拡張子")
             raise ValueError("対応していないファイル形式です")
 
-        print(f"✅ WAV変換完了: {wav_path}")
-
-        # 音量正規化
         normalized_path = wav_path.replace(".wav", "_normalized.wav")
-        print("▶️ 音量正規化を実行")
         normalize_volume(wav_path, normalized_path)
-        print(f"✅ 音量正規化完了: {normalized_path}")
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()  # 🔍 スタックトレースも出力
-        print("❌ 音声変換エラー:", e)
         return jsonify({'error': '音声変換に失敗しました'}), 500
 
     if not is_valid_wav(wav_path):
-        print("❌ WAVファイルが無効 or 長さ不足")
         return jsonify({'error': '録音が短すぎます。もう一度お試しください。'}), 400
 
     try:
         stress_score = analyze_stress_from_wav(wav_path)
-        print(f"✅ 分析完了: ストレススコア = {stress_score}")
+        is_fallback = False
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print("❌ 分析処理エラー:", e)
-        return jsonify({'error': '音声分析に失敗しました'}), 500
+        stress_score = 50  # fallback value
+        is_fallback = True
 
-    if 'stress_score' not in locals():
-        return jsonify({'error': 'スコア生成に失敗しました'}), 500
+    existing_logs = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).all()
 
-    existing = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).first()
-    if existing:
-        print("⚠️ すでに今日のデータが存在します")
-        return jsonify({'error': '本日はすでに保存済みです（1日1回制限）'}), 400
+    if existing_logs:
+        # 既に正式スコアが存在 → アップロード拒否
+        if any(not log.is_fallback for log in existing_logs):
+            return jsonify({
+                'error': '📅 本日はすでにスコアを記録済みです。\n再録音は1日1回までとなります。明日以降、再度ご利用ください。'
+            }), 400
+        # fallbackのみ存在 → 上書き許可
+        for log in existing_logs:
+            db.session.delete(log)
 
     try:
-        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score)
+        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score, is_fallback=is_fallback)
         db.session.add(new_log)
         db.session.commit()
-        print("✅ スコア保存成功")
     except Exception as e:
-        print("❌ DB保存失敗:", e)
         return jsonify({'error': 'データベース保存失敗'}), 500
 
-    return jsonify({'message': '保存完了', 'score': stress_score}), 200
+    msg = '保存完了'
+    if is_fallback:
+        msg += '\n🎧 本日のスコアは参考値（仮スコア）です。\nもう一度録音して、正確なスコアを取得しますか？\n※ 本日中、1回のみ再録音可能です。'
+
+    return jsonify({'message': msg, 'score': stress_score}), 200
 
 @app.route('/result')
 @login_required
@@ -1068,6 +1054,26 @@ def api_profile():
         (free_days < 5)
     )
 
+    # 今日のスコア（最新1件）
+    today = date.today()
+    today_score = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .filter(db.func.date(ScoreLog.timestamp) == today)
+        .order_by(ScoreLog.timestamp.desc())
+        .first()
+    )
+    today_score_value = today_score.score if today_score else None
+
+    # 最終記録日
+    last_log = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .order_by(ScoreLog.timestamp.desc())
+        .first()
+    )
+    last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
+
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
@@ -1077,7 +1083,9 @@ def api_profile():
         'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
         'is_free_extended': is_free_extended,
-        'created_at': current_user.created_at.isoformat() if current_user.created_at else None
+        'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
+        'last_score': today_score_value,
+        'last_recorded': last_recorded,
     })
     
 try:
