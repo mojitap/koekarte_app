@@ -67,7 +67,16 @@ def analyze_stress_from_wav(wav_path):
             ((1 - silence_ratio) * 50)     # 無音の少なさ
         )
 
+        # スコア補正：短すぎ or 無音率高すぎへの対応
+        if duration < 1.5:
+            print("⏱ 録音が短すぎます（1.5秒未満） → スコアを50で返却")
+            return 50
+        if silence_ratio > 0.95:
+            print("🔇 無音率が高すぎます → スコアを50で返却")
+            return 50
+
         score = max(30, min(95, round(base_score)))
+        print(f"📊 最終スコア: {score}")
         return score
 
     except Exception as e:
