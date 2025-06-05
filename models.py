@@ -39,6 +39,7 @@ class ScoreLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     score = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=db.func.now())
+    is_fallback = db.Column(db.Boolean, default=False)
 
 class ActionLog(db.Model):
     __tablename__ = 'action_log'
