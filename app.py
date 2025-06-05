@@ -630,6 +630,16 @@ def upload():
         stress_score = 50  # fallback value
         is_fallback = True
 
+    # ✅ 今日の録音回数（最大2回まで）
+    count_today = ScoreLog.query.filter_by(user_id=current_user.id).filter(
+        db.func.date(ScoreLog.timestamp) == today
+    ).count()
+
+    if count_today >= 2:
+        return jsonify({
+            'error': '📅 本日はすでに録音を2回行いました。明日またご利用ください。'
+        }), 403
+
     existing_logs = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).all()
 
     if existing_logs:
@@ -653,7 +663,12 @@ def upload():
     if is_fallback:
         msg += '\n🎧 本日のスコアは参考値（仮スコア）です。\nもう一度録音して、正確なスコアを取得しますか？\n※ 本日中、1回のみ再録音可能です。'
 
-    return jsonify({'message': msg, 'score': stress_score}), 200
+    return jsonify({
+        'message': msg,
+        'score': stress_score,
+        'is_fallback': is_fallback,
+        'can_retry': is_fallback and count_today == 1  # ← ここがポイント
+    }), 200
 
 @app.route('/result')
 @login_required
