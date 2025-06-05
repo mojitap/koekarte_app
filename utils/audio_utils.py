@@ -1,5 +1,7 @@
 from pydub import AudioSegment
 import wave
+import numpy as np
+import soundfile as sf
 
 def convert_webm_to_wav(input_path, output_path):
     """
@@ -44,19 +46,30 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
         return False
 
 def analyze_stress_from_wav(wav_path):
-    """
-    WAV音声からストレススコアを算出する（仮実装）
-    ※特徴量抽出失敗時は平均スコア50を返す
-    """
     try:
-        # 🔧 実際の音響特徴量抽出と分析ロジックをここに書く予定
-        # 仮で例外発生の可能性をシミュレート
-        raise ValueError("特徴量抽出失敗（仮）")
+        audio, sr = sf.read(wav_path)
+        if len(audio.shape) > 1:  # ステレオ → モノラルに変換
+            audio = np.mean(audio, axis=1)
 
-        # 正常に処理できた場合（今は通らない）
-        # score = some_analysis_function(wav_path)
-        # return score
+        duration = len(audio) / sr
+        volume_max = np.max(np.abs(audio))
+        volume_mean = np.mean(np.abs(audio))
+        volume_std = np.std(audio)
+
+        # 無音（小さい音）とみなすしきい値
+        silence_thresh = 0.01
+        silence_ratio = np.sum(np.abs(audio) < silence_thresh) / len(audio)
+
+        # スコア化（仮ロジック、0〜100に正規化）
+        base_score = (
+            (volume_mean * 80) +           # 声の大きさ
+            (volume_std * 60) +            # 強弱
+            ((1 - silence_ratio) * 50)     # 無音の少なさ
+        )
+
+        score = max(30, min(95, round(base_score)))
+        return score
 
     except Exception as e:
-        print("❌ 特徴量抽出失敗（代替スコア使用）:", e)
-        return 50  # fallbackスコア
+        print("❌ 簡易分析失敗:", e)
+        return 50  # fallback
