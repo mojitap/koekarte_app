@@ -398,6 +398,7 @@ def api_score_history():
         {
             'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             'score': log.score
+            'is_fallback': log.is_fallback  # ← 追加
         }
         for log in logs
     ]
