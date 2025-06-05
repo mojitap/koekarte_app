@@ -667,7 +667,7 @@ def upload():
         'message': msg,
         'score': stress_score,
         'is_fallback': is_fallback,
-        'can_retry': is_fallback and count_today == 1  # ← ここがポイント
+        'can_retry': is_fallback and count_today < 2
     }), 200
 
 @app.route('/result')
