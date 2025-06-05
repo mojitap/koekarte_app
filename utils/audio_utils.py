@@ -9,9 +9,15 @@ def convert_webm_to_wav(input_path, output_path):
     audio.export(output_path, format="wav")
 
 def convert_m4a_to_wav(input_path, output_path):
-    """M4AをWAVに変換（PCM形式）"""
-    audio = AudioSegment.from_file(input_path, format="m4a")
-    audio.export(output_path, format="wav", parameters=["-acodec", "pcm_s16le"])
+    """M4A → WAV に ffmpeg を使って変換"""
+    import subprocess
+    try:
+        subprocess.run([
+            'ffmpeg', '-y', '-i', input_path, output_path
+        ], check=True)
+    except Exception as e:
+        print("❌ M4A変換失敗:", e)
+        raise
 
 def normalize_volume(input_path, output_path, target_dBFS=-5.0):
     """
