@@ -387,7 +387,12 @@ def export_csv():
 @app.route('/api/score-history')
 @login_required
 def api_score_history():
+    print("🪪 current_user.id =", current_user.id)
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+
+    print(f"📊 ログ件数 = {len(logs)}")
+    for log in logs:
+        print(f"📝 {log.timestamp}: {log.score}")
 
     result = [
         {
@@ -1055,8 +1060,13 @@ def api_profile():
             'created_at': None
         }), 401
 
-    # 無料延長判定
-    is_free_extended = current_user.is_free_extended or current_user.email in ALLOWED_FREE_EMAILS
+    now = datetime.now()
+    free_days = (now - current_user.created_at).days if current_user.created_at else 999
+    is_free_extended = (
+        current_user.is_free_extended or
+        current_user.email in ALLOWED_FREE_EMAILS or
+        (free_days < 5)
+    )
 
     return jsonify({
         'email': current_user.email,
@@ -1067,7 +1077,7 @@ def api_profile():
         'prefecture': current_user.prefecture,
         'is_paid': current_user.is_paid,
         'is_free_extended': is_free_extended,
-        'created_at': current_user.created_at.isoformat()
+        'created_at': current_user.created_at.isoformat() if current_user.created_at else None
     })
     
 try:
