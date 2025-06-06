@@ -140,7 +140,7 @@ def is_valid_wav(wav_path):
         with wave.open(wav_path, 'rb') as wf:
             frames = wf.getnframes()
             duration = frames / wf.getframerate()
-            return duration > 1.0
+            return duration > 5.0
     except Exception:
         return False
 
@@ -639,9 +639,9 @@ def upload():
     save_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(save_path)
 
+    # 形式変換
     try:
         wav_path = save_path.replace(f".{original_ext}", ".wav")
-
         if original_ext.lower() == "m4a":
             convert_m4a_to_wav(save_path, wav_path)
         elif original_ext.lower() == "webm":
@@ -649,60 +649,45 @@ def upload():
         else:
             raise ValueError("対応していないファイル形式です")
 
+        # 時間チェック（短すぎる録音は拒否）
+        if not is_valid_wav(wav_path):
+            return jsonify({'error': '録音が短すぎます。5秒以上の録音をお願いします。'}), 400
+
         normalized_path = wav_path.replace(".wav", "_normalized.wav")
         normalize_volume(wav_path, normalized_path)
-
+        
     except Exception as e:
+        print("❌ 音声変換エラー:", e)
         return jsonify({'error': '音声変換に失敗しました'}), 500
 
-    if not is_valid_wav(wav_path):
-        return jsonify({'error': '録音が短すぎます。もう一度お試しください。'}), 400
+    # ✅ 1日1回制限（fallbackでも不可）
+    already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
+        db.func.date(ScoreLog.timestamp) == today
+    ).first()
+    if already_logged:
+        return jsonify({
+            'error': '📅 本日はすでにスコアを記録済みです。明日またご利用ください。'
+        }), 400
 
+    # スコア解析（失敗したら保存しない）
     try:
         stress_score = analyze_stress_from_wav(wav_path)
-        is_fallback = False
     except Exception as e:
-        stress_score = 50  # fallback value
-        is_fallback = True
-
-    # ✅ 今日の録音回数（最大2回まで）
-    count_today = ScoreLog.query.filter_by(user_id=current_user.id).filter(
-        db.func.date(ScoreLog.timestamp) == today
-    ).count()
-
-    if count_today >= 2:
-        return jsonify({
-            'error': '📅 本日はすでに録音を2回行いました。明日またご利用ください。'
-        }), 403
-
-    existing_logs = ScoreLog.query.filter_by(user_id=current_user.id).filter(db.func.date(ScoreLog.timestamp) == today).all()
-
-    if existing_logs:
-        # 既に正式スコアが存在 → アップロード拒否
-        if any(not log.is_fallback for log in existing_logs):
-            return jsonify({
-                'error': '📅 本日はすでにスコアを記録済みです。\n再録音は1日1回までとなります。明日以降、再度ご利用ください。'
-            }), 400
-        # fallbackのみ存在 → 上書き許可
-        for log in existing_logs:
-            db.session.delete(log)
+        print("❌ スコア解析失敗:", e)
+        return jsonify({'error': '録音が短すぎるか、無音のためアップロードできません'}), 400
 
     try:
-        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score, is_fallback=is_fallback)
+        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score, is_fallback=False)
         db.session.add(new_log)
         db.session.commit()
     except Exception as e:
         return jsonify({'error': 'データベース保存失敗'}), 500
 
-    msg = '保存完了'
-    if is_fallback:
-        msg += '\n🎧 本日のスコアは参考値（仮スコア）です。\nもう一度録音して、正確なスコアを取得しますか？\n※ 本日中、1回のみ再録音可能です。'
-
     return jsonify({
-        'message': msg,
+        'message': 'スコア保存完了',
         'score': stress_score,
-        'is_fallback': is_fallback,
-        'can_retry': is_fallback and count_today < 2
+        'is_fallback': False,
+        'can_retry': False
     }), 200
 
 @app.route('/result')
