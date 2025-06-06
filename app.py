@@ -293,6 +293,37 @@ def contact():
         return redirect(url_for('contact'))
 
     return render_template('contact.html')
+
+@app.route('/api/contact', methods=['POST'])
+def api_contact():
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    message = data.get('message')
+
+    # 入力チェック
+    if not all([name, email, message]):
+        return jsonify({'error': 'すべての項目を入力してください'}), 400
+
+    try:
+        # 管理者宛にメール送信
+        msg = Message(
+            subject="【koekarte】お問い合わせ",
+            sender=app.config['MAIL_DEFAULT_SENDER'],  # = noreply@koekarte.com
+            recipients=["koekarte.info@gmail.com"],
+            body=f"""【お問い合わせ】
+名前: {name}
+メール: {email}
+
+内容:
+{message}
+"""
+        )
+        mail.send(msg)
+        return jsonify({'message': '送信成功'})
+    except Exception as e:
+        print("❌ メール送信失敗:", e)
+        return jsonify({'error': '送信に失敗しました'}), 500
       
 @app.route('/')
 def home():
