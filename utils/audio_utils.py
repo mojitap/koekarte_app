@@ -47,38 +47,42 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 
 def analyze_stress_from_wav(wav_path):
     try:
+        # 読み込み（モノラル変換）
         audio, sr = sf.read(wav_path)
         if len(audio.shape) > 1:
             audio = np.mean(audio, axis=1)
 
         duration = len(audio) / sr
-        volume_max = np.max(np.abs(audio))
-        volume_mean = np.mean(np.abs(audio))
-        volume_std = np.std(audio)
-        silence_thresh = 0.01
-        silence_ratio = np.sum(np.abs(audio) < silence_thresh) / len(audio)
-
         if duration < 1.5:
-            print("⏱ 録音が短すぎます（1.5秒未満） → スコアを50で返却")
+            print("⏱ 録音が短すぎ → スコア固定（50）")
             return 50
+
+        # 無音率計算
+        abs_audio = np.abs(audio)
+        silence_thresh = 0.01
+        silence_ratio = np.sum(abs_audio < silence_thresh) / len(abs_audio)
         if silence_ratio > 0.95:
-            print("🔇 無音率が高すぎます → スコアを50で返却")
+            print("🔇 無音が多すぎる → スコア固定（50）")
             return 50
 
-        volume_mean_scaled = np.clip(volume_mean * 2000, 0, 100)
+        # 振幅の揺らぎ
+        volume_std = np.std(abs_audio)
         volume_std_scaled = np.clip(volume_std * 1500, 0, 100)
-        silence_scaled = np.clip((1 - silence_ratio) * 100, 0, 100)
 
-        base_score = (
-            volume_mean_scaled * 0.4 +
-            volume_std_scaled * 0.3 +
-            silence_scaled * 0.3
+        # 有声音（声が出てる割合）
+        voiced_ratio = 1 - silence_ratio
+        voiced_scaled = np.clip(voiced_ratio * 100, 0, 100)
+
+        # スコア計算（声の大小に依存しない）
+        score = (
+            volume_std_scaled * 0.6 +  # 抑揚・変化
+            voiced_scaled * 0.4        # 声が出ているか
         )
 
-        score = max(30, min(95, round(base_score)))
-        print(f"📊 最終スコア: {score}")
+        score = round(np.clip(score, 30, 95))
+        print(f"📊 スコア: {score}（voiced: {voiced_ratio:.2f}, std: {volume_std:.4f}）")
         return score
 
     except Exception as e:
-        print("❌ 簡易分析失敗:", e)
-        return 50
+        print("❌ 分析エラー:", e)
+        return 50  # fallback 固定値
