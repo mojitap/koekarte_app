@@ -297,19 +297,20 @@ def contact():
 @app.route('/api/contact', methods=['POST'])
 def api_contact():
     data = request.get_json()
+    print("📩 API受信データ:", data)  # ← 追加！
+
     name = data.get('name')
     email = data.get('email')
     message = data.get('message')
 
-    # 入力チェック
     if not all([name, email, message]):
+        print("⚠️ 不完全なデータ:", data)
         return jsonify({'error': 'すべての項目を入力してください'}), 400
 
     try:
-        # 管理者宛にメール送信
         msg = Message(
             subject="【koekarte】お問い合わせ",
-            sender=app.config['MAIL_DEFAULT_SENDER'],  # = noreply@koekarte.com
+            sender=app.config['MAIL_DEFAULT_SENDER'],
             recipients=["koekarte.info@gmail.com"],
             body=f"""【お問い合わせ】
 名前: {name}
@@ -319,7 +320,9 @@ def api_contact():
 {message}
 """
         )
+        print("📤 メール送信準備完了:", msg)
         mail.send(msg)
+        print("✅ メール送信成功")
         return jsonify({'message': '送信成功'})
     except Exception as e:
         print("❌ メール送信失敗:", e)
