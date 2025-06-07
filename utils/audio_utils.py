@@ -40,8 +40,13 @@ def analyze_stress_from_wav(wav_path):
         audio = AudioSegment.from_wav(wav_path)
         samples = np.array(audio.get_array_of_samples()).astype(np.float32)
 
-        # 修正：正しい最大値で正規化（16bit PCM）
-        samples /= np.iinfo(np.int16).max
+        # 正しい正規化（bit数から推定してはいけない）
+        if audio.sample_width == 2:
+            samples /= np.iinfo(np.int16).max
+        elif audio.sample_width == 1:
+            samples = (samples - 128) / 128.0  # 8bitの場合
+        else:
+            raise ValueError("未対応のsample width: {}".format(audio.sample_width))
 
         duration = len(samples) / audio.frame_rate
         if duration < 1.5:
@@ -70,4 +75,4 @@ def analyze_stress_from_wav(wav_path):
 
     except Exception as e:
         print("❌ 分析エラー:", e)
-        return 50, True
+        return 50, True  # ← fallbackでも tupleで返す！
