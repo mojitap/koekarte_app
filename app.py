@@ -677,7 +677,12 @@ def upload():
         return jsonify({'error': '録音が短すぎるか、無音のためアップロードできません'}), 400
 
     try:
-        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score, is_fallback=is_fallback)
+        new_log = ScoreLog(
+            user_id=current_user.id,
+            timestamp=now,
+            score=stress_score,
+            is_fallback=is_fallback
+        )
         db.session.add(new_log)
         db.session.commit()
     except Exception as e:
