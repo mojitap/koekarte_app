@@ -55,7 +55,7 @@ def analyze_stress_from_wav(wav_path):
         duration = len(audio) / sr
         if duration < 1.5:
             print("⏱ 録音が短すぎ → スコア固定（50）")
-            return 50
+            return 50, True  # ← True を追加
 
         # 無音率計算
         abs_audio = np.abs(audio)
@@ -63,7 +63,7 @@ def analyze_stress_from_wav(wav_path):
         silence_ratio = np.sum(abs_audio < silence_thresh) / len(abs_audio)
         if silence_ratio > 0.95:
             print("🔇 無音が多すぎる → スコア固定（50）")
-            return 50
+            return 50, True  # ← True を追加
 
         # 振幅の揺らぎ
         volume_std = np.std(abs_audio)
@@ -81,8 +81,8 @@ def analyze_stress_from_wav(wav_path):
 
         score = round(np.clip(score, 30, 95))
         print(f"📊 スコア: {score}（voiced: {voiced_ratio:.2f}, std: {volume_std:.4f}）")
-        return score
+        return score, False  # ← 正常時は False を返す
 
     except Exception as e:
         print("❌ 分析エラー:", e)
-        return 50  # fallback 固定値
+        return 50, True  # ← エラー時も fallback とする
