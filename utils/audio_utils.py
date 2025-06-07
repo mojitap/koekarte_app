@@ -4,16 +4,10 @@ import numpy as np
 import soundfile as sf
 
 def convert_webm_to_wav(input_path, output_path):
-    """
-    WebM形式の音声ファイルをWAV形式に変換
-    """
     audio = AudioSegment.from_file(input_path, format="webm")
     audio.export(output_path, format="wav")
 
 def convert_m4a_to_wav(input_path, output_path):
-    """
-    M4A → WAV に ffmpeg を使って変換
-    """
     import subprocess
     try:
         subprocess.run([
@@ -24,18 +18,12 @@ def convert_m4a_to_wav(input_path, output_path):
         raise
 
 def normalize_volume(input_path, output_path, target_dBFS=-5.0):
-    """
-    音声ファイルの音量をターゲットdBFSに正規化
-    """
     audio = AudioSegment.from_file(input_path)
     change_in_dBFS = target_dBFS - audio.dBFS
     normalized_audio = audio.apply_gain(change_in_dBFS)
     normalized_audio.export(output_path, format="wav")
 
 def is_valid_wav(wav_path, min_duration_sec=1.5):
-    """
-    WAVファイルが正常か＆一定時間以上あるかチェック
-    """
     try:
         with wave.open(wav_path, 'rb') as wav_file:
             frames = wav_file.getnframes()
@@ -50,27 +38,16 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 def analyze_stress_from_wav(wav_path):
     try:
         audio = AudioSegment.from_wav(wav_path)
-
-        # 安全性チェック（sample_width や channel）
-        if audio.sample_width == 0:
-            print("❌ sample_widthが0 → fallback")
-            return 50, True
-        if len(audio.get_array_of_samples()) == 0:
-            print("❌ サンプル数が0 → fallback")
-            return 50, True
-
         samples = np.array(audio.get_array_of_samples()).astype(np.float32)
 
-        # 正規化（整数→-1.0～1.0範囲）
-        max_value = float(2 ** (8 * audio.sample_width - 1))
-        samples /= max_value
+        # 修正：正しい最大値で正規化（16bit PCM）
+        samples /= np.iinfo(np.int16).max
 
         duration = len(samples) / audio.frame_rate
         if duration < 1.5:
             print("⏱ 録音が短すぎ → スコア固定（50）")
             return 50, True
 
-        # 無音率
         abs_audio = np.abs(samples)
         silence_thresh = 0.01
         silence_ratio = np.sum(abs_audio < silence_thresh) / len(abs_audio)
@@ -78,13 +55,11 @@ def analyze_stress_from_wav(wav_path):
             print("🔇 無音が多すぎる → スコア固定（50）")
             return 50, True
 
-        # 特徴量計算
         volume_std = np.std(abs_audio)
         volume_std_scaled = np.clip(volume_std * 1500, 0, 100)
         voiced_ratio = 1 - silence_ratio
         voiced_scaled = np.clip(voiced_ratio * 100, 0, 100)
 
-        # スコア合成
         score = (
             volume_std_scaled * 0.6 +
             voiced_scaled * 0.4
