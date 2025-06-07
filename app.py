@@ -671,7 +671,7 @@ def upload():
 
     # スコア解析（失敗したら保存しない）
     try:
-        stress_score, is_fallback = analyze_stress_from_wav(wav_path)
+        stress_score, is_fallback = analyze_stress_from_wav(normalized_path)
     except Exception as e:
         print("❌ スコア解析失敗:", e)
         return jsonify({'error': '録音が短すぎるか、無音のためアップロードできません'}), 400
