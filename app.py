@@ -671,13 +671,13 @@ def upload():
 
     # スコア解析（失敗したら保存しない）
     try:
-        stress_score = analyze_stress_from_wav(wav_path)
+        stress_score, is_fallback = analyze_stress_from_wav(wav_path)
     except Exception as e:
         print("❌ スコア解析失敗:", e)
         return jsonify({'error': '録音が短すぎるか、無音のためアップロードできません'}), 400
 
     try:
-        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score, is_fallback=False)
+        new_log = ScoreLog(user_id=current_user.id, timestamp=now, score=stress_score, is_fallback=is_fallback)
         db.session.add(new_log)
         db.session.commit()
     except Exception as e:
@@ -686,7 +686,7 @@ def upload():
     return jsonify({
         'message': 'スコア保存完了',
         'score': stress_score,
-        'is_fallback': False,
+        'is_fallback': is_fallback,
         'can_retry': False
     }), 200
 
