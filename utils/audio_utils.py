@@ -47,42 +47,36 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 
 def analyze_stress_from_wav(wav_path):
     try:
-        # 読み込み（モノラル変換）
-        audio, sr = sf.read(wav_path)
-        if len(audio.shape) > 1:
-            audio = np.mean(audio, axis=1)
+        audio = AudioSegment.from_wav(wav_path)
+        samples = np.array(audio.get_array_of_samples()).astype(np.float32)
+        samples /= np.iinfo(audio.sample_width * 8).max  # 正規化
 
-        duration = len(audio) / sr
+        duration = len(samples) / audio.frame_rate
         if duration < 1.5:
             print("⏱ 録音が短すぎ → スコア固定（50）")
-            return 50, True  # ← True を追加
+            return 50, True
 
-        # 無音率計算
-        abs_audio = np.abs(audio)
+        # 無音率
+        abs_audio = np.abs(samples)
         silence_thresh = 0.01
         silence_ratio = np.sum(abs_audio < silence_thresh) / len(abs_audio)
         if silence_ratio > 0.95:
             print("🔇 無音が多すぎる → スコア固定（50）")
-            return 50, True  # ← True を追加
+            return 50, True
 
-        # 振幅の揺らぎ
         volume_std = np.std(abs_audio)
         volume_std_scaled = np.clip(volume_std * 1500, 0, 100)
-
-        # 有声音（声が出てる割合）
         voiced_ratio = 1 - silence_ratio
         voiced_scaled = np.clip(voiced_ratio * 100, 0, 100)
 
-        # スコア計算（声の大小に依存しない）
         score = (
-            volume_std_scaled * 0.6 +  # 抑揚・変化
-            voiced_scaled * 0.4        # 声が出ているか
+            volume_std_scaled * 0.6 +
+            voiced_scaled * 0.4
         )
-
         score = round(np.clip(score, 30, 95))
         print(f"📊 スコア: {score}（voiced: {voiced_ratio:.2f}, std: {volume_std:.4f}）")
-        return score, False  # ← 正常時は False を返す
+        return score, False
 
     except Exception as e:
         print("❌ 分析エラー:", e)
-        return 50, True  # ← エラー時も fallback とする
+        return 50, True
