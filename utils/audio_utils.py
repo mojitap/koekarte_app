@@ -16,11 +16,13 @@ def convert_m4a_to_wav(input_path, output_path):
         subprocess.run([
             'ffmpeg', '-y',
             '-i', input_path,
-            '-acodec', 'pcm_s16le',  # 明示的にリニアPCMに変換
-            '-ac', '1',              # モノラル
-            '-ar', '44100',          # サンプリング周波数
+            '-acodec', 'pcm_s16le',  # PCMでエンコードし直す（再圧縮）
+            '-ac', '1',
+            '-ar', '44100',
+            '-f', 'wav',             # フォーマットを明示
             output_path
         ], check=True)
+        print("✅ ffmpeg変換成功")
     except Exception as e:
         print("❌ M4A変換失敗:", e)
         raise
@@ -45,11 +47,12 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 
 def analyze_stress_from_wav(wav_path):
     try:
-        print("📁 ファイルパス:", wav_path)
         import os
+        print("📁 ファイルパス:", wav_path)
         print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
 
-        audio = AudioSegment.from_wav(wav_path)
+        audio = AudioSegment.from_wav(wav_path)  # ← 先に読み込み
+
         print("🔍 audio.frame_rate:", audio.frame_rate)
         print("🔍 audio.channels:", audio.channels)
         print("🔍 audio.sample_width:", audio.sample_width)
