@@ -29,9 +29,13 @@ def convert_m4a_to_wav(input_path, output_path):
 
 def normalize_volume(input_path, output_path, target_dBFS=-5.0):
     audio = AudioSegment.from_file(input_path)
-    change_in_dBFS = target_dBFS - audio.dBFS
-    normalized_audio = audio.apply_gain(change_in_dBFS)
-    normalized_audio.export(output_path, format="wav")
+    diff = target_dBFS - audio.dBFS
+    normalized = audio.apply_gain(diff)
+    normalized.export(
+        output_path,
+        format="wav",
+        parameters=["-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1"]
+    )
 
 def is_valid_wav(wav_path, min_duration_sec=1.5):
     try:
@@ -47,48 +51,34 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 
 def analyze_stress_from_wav(wav_path):
     try:
-        print("📁 ファイルパス:", wav_path)
-        print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
-        y, sr = librosa.load(wav_path, sr=44100, mono=True)
-
+        print("📁 ファイルパス:", wav_path, "サイズ:", os.path.getsize(wav_path))
+        # ---- wave モジュールでざっくり長さ確認 ----
         import wave
         with wave.open(wav_path, 'rb') as wf:
-            frames = wf.getnframes()
-            rate = wf.getframerate()
-            duration_wave = frames / float(rate)
-            print(f"👂 waveでの長さ: {duration_wave:.2f}秒, フレーム数: {frames}")
+            frames, rate = wf.getnframes(), wf.getframerate()
+            print(f"👂 wave 長さ: {frames/rate:.2f}s, frames={frames}")
 
-        y, sr = librosa.load(wav_path, sr=44100, mono=True)
-        print(f"📊 librosa読み込み完了: sr={sr}, y.size={y.size}")
-        
+        # ---- soundfile で読み込み（ここが核心） ----
+        y, sr = sf.read(wav_path, dtype='float32')   # y.shape = (N,) or (N, ch)
+        if y.ndim == 2:                              # モノラル化
+            y = y.mean(axis=1)
+        print(f"📊 sf.read → sr={sr}, samples={y.size}")
+
         if y.size == 0:
-            raise ValueError("サンプル数が0（無音または読み込みエラー）")
+            raise ValueError("読み込めたサンプルが 0")
 
-        duration = librosa.get_duration(y=y, sr=sr)
-        print(f"🎧 音声の長さ: {duration:.2f}秒")
-        
+        # ── ここからスコア計算は以前と同じ ──
+        duration = y.size / sr
         if duration < 1.5:
-            print("⚠️ 録音が短すぎます（1.5秒未満）")
-            return 50, True  # 短すぎる場合は仮スコアを返す
-
+            return 50, True
         abs_audio = np.abs(y)
         silence_ratio = np.mean(abs_audio < 0.01)
-
         if silence_ratio > 0.95:
-            print("⚠️ 無音区間が多すぎます（95%以上）")
-            return 50, True  # 無音が多い場合は仮スコアを返す
-
+            return 50, True
         volume_std = np.std(abs_audio)
-        volume_std_scaled = np.clip(volume_std * 1500, 0, 100)
-
-        voiced_ratio = 1 - silence_ratio
-        voiced_scaled = np.clip(voiced_ratio * 100, 0, 100)
-
-        score = round(np.clip(volume_std_scaled * 0.6 + voiced_scaled * 0.4, 30, 95))
-        print(f"✅ 計算されたスコア: {score}")
-
+        score = round(np.clip(volume_std*1500*0.6 + (1-silence_ratio)*100*0.4, 30, 95))
         return score, False
 
     except Exception as e:
-        print("❌ analyze error (librosa):", e)
+        print("❌ analyze error:", e)
         return 50, True
