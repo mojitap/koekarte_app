@@ -39,8 +39,11 @@ def analyze_stress_from_wav(wav_path):
     try:
         audio = AudioSegment.from_wav(wav_path)
         samples = np.array(audio.get_array_of_samples(), dtype=np.float32)
-        # 正規化
-        max_val = float(np.iinfo(audio.sample_width * 8).max)
+
+        # 正規化の修正箇所
+        bit_depth = audio.sample_width * 8
+        dtype = f'int{bit_depth}'
+        max_val = float(np.iinfo(np.dtype(dtype)).max)
         samples = (samples / max_val).astype(np.float32)
 
         duration = len(samples) / audio.frame_rate
