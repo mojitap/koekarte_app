@@ -26,6 +26,11 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
+    # ★ここを追加★  ------------------------------------
+    last_score      = db.Column(db.Integer)      # 直近スコア
+    last_recorded   = db.Column(db.DateTime)     # 直近録音日時
+    # ---------------------------------------------------
+
     # ✅ ここに追加してください！
     @property
     def is_admin(self):
