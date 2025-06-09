@@ -2,6 +2,7 @@ from pydub import AudioSegment
 import wave
 import numpy as np
 import soundfile as sf
+from scipy.io import wavfile
 
 print("📁 ファイルパス:", wav_path)
 print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
@@ -47,28 +48,24 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 
 def analyze_stress_from_wav(wav_path):
     try:
-        import os
         print("📁 ファイルパス:", wav_path)
+        import os
         print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
 
-        audio = AudioSegment.from_wav(wav_path)  # ← 先に読み込み
+        rate, samples = wavfile.read(wav_path)
+        print("🔍 sample rate:", rate)
+        print("🔍 shape:", samples.shape)
 
-        print("🔍 audio.frame_rate:", audio.frame_rate)
-        print("🔍 audio.channels:", audio.channels)
-        print("🔍 audio.sample_width:", audio.sample_width)
-        print("🔍 audio.duration_seconds:", len(audio) / 1000)
-        print("🔍 len(audio.raw_data):", len(audio.raw_data))
-
-        if len(audio.raw_data) == 0:
-            raise ValueError("raw_dataが空です")
-
-        samples = np.frombuffer(audio.raw_data, dtype=np.int16).astype(np.float32)
         if samples.size == 0:
             raise ValueError("サンプル数が0です")
 
-        samples /= np.iinfo(np.int16).max
+        if samples.ndim == 2:
+            samples = samples.mean(axis=1)
 
-        duration = len(samples) / audio.frame_rate
+        samples = samples.astype(np.float32)
+        samples /= np.max(np.abs(samples))
+
+        duration = len(samples) / rate
         if duration < 1.5:
             return 50, True
 
@@ -86,5 +83,5 @@ def analyze_stress_from_wav(wav_path):
         return score, False
 
     except Exception as e:
-        print("❌ analyze error:", e)
+        print("❌ analyze error (scipy):", e)
         return 50, True
