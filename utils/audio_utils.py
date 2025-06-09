@@ -40,25 +40,28 @@ def analyze_stress_from_wav(wav_path):
         audio = AudioSegment.from_wav(wav_path)
         samples = np.array(audio.get_array_of_samples()).astype(np.float32)
 
-        # 正しい正規化（bit数から推定してはいけない）
+        if len(samples) == 0:
+            print("❌ サンプルが空です（音声データが読み込めませんでした）")
+            return (50, True)
+
         if audio.sample_width == 2:
             samples /= np.iinfo(np.int16).max
         elif audio.sample_width == 1:
-            samples = (samples - 128) / 128.0  # 8bitの場合
+            samples = (samples - 128) / 128.0
         else:
             raise ValueError("未対応のsample width: {}".format(audio.sample_width))
 
         duration = len(samples) / audio.frame_rate
         if duration < 1.5:
             print("⏱ 録音が短すぎ → スコア固定（50）")
-            return 50, True
+            return (50, True)
 
         abs_audio = np.abs(samples)
         silence_thresh = 0.01
         silence_ratio = np.sum(abs_audio < silence_thresh) / len(abs_audio)
         if silence_ratio > 0.95:
             print("🔇 無音が多すぎる → スコア固定（50）")
-            return 50, True
+            return (50, True)
 
         volume_std = np.std(abs_audio)
         volume_std_scaled = np.clip(volume_std * 1500, 0, 100)
@@ -71,8 +74,8 @@ def analyze_stress_from_wav(wav_path):
         )
         score = round(np.clip(score, 30, 95))
         print(f"📊 スコア: {score}（voiced: {voiced_ratio:.2f}, std: {volume_std:.4f}）")
-        return score, False
+        return (score, False)
 
     except Exception as e:
         print("❌ 分析エラー:", e)
-        return 50, True  # ← fallbackでも tupleで返す！
+        return (50, True)
