@@ -51,7 +51,9 @@ def analyze_stress_from_wav(wav_path):
 
         rate, samples = wavfile.read(wav_path)
         print("🔍 sample rate:", rate)
-        print("🔍 shape:", samples.shape)
+        print("🔍 samples shape:", samples.shape)
+        print("🔍 samples dtype:", samples.dtype)
+        print("🔍 samples[:10]:", samples[:10])  # 先頭10サンプルだけ表示
 
         if samples is None or samples.size == 0:
             raise ValueError("サンプル数が0、またはNoneです")
