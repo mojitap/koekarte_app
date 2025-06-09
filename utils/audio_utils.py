@@ -3,6 +3,9 @@ import wave
 import numpy as np
 import soundfile as sf
 
+print("📁 ファイルパス:", wav_path)
+print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
+
 def convert_webm_to_wav(input_path, output_path):
     audio = AudioSegment.from_file(input_path, format="webm")
     audio.export(output_path, format="wav")
@@ -11,7 +14,12 @@ def convert_m4a_to_wav(input_path, output_path):
     import subprocess
     try:
         subprocess.run([
-            'ffmpeg', '-y', '-i', input_path, output_path
+            'ffmpeg', '-y',
+            '-i', input_path,
+            '-acodec', 'pcm_s16le',  # 明示的にリニアPCMに変換
+            '-ac', '1',              # モノラル
+            '-ar', '44100',          # サンプリング周波数
+            output_path
         ], check=True)
     except Exception as e:
         print("❌ M4A変換失敗:", e)
@@ -37,12 +45,24 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 
 def analyze_stress_from_wav(wav_path):
     try:
+        print("📁 ファイルパス:", wav_path)
+        import os
+        print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
+
         audio = AudioSegment.from_wav(wav_path)
-        
-        # ★ WAV → bytes → numpy に直接変換（安全策）
+        print("🔍 audio.frame_rate:", audio.frame_rate)
+        print("🔍 audio.channels:", audio.channels)
+        print("🔍 audio.sample_width:", audio.sample_width)
+        print("🔍 audio.duration_seconds:", len(audio) / 1000)
+        print("🔍 len(audio.raw_data):", len(audio.raw_data))
+
+        if len(audio.raw_data) == 0:
+            raise ValueError("raw_dataが空です")
+
         samples = np.frombuffer(audio.raw_data, dtype=np.int16).astype(np.float32)
-        
-        # 正規化
+        if samples.size == 0:
+            raise ValueError("サンプル数が0です")
+
         samples /= np.iinfo(np.int16).max
 
         duration = len(samples) / audio.frame_rate
