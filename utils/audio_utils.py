@@ -49,29 +49,26 @@ def analyze_stress_from_wav(wav_path):
         print("📁 ファイルパス:", wav_path)
         print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
 
-        rate, samples = wavfile.read(wav_path)
-        print("🔍 sample rate:", rate)
-        print("🔍 samples shape:", samples.shape)
-        print("🔍 samples dtype:", samples.dtype)
-        print("🔍 samples[:10]:", samples[:10])  # 先頭10サンプルだけ表示
+        audio = AudioSegment.from_wav(wav_path)
+        samples = np.array(audio.get_array_of_samples()).astype(np.float32)
+
+        print("🔍 sample count:", len(samples))
+        print("🔍 duration (ms):", len(audio))
+        print("🔍 channels:", audio.channels)
 
         if samples is None or samples.size == 0:
             raise ValueError("サンプル数が0、またはNoneです")
 
-        # モノラル化（2chなら平均）
-        if samples.ndim == 2:
-            samples = samples.mean(axis=1)
+        if audio.channels == 2:
+            samples = samples.reshape((-1, 2)).mean(axis=1)
 
-        samples = samples.astype(np.float32)
-
-        # ゼロ除算防止
         max_val = np.max(np.abs(samples))
         if max_val == 0:
             raise ValueError("最大値が0（無音）です")
 
         samples /= max_val
 
-        duration = len(samples) / rate
+        duration = len(samples) / audio.frame_rate
         if duration < 1.5:
             return 50, True
 
@@ -89,5 +86,5 @@ def analyze_stress_from_wav(wav_path):
         return score, False
 
     except Exception as e:
-        print("❌ analyze error (scipy):", e)
+        print("❌ analyze error (pydub):", e)
         return 50, True
