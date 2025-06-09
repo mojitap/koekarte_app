@@ -4,6 +4,9 @@ import soundfile as sf
 import os
 from pydub import AudioSegment
 
+# utils/audio_utils.py の先頭あたりに追加
+print("🎯 audio_utils path:", __file__)
+
 def convert_webm_to_wav(input_path, output_path):
     audio = AudioSegment.from_file(input_path, format="webm")
     audio.export(output_path, format="wav")
