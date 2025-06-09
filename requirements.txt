@@ -7,7 +7,7 @@ python-dotenv==1.0.1
 requests==2.31.0
 pyAudioAnalysis==0.3.14
 pydub==0.25.1
-numpy==1.24.4
+numpy==1.23.5  # ←推奨修正
 matplotlib==3.7.1
 eyed3==0.9.7
 scipy==1.10.1
