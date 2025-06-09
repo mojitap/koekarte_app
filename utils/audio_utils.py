@@ -2,7 +2,6 @@ import wave
 import numpy as np
 import soundfile as sf
 from scipy.io import wavfile
-from scipy.io import wavfile
 
 print("📁 ファイルパス:", wav_path)
 print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
