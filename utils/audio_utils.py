@@ -1,10 +1,9 @@
 import wave
 import numpy as np
 import soundfile as sf
+import os
 from scipy.io import wavfile
-
-print("📁 ファイルパス:", wav_path)
-print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
+from pydub import AudioSegment
 
 def convert_webm_to_wav(input_path, output_path):
     audio = AudioSegment.from_file(input_path, format="webm")
@@ -16,10 +15,10 @@ def convert_m4a_to_wav(input_path, output_path):
         subprocess.run([
             'ffmpeg', '-y',
             '-i', input_path,
-            '-acodec', 'pcm_s16le',  # PCMでエンコードし直す（再圧縮）
+            '-acodec', 'pcm_s16le',
             '-ac', '1',
             '-ar', '44100',
-            '-f', 'wav',             # フォーマットを明示
+            '-f', 'wav',
             output_path
         ], check=True)
         print("✅ ffmpeg変換成功")
@@ -48,7 +47,6 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 def analyze_stress_from_wav(wav_path):
     try:
         print("📁 ファイルパス:", wav_path)
-        import os
         print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
 
         rate, samples = wavfile.read(wav_path)
