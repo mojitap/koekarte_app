@@ -639,6 +639,15 @@ def upload():
     save_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(save_path)
 
+    try:
+        file_size = os.path.getsize(save_path)
+        print(f"📥 アップロードされたファイル: {save_path}")
+        print(f"📏 ファイルサイズ: {file_size} バイト")
+        if file_size < 5000:
+            print("⚠️ ファイルサイズが小さすぎます（録音失敗の可能性）")
+    except Exception as e:
+        print("❌ ファイルサイズ確認エラー:", e)
+
     # 形式変換
     try:
         wav_path = save_path.replace(f".{original_ext}", ".wav")
