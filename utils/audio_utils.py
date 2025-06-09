@@ -53,14 +53,21 @@ def analyze_stress_from_wav(wav_path):
         print("🔍 sample rate:", rate)
         print("🔍 shape:", samples.shape)
 
-        if samples.size == 0:
-            raise ValueError("サンプル数が0です")
+        if samples is None or samples.size == 0:
+            raise ValueError("サンプル数が0、またはNoneです")
 
+        # モノラル化（2chなら平均）
         if samples.ndim == 2:
             samples = samples.mean(axis=1)
 
         samples = samples.astype(np.float32)
-        samples /= np.max(np.abs(samples))
+
+        # ゼロ除算防止
+        max_val = np.max(np.abs(samples))
+        if max_val == 0:
+            raise ValueError("最大値が0（無音）です")
+
+        samples /= max_val
 
         duration = len(samples) / rate
         if duration < 1.5:
