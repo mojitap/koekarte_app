@@ -568,7 +568,12 @@ def upload():
             is_fallback=is_fallback
         )
         db.session.add(new_log)
+        
+        current_user.last_score     = stress_score
+        current_user.last_recorded  = now
+
         db.session.commit()
+
     except Exception as e:
         return jsonify({'error': 'データベース保存失敗'}), 500
 
