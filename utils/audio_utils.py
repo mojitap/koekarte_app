@@ -4,6 +4,7 @@ import soundfile as sf
 import os
 from scipy.io import wavfile
 from pydub import AudioSegment
+import librosa
 
 def convert_webm_to_wav(input_path, output_path):
     audio = AudioSegment.from_file(input_path, format="webm")
@@ -47,44 +48,36 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 def analyze_stress_from_wav(wav_path):
     try:
         print("📁 ファイルパス:", wav_path)
-        print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
+        y, sr = librosa.load(wav_path, sr=44100, mono=True)
 
-        audio = AudioSegment.from_wav(wav_path)
-        samples = np.array(audio.get_array_of_samples()).astype(np.float32)
+        if y.size == 0:
+            raise ValueError("サンプル数が0（無音または読み込みエラー）")
 
-        print("🔍 sample count:", len(samples))
-        print("🔍 duration (ms):", len(audio))
-        print("🔍 channels:", audio.channels)
-
-        if samples is None or samples.size == 0:
-            raise ValueError("サンプル数が0、またはNoneです")
-
-        if audio.channels == 2:
-            samples = samples.reshape((-1, 2)).mean(axis=1)
-
-        max_val = np.max(np.abs(samples))
-        if max_val == 0:
-            raise ValueError("最大値が0（無音）です")
-
-        samples /= max_val
-
-        duration = len(samples) / audio.frame_rate
+        duration = librosa.get_duration(y=y, sr=sr)
+        print(f"🎧 音声の長さ: {duration:.2f}秒")
+        
         if duration < 1.5:
-            return 50, True
+            print("⚠️ 録音が短すぎます（1.5秒未満）")
+            return 50, True  # 短すぎる場合は仮スコアを返す
 
-        abs_audio = np.abs(samples)
-        silence_ratio = float((abs_audio < 0.01).sum()) / len(abs_audio)
+        abs_audio = np.abs(y)
+        silence_ratio = np.mean(abs_audio < 0.01)
+
         if silence_ratio > 0.95:
-            return 50, True
+            print("⚠️ 無音区間が多すぎます（95%以上）")
+            return 50, True  # 無音が多い場合は仮スコアを返す
 
-        volume_std = float(np.std(abs_audio))
+        volume_std = np.std(abs_audio)
         volume_std_scaled = np.clip(volume_std * 1500, 0, 100)
+
         voiced_ratio = 1 - silence_ratio
         voiced_scaled = np.clip(voiced_ratio * 100, 0, 100)
 
         score = round(np.clip(volume_std_scaled * 0.6 + voiced_scaled * 0.4, 30, 95))
+        print(f"✅ 計算されたスコア: {score}")
+
         return score, False
 
     except Exception as e:
-        print("❌ analyze error (pydub):", e)
+        print("❌ analyze error (librosa):", e)
         return 50, True
