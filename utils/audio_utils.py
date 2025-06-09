@@ -48,8 +48,19 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
 def analyze_stress_from_wav(wav_path):
     try:
         print("📁 ファイルパス:", wav_path)
+        print("🧪 ファイルサイズ:", os.path.getsize(wav_path))
         y, sr = librosa.load(wav_path, sr=44100, mono=True)
 
+        import wave
+        with wave.open(wav_path, 'rb') as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            duration_wave = frames / float(rate)
+            print(f"👂 waveでの長さ: {duration_wave:.2f}秒, フレーム数: {frames}")
+
+        y, sr = librosa.load(wav_path, sr=44100, mono=True)
+        print(f"📊 librosa読み込み完了: sr={sr}, y.size={y.size}")
+        
         if y.size == 0:
             raise ValueError("サンプル数が0（無音または読み込みエラー）")
 
