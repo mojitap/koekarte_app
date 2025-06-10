@@ -3,6 +3,60 @@ from pydub import AudioSegment
 
 print("🎯 audio_utils path:", __file__)
 
+def light_analyze(wav_path):
+    """
+    ①〜④ の軽量解析だけを行い、
+    (score:int, is_fallback:bool) を返す
+    """
+    # WAV 読み込み
+    try:
+        y, sr = sf.read(wav_path, dtype='float32')
+    except Exception:
+        audio = AudioSegment.from_wav(wav_path)
+        y = np.array(audio.get_array_of_samples()).astype(np.float32)
+        sr = audio.frame_rate
+
+    if y.ndim == 2:
+        y = y.mean(axis=1)
+
+    duration = len(y) / sr
+    abs_y = np.abs(y)
+    if duration < 1.5 or np.mean(abs_y < 0.01) > 0.95:
+        return 50, True
+
+    # ① 声量変動
+    volume_std = float(np.std(abs_y))
+
+    # ② 精密 Voiced 率
+    intervals = librosa.effects.split(y, top_db=40)
+    voiced_dur = sum(e - s for s, e in intervals) / sr
+    voiced_ratio = voiced_dur / duration
+
+    # ③ ゼロ交差率
+    zcr = float(librosa.feature.zero_crossing_rate(
+        y, frame_length=2048, hop_length=512).mean())
+
+    # ④ ピッチ標準偏差
+    pitches, mags = librosa.piptrack(y=y, sr=sr)
+    p = pitches[mags > np.median(mags)]
+    pitch_std = float(np.std(p)) if p.size else 0.0
+
+    # スケーリング
+    vol_scaled   = np.clip(volume_std   * 1500, 0, 100)
+    voice_scaled = np.clip(voiced_ratio * 120, 0, 100)
+    zcr_scaled   = np.clip(zcr          * 5000, 0, 100)
+    pitch_scaled = np.clip(pitch_std    * 0.05, 0, 100)
+
+    # 重みづけ（例）
+    raw = (
+        vol_scaled * 0.3 +
+        voice_scaled * 0.3 +
+        zcr_scaled * 0.2 +
+        pitch_scaled * 0.2
+    )
+    score = round(np.clip(raw, 30, 95))
+    return score, False
+    
 # ────────── WAV 変換系（変更なし）──────────
 def convert_webm_to_wav(input_path, output_path):
     audio = AudioSegment.from_file(input_path, format="webm")
