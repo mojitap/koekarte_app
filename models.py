@@ -53,3 +53,10 @@ class ActionLog(db.Model):
     user_email = db.Column(db.String(150))   # 対象ユーザー
     action = db.Column(db.String(100))       # 内容（例: 有料に変更）
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ScoreFeedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    internal = db.Column(db.Float, nullable=False)
+    user_score = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
