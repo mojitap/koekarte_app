@@ -27,5 +27,5 @@ flask-migrate==4.0.5
 flask-wtf==1.2.2
 flask-admin==1.6.1
 soundfile==0.13.1
-redis==5.0.10
+redis==6.2.0
 rq==1.13.0
