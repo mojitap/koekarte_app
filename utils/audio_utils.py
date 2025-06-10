@@ -1,12 +1,9 @@
-import wave
-import numpy as np
-import soundfile as sf
-import os
+import wave, os, numpy as np, soundfile as sf, librosa
 from pydub import AudioSegment
 
-# utils/audio_utils.py の先頭あたりに追加
 print("🎯 audio_utils path:", __file__)
 
+# ────────── WAV 変換系（変更なし）──────────
 def convert_webm_to_wav(input_path, output_path):
     audio = AudioSegment.from_file(input_path, format="webm")
     audio.export(output_path, format="wav")
@@ -23,50 +20,78 @@ def convert_m4a_to_wav(input_path, output_path):
 def normalize_volume(input_path, output_path, target_dBFS=-5.0):
     audio = AudioSegment.from_file(input_path)
     diff = target_dBFS - audio.dBFS
-    normalized = audio.apply_gain(diff)
-    normalized.export(
+    audio.apply_gain(diff).export(
         output_path, format="wav",
-        parameters=["-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1"]
+        parameters=['-acodec','pcm_s16le','-ar','44100','-ac','1']
     )
 
 def is_valid_wav(wav_path, min_duration_sec=1.5):
     try:
-        with wave.open(wav_path, 'rb') as wf:
-            frames, rate = wf.getnframes(), wf.getframerate()
-            duration = frames / float(rate)
-            print(f"🎧 WAV長さ: {duration:.2f}秒")
-            return duration >= min_duration_sec
+        with wave.open(wav_path) as wf:
+            return wf.getnframes() / wf.getframerate() >= min_duration_sec
     except Exception as e:
-        print("❌ WAVファイル検証エラー:", e)
-        return False
+        print("❌ WAV検証エラー:", e); return False
 
+# ────────── ここからスコア解析 ──────────
 def analyze_stress_from_wav(wav_path):
+    """
+    return (score:int, is_fallback:bool)
+    30–95 点でスコアリング
+    """
     try:
-        print("📁 ファイルパス:", wav_path, "サイズ:", os.path.getsize(wav_path))
-
-        with wave.open(wav_path, 'rb') as wf:
-            frames, rate = wf.getnframes(), wf.getframerate()
-            print(f"👂 wave 長さ: {frames/rate:.2f}s, frames={frames}")
-
         y, sr = sf.read(wav_path, dtype='float32')
         if y.ndim == 2:
             y = y.mean(axis=1)
-        print(f"📊 sf.read → sr={sr}, samples={y.size}")
-
         if y.size == 0:
-            raise ValueError("読み込めたサンプルが 0")
+            raise ValueError("empty")
 
         duration = y.size / sr
-        if duration < 1.5:
+        abs_y    = np.abs(y)
+        silence_ratio = np.mean(abs_y < 0.01)
+
+        if duration < 1.5 or silence_ratio > 0.95:
             return 50, True
 
-        abs_audio = np.abs(y)
-        silence_ratio = np.mean(abs_audio < 0.01)
-        if silence_ratio > 0.95:
-            return 50, True
+        # ---------- ① 声量変動 ----------
+        volume_std = np.std(abs_y)
 
-        volume_std = np.std(abs_audio)
-        score = round(np.clip(volume_std*1500*0.6 + (1-silence_ratio)*100*0.4, 30, 95))
+        # ---------- ② 精密 Voiced 率 ----------
+        intervals = librosa.effects.split(y, top_db=40)
+        voiced_dur = sum(e - s for s, e in intervals) / sr
+        voiced_ratio = voiced_dur / duration
+
+        # ---------- ③ ゼロ交差率 ----------
+        zcr = librosa.feature.zero_crossing_rate(y, frame_length=2048, hop_length=512).mean()
+
+        # ---------- ④ ピッチ標準偏差 ----------
+        pitches, mags = librosa.piptrack(y=y, sr=sr)
+        p = pitches[mags > np.median(mags)]
+        pitch_std = np.std(p) if p.size else 0.0
+
+        # ---------- ⑤ テンポ（音節/秒近似） ----------
+        onset_frames = librosa.onset.onset_detect(y=y, sr=sr, units='frames')
+        onset_times  = librosa.frames_to_time(onset_frames, sr=sr)
+        if len(onset_times) > 1:
+            tempo_val = len(onset_times) / (onset_times[-1] - onset_times[0])
+        else:
+            tempo_val = 0.0
+
+        # ============ スケーリング 0-100 ============
+        vol_scaled   = np.clip(volume_std   * 1500, 0, 100)
+        voice_scaled = np.clip(voiced_ratio * 120, 0, 100)
+        zcr_scaled   = np.clip(zcr          * 5000, 0, 100)
+        pitch_scaled = np.clip(pitch_std    * 0.05, 0, 100)
+        tempo_scaled = 100 - np.clip(abs(tempo_val - 5) * 20, 0, 100)  # 5 音節/秒を中心に
+
+        # ============ 重みづけ ============
+        score_raw = (
+              vol_scaled   * 0.25
+            + voice_scaled * 0.25
+            + zcr_scaled   * 0.15
+            + pitch_scaled * 0.15
+            + tempo_scaled * 0.20
+        )
+        score = round(np.clip(score_raw, 30, 95))   # 上限は 95 のまま
         return score, False
 
     except Exception as e:
