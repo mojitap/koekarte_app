@@ -1,7 +1,7 @@
 # tasks.py
 from redis import Redis
 from rq import Queue
-from utils.audio_utils import detailed_analyze  # ①〜⑤全部版
+from utils.audio_utils import analyze_stress_from_wav as detailed_analyze
 
 redis_conn = Redis()        # Redisの接続設定に合わせて
 q = Queue(connection=redis_conn)
