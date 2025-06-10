@@ -550,38 +550,17 @@ def upload():
             'error': '📅 本日はすでにスコアを記録済みです。明日またご利用ください。'
         }), 400
 
-    # スコア解析（失敗したら保存しない）
-    try:
-        result = analyze_stress_from_wav(normalized_path)
-        if not isinstance(result, tuple) or len(result) != 2:
-            raise ValueError("スコア関数が予期せぬ形式を返しました")
-        stress_score, is_fallback = result
-    except Exception as e:
-        print("❌ スコア解析失敗:", e)
-        return jsonify({'error': '録音が短すぎるか、無音のためアップロードできません'}), 400
+    # ── 軽量解析（①〜④）の呼び出し ──
+    quick_score = light_analyze(normalized_path)
 
-    try:
-        new_log = ScoreLog(
-            user_id=current_user.id,
-            timestamp=now,
-            score=stress_score,
-            is_fallback=is_fallback
-        )
-        db.session.add(new_log)
-        
-        current_user.last_score     = stress_score
-        current_user.last_recorded  = now
+    # ── 詳細解析ジョブをキューに登録 ──
+    from tasks import enqueue_detailed_analysis
+    job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
 
-        db.session.commit()
-
-    except Exception as e:
-        return jsonify({'error': 'データベース保存失敗'}), 500
-
+    # ── 速報スコアを即返却 ──
     return jsonify({
-        'message': 'スコア保存完了',
-        'score': stress_score,
-        'is_fallback': is_fallback,
-        'can_retry': False
+        'quick_score': quick_score,
+        'job_id': job_id
     }), 200
 
 @app.route('/result')
@@ -1079,6 +1058,19 @@ def create_admin():
     db.session.add(user)
     db.session.commit()
     return '管理者ユーザーを作成しました'
+
+@app.route('/api/feedback', methods=['POST'])
+@login_required
+def feedback():
+    data = request.get_json()
+    fb = ScoreFeedback(
+      user_id=current_user.id,
+      internal=data['internal'],
+      user_score=data['user']
+    )
+    db.session.add(fb)
+    db.session.commit()
+    return jsonify({'ok': True}), 200
 
 @app.route('/admin/upgrade-db')
 def upgrade_db():
