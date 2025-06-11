@@ -1071,16 +1071,25 @@ def create_admin():
 
 @app.route('/api/feedback', methods=['POST'])
 @login_required
-def feedback():
-    data = request.get_json()
-    fb = ScoreFeedback(
-      user_id=current_user.id,
-      internal=data['internal'],
-      user_score=data['user']
-    )
-    db.session.add(fb)
-    db.session.commit()
-    return jsonify({'ok': True}), 200
+def api_feedback():
+    data = request.get_json() or {}
+    internal = data.get('internal')
+    user_score = data.get('user')
+    if internal is None or user_score is None:
+        return jsonify({'error': 'invalid payload'}), 400
+
+    try:
+        fb = ScoreFeedback(
+            user_id=current_user.id,
+            internal=internal,
+            user_score=user_score
+        )
+        db.session.add(fb)
+        db.session.commit()
+        return jsonify({'message': 'OK'}), 200
+    except Exception as e:
+        print("❌ feedback error:", e)
+        return jsonify({'error': 'server error'}), 500
 
 @app.route('/admin/upgrade-db')
 def upgrade_db():
