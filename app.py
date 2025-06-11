@@ -16,7 +16,7 @@ from io import StringIO
 from scipy.signal import butter, lfilter
 from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
-from models import db, User, ScoreLog
+from models import db, User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 
