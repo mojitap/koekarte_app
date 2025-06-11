@@ -553,6 +553,16 @@ def upload():
     # ── 軽量解析（①〜④）の呼び出し ──
     quick_score = light_analyze(normalized_path)
 
+    # ── 速報スコアを DB に仮保存 ──
+    fallback_log = ScoreLog(
+        user_id=current_user.id,
+        timestamp=now,
+        score=quick_score,
+        is_fallback=True
+    )
+    db.session.add(fallback_log)
+    db.session.commit()
+    
     # ── 詳細解析ジョブをキューに登録 ──
     from tasks import enqueue_detailed_analysis
     job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
