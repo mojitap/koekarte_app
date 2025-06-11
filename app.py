@@ -550,24 +550,24 @@ def upload():
             'error': '📅 本日はすでにスコアを記録済みです。明日またご利用ください。'
         }), 400
 
-    # ── 軽量解析（①〜④）の呼び出し ──
-    quick_score = light_analyze(normalized_path)
+    # 軽量解析（①〜③）の呼び出し
+    quick_score, is_fallback = light_analyze(normalized_path)
 
-    # ── 速報スコアを DB に仮保存 ──
+    # 速報スコアを DB に仮保存
     fallback_log = ScoreLog(
         user_id=current_user.id,
         timestamp=now,
         score=quick_score,
-        is_fallback=True
+        is_fallback=is_fallback
     )
     db.session.add(fallback_log)
     db.session.commit()
-    
-    # ── 詳細解析ジョブをキューに登録 ──
+
+    # 詳細解析ジョブをキューに登録
     from tasks import enqueue_detailed_analysis
     job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
 
-    # ── 速報スコアを即返却 ──
+    # 速報スコアを即返却
     return jsonify({
         'quick_score': quick_score,
         'job_id': job_id
