@@ -671,7 +671,7 @@ def edit_profile():
         current_user.prefecture = request.form['prefecture']
         db.session.commit()
         flash("プロフィールを更新しました")
-        return jsonify({'message': '保存完了', 'score': stress_score})
+        return jsonify({'message': '保存完了'})
 
     return render_template('edit_profile.html', user=current_user)
     
