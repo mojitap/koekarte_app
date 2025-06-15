@@ -1012,6 +1012,8 @@ def api_profile():
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
+        'baseline': baseline,
+        'score_deviation': diff
     })
     
 try:
