@@ -30,10 +30,11 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 app = Flask(__name__)
 
 @app.after_request
-def after_request(response):
+def log_cookies(response):
     print("📦 Response Headers:")
     for k, v in response.headers.items():
-        print(f"{k}: {v}")
+        if 'Set-Cookie' in k:
+            print(f"{k}: {v}")
     return response
 
 # セッションCookie設定
@@ -972,6 +973,7 @@ ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
 @app.route('/api/profile')
 def api_profile():
+    print(f"📡 /api/profile: is_authenticated = {current_user.is_authenticated}")
     if not current_user.is_authenticated:
         return jsonify({
             'error': '未ログイン状態です',
