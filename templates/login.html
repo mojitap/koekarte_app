@@ -1,9 +1,12 @@
+<input type="text" name="username" required style="width: 100%; box-sizing: border-box;">
+<input type="password" name="password" required style="width: 100%; box-sizing: border-box;">
+
 {% extends "base.html" %}
 
 {% block title %}ログイン - コエカルテ{% endblock %}
 
 {% block content %}
-  <div class="dashboard-card">
+  <div class="login-container" style="max-width: 360px; margin: auto; padding: 20px;">
     <h1>ログイン</h1>
     <form method="POST">
       <p>ユーザー名またはメールアドレス:<br><input type="text" name="username" required></p>
