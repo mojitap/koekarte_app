@@ -19,7 +19,6 @@ from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
-from utils.score_utils import calculate_baseline_and_diff
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -998,8 +997,6 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
-    baseline, diff = calculate_baseline_and_diff(current_user.id)
-
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
@@ -1012,8 +1009,6 @@ def api_profile():
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
-        'baseline': baseline,
-        'score_deviation': diff
     })
     
 try:
