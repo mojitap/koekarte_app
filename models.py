@@ -31,10 +31,15 @@ class User(UserMixin, db.Model):
     last_recorded   = db.Column(db.DateTime)     # 直近録音日時
     # ---------------------------------------------------
 
-    # ✅ ここに追加してください！
+    # ✅ 管理者判定
     @property
     def is_admin(self):
         return self.email == 'ta714kadvance@gmail.com'
+
+    # ✅ Flask-Loginのために必要（Trueを返さないとセッションが無効になる）
+    @property
+    def is_active(self):
+        return True
 
 class ScoreLog(db.Model):
     __tablename__ = 'score_log'
