@@ -74,6 +74,7 @@ CORS(app, origins=[
 ], supports_credentials=True)
 
 login_manager = LoginManager()
+login_manager.login_view = 'login'
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
@@ -263,10 +264,6 @@ def login():
         if not check_password_hash(user.password, password):
             print("❌ パスワード不一致")
             return 'ログイン失敗'
-
-        if not user.is_verified:
-            print("⚠️ 未確認アカウント")
-            return 'メール確認が必要です'
 
         login_user(user)
         session.permanent = True
