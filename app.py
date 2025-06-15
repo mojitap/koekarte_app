@@ -29,6 +29,13 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 # Flaskアプリ作成
 app = Flask(__name__)
 
+@app.after_request
+def after_request(response):
+    print("📦 Response Headers:")
+    for k, v in response.headers.items():
+        print(f"{k}: {v}")
+    return response
+
 # セッションCookie設定
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
@@ -70,6 +77,7 @@ mail = Mail(app)
 # CORS設定（セッション対応）
 CORS(app, origins=[
     "https://koekarte.com",                    # ← Webからのアクセス
+    "https://koekarte-app.app",               # アプリ（EASビルド後）
     "https://koekarte-app.mobile.app",         # ← React Native EASビルド後のドメイン（仮）
 ], supports_credentials=True)
 
