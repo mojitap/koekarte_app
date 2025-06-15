@@ -36,6 +36,10 @@ class User(UserMixin, db.Model):
     def is_admin(self):
         return self.email == 'ta714kadvance@gmail.com'
 
+    @property
+    def is_active(self):
+        return True
+
 class ScoreLog(db.Model):
     __tablename__ = 'score_log'
     __table_args__ = {'extend_existing': True}
