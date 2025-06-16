@@ -4,6 +4,7 @@ import numpy as np
 import soundfile as sf
 from pydub import AudioSegment
 import librosa
+import random
 
 print("🎯 audio_utils path:", __file__)
 
@@ -43,6 +44,8 @@ def light_analyze(wav_path):
 
     raw = vol_s * 0.4 + voice_s * 0.4 + zcr_s * 0.2
     score = round(np.clip(raw, 30, 95))
+    score += random.choice([-2, -1, 0, 1, 2])
+    score = np.clip(score, 30, 95)
     return score, False
 
 # ────────── WAV 変換系 ──────────
@@ -122,6 +125,8 @@ def analyze_stress_from_wav(wav_path):
         raw = (vol_scaled*0.25 + voice_scaled*0.25 +
                zcr_scaled*0.15 + pitch_scaled*0.15 + tempo_scaled*0.20)
         score = round(np.clip(raw,30,95))
+        score += random.choice([-2, -1, 0, 1, 2])
+        score = np.clip(score, 30, 95)
         return score, False
 
     except Exception as e:
