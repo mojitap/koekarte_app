@@ -1011,26 +1011,6 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
-    # 基準スコア（過去5件の平均）
-    past_5 = (
-        ScoreLog.query
-        .filter_by(user_id=current_user.id)
-        .order_by(ScoreLog.timestamp.desc())
-        .limit(5)
-        .all()
-    )
-    baseline_score = (
-        round(sum(log.score for log in past_5) / len(past_5))
-        if past_5 else None
-    )
-
-    # スコア差分（今日 - 基準）
-    score_deviation = (
-        today_score_value - baseline_score
-        if today_score_value is not None and baseline_score is not None
-        else None
-    )
-
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
@@ -1043,10 +1023,8 @@ def api_profile():
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
-        'baseline': baseline_score,
-        'score_deviation': score_deviation,
     })
-
+    
 try:
     with app.app_context():
         time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
