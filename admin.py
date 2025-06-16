@@ -11,6 +11,7 @@ ADMIN_EMAIL = 'ta714kadvance@gmail.com'
 class MyAdminIndexView(AdminIndexView):
     @expose('/')
     def index(self):
+        print("👤 admin access:", current_user.is_authenticated, current_user.email)
         if not current_user.is_authenticated or not current_user.is_admin:
             return redirect(url_for('login'))
         return super().index()
