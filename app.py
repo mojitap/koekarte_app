@@ -29,14 +29,6 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 # Flaskアプリ作成
 app = Flask(__name__)
 
-@app.after_request
-def log_cookies(response):
-    print("📦 Response Headers:")
-    for k, v in response.headers.items():
-        if 'Set-Cookie' in k:
-            print(f"{k}: {v}")
-    return response
-
 # セッションCookie設定
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
@@ -78,12 +70,10 @@ mail = Mail(app)
 # CORS設定（セッション対応）
 CORS(app, origins=[
     "https://koekarte.com",                    # ← Webからのアクセス
-    "https://koekarte-app.app",               # アプリ（EASビルド後）
     "https://koekarte-app.mobile.app",         # ← React Native EASビルド後のドメイン（仮）
 ], supports_credentials=True)
 
 login_manager = LoginManager()
-login_manager.login_view = 'login'
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
@@ -249,10 +239,8 @@ def register():
         )
         db.session.add(user)
         db.session.commit()
-        # send_confirmation_email(email, username) ← ★削除
-        flash('登録が完了しました。ようこそ！', 'success')
-        login_user(user)  # ← これを忘れず追加（ログイン状態にする）
-        return redirect(url_for('dashboard'))
+        send_confirmation_email(email, username)
+        return '確認メールを送信しました'
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -273,6 +261,10 @@ def login():
         if not check_password_hash(user.password, password):
             print("❌ パスワード不一致")
             return 'ログイン失敗'
+
+        if not user.is_verified:
+            print("⚠️ 未確認アカウント")
+            return 'メール確認が必要です'
 
         login_user(user)
         session.permanent = True
@@ -508,7 +500,7 @@ def upload():
     if 'audio_data' not in request.files:
         return jsonify({'error': '音声データが見つかりません'}), 400
 
-    file = list(request.files.values())[0]
+    file = request.files['audio_data']
     if file.filename == '':
         return jsonify({'error': 'ファイルが選択されていません'}), 400
 
@@ -668,25 +660,20 @@ def privacy():
 def legal():
     return render_template('legal.html')
 
-@app.route("/edit_profile", methods=["GET", "POST"])
+@app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
-    if request.method == "POST":
-        current_user.username = request.form.get("username")
-        current_user.gender = request.form.get("gender")
-        current_user.occupation = request.form.get("occupation")
-        current_user.prefecture = request.form.get("prefecture")
-        birth_str = request.form.get("birthdate")
-        if birth_str:
-            try:
-                current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
-            except:
-                pass
+    if request.method == 'POST':
+        current_user.username = request.form['username']
+        current_user.birthdate = request.form['birthdate']
+        current_user.gender = request.form['gender']
+        current_user.occupation = request.form['occupation']
+        current_user.prefecture = request.form['prefecture']
         db.session.commit()
-        flash("プロフィールを更新しました", "success")
-        return redirect(url_for("dashboard"))
+        flash("プロフィールを更新しました")
+        return jsonify({'message': '保存完了'})
 
-    return render_template("edit_profile.html", user=current_user)
+    return render_template('edit_profile.html', user=current_user)
     
 @app.route('/api/register', methods=['POST'])
 def api_register():
@@ -973,7 +960,6 @@ ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
 @app.route('/api/profile')
 def api_profile():
-    print(f"📡 /api/profile: is_authenticated = {current_user.is_authenticated}")
     if not current_user.is_authenticated:
         return jsonify({
             'error': '未ログイン状態です',
