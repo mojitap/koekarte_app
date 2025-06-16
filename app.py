@@ -508,7 +508,7 @@ def upload():
     if 'audio_data' not in request.files:
         return jsonify({'error': '音声データが見つかりません'}), 400
 
-    file = request.files['audio_data']
+    file = list(request.files.values())[0]
     if file.filename == '':
         return jsonify({'error': 'ファイルが選択されていません'}), 400
 
