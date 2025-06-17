@@ -26,7 +26,7 @@ def light_analyze(wav_path):
     duration = len(y) / sr
     abs_y = np.abs(y)
     if duration < 1.5 or np.mean(abs_y < 0.01) > 0.95:
-        return 50, True
+        return 40, True
 
     # ① 声量変動（振幅STD）
     vol_std = float(np.std(abs_y))
@@ -37,8 +37,8 @@ def light_analyze(wav_path):
     zcr = float(zero_crossings) / len(y)
 
     # スケーリング 0–100
-    vol_s = np.clip(vol_std * 1500, 0, 100)
-    voice_s = np.clip(voiced_ratio * 120, 0, 100)
+    vol_s = np.clip(vol_std * 1000, 0, 100)
+    voice_s = np.clip(voiced_ratio * 100, 0, 100)
     zcr_s = np.clip(zcr * 100, 0, 100)
 
     raw = vol_s * 0.4 + voice_s * 0.4 + zcr_s * 0.2
@@ -92,7 +92,7 @@ def analyze_stress_from_wav(wav_path):
         duration = len(y) / sr
         abs_y = np.abs(y)
         if duration < 1.5 or np.mean(abs_y < 0.01) > 0.95:
-            return 50, True
+            return 40, True
 
         # ① 声量変動
         volume_std = float(np.std(abs_y))
