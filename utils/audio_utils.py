@@ -119,8 +119,8 @@ def analyze_stress_from_wav(wav_path):
         pitch_scaled = np.clip(pitch_std * 0.07, 0, 100)
         tempo_scaled = 100 - np.clip(abs(tempo_val - 5) * 20, 0, 100)
 
-        raw = (vol_scaled * 0.25 + voice_scaled * 0.25 +
-               zcr_scaled * 0.15 + pitch_scaled * 0.15 + tempo_scaled * 0.20)
+        raw = (vol_scaled * 0.20 + voice_scaled * 0.20 +
+               zcr_scaled * 0.25 + pitch_scaled * 0.25 + tempo_scaled * 0.10)
         score = round(np.clip(raw, 30, 95))
 
         print(f"📊 スコア構成: vol={vol_scaled:.1f}, voice={voice_scaled:.1f}, "
