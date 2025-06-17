@@ -110,7 +110,7 @@ uploadButton.addEventListener('click', async () => {
     const formData = new FormData();
     formData.append('audio_data', blob, 'recording.webm');
 
-    const response = await fetch('/upload', {
+    const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
     });
