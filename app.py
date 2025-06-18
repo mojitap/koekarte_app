@@ -239,6 +239,7 @@ def register():
         db.session.add(user)
         db.session.commit()
         login_user(user)
+        session.permanent = True
         return redirect(url_for('dashboard'))
 
     return render_template('register.html')
@@ -735,6 +736,7 @@ def api_register():
 
         # 6) セッション登録＆ログ出力
         login_user(user)
+        session.permanent = True
         app.logger.debug(f"🔷 login_user() 後の session: {dict(session)}")
 
         # 7) レスポンス生成（Set-Cookie ヘッダ有無確認用）
@@ -769,6 +771,7 @@ def api_login():
             return jsonify({'error': 'メールアドレスまたはパスワードが間違っています'}), 401
 
         login_user(user)
+        session.permanent = True
 
         return jsonify({
             'message': 'ログイン成功',
