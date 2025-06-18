@@ -217,38 +217,49 @@ def confirm_email(token):
         db.session.commit()
     return redirect(url_for('login'))
 
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    name = request.form.get('name')
+    if request.method == 'GET':
+        return render_template('register.html')
+
+    # POSTの場合は以下の処理
+    name = request.form.get('username')  # ← HTMLフォームでは name="username"
     email = request.form.get('email')
     password = request.form.get('password')
-    birthdate_str = request.form.get('birthdate')
-    
-    # 入力バリデーション
+
+    # 生年月日を組み立てる
+    try:
+        year = int(request.form.get('birth_year'))
+        month = int(request.form.get('birth_month'))
+        day = int(request.form.get('birth_day'))
+        birthdate = date(year, month, day)
+    except Exception:
+        birthdate = None
+
+    prefecture = request.form.get('prefecture')
+    gender = request.form.get('gender')
+    occupation = request.form.get('occupation')
+
+    # バリデーションなど（省略可能）
     if not all([name, email, password]):
-        flash("全ての項目を入力してください")
+        flash("必須項目を入力してください")
         return redirect(url_for('register'))
 
-    birthdate = None
-    if birthdate_str:
-        try:
-            birthdate = datetime.strptime(birthdate_str, '%Y-%m-%d').date()
-        except ValueError:
-            flash("生年月日の形式が正しくありません")
-            return redirect(url_for('register'))
-
-    # メールの重複チェック（推奨）
+    # 既存チェック
     existing_user = User.query.filter_by(email=email).first()
     if existing_user:
-        flash("このメールアドレスは既に登録されています")
+        flash("すでに登録されています")
         return redirect(url_for('register'))
 
     try:
         new_user = User(
-            name=name,
+            username=name,
             email=email,
             password=generate_password_hash(password),
-            birthdate=birthdate
+            birthdate=birthdate,
+            prefecture=prefecture,
+            gender=gender,
+            occupation=occupation
         )
         db.session.add(new_user)
         db.session.commit()
@@ -256,8 +267,8 @@ def register():
         return redirect(url_for('dashboard'))
     except Exception as e:
         db.session.rollback()
-        print("❌ 登録時のエラー:", e)
-        flash("登録中にエラーが発生しました")
+        print("❌ 登録エラー:", e)
+        flash("登録に失敗しました")
         return redirect(url_for('register'))
 
 @app.route('/login', methods=['GET', 'POST'])
