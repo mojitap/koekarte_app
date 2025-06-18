@@ -3,7 +3,6 @@ import numpy as np
 import stripe
 import python_speech_features
 import librosa
-import datetime
 from datetime import datetime, date, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -219,58 +218,30 @@ def confirm_email(token):
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == 'GET':
-        return render_template('register.html')
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = generate_password_hash(request.form['password'])
+        birthdate = request.form.get('birthdate')
+        gender = request.form.get('gender')
+        occupation = request.form.get('occupation')
+        prefecture = request.form.get('prefecture')
 
-    # POSTの場合は以下の処理
-    name = request.form.get('username')  # ← HTMLフォームでは name="username"
-    email = request.form.get('email')
-    password = request.form.get('password')
+        # ✅ 既にメール or ユーザー名が使われていたら弾く
+        if User.query.filter_by(email=email).first():
+            flash('このメールアドレスは既に登録されています。')
+            return redirect(url_for('register'))
 
-    # 生年月日を組み立てる
-    try:
-        year = int(request.form.get('birth_year'))
-        month = int(request.form.get('birth_month'))
-        day = int(request.form.get('birth_day'))
-        birthdate = date(year, month, day)
-    except Exception:
-        birthdate = None
-
-    prefecture = request.form.get('prefecture')
-    gender = request.form.get('gender')
-    occupation = request.form.get('occupation')
-
-    # バリデーションなど（省略可能）
-    if not all([name, email, password]):
-        flash("必須項目を入力してください")
-        return redirect(url_for('register'))
-
-    # 既存チェック
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        flash("すでに登録されています")
-        return redirect(url_for('register'))
-
-    try:
-        new_user = User(
-            username=name,
-            email=email,
-            password=generate_password_hash(password),
-            birthdate=birthdate,
-            prefecture=prefecture,
-            gender=gender,
-            occupation=occupation
+        user = User(
+            username=username, email=email, password=password,
+            birthdate=birthdate, gender=gender,
+            occupation=occupation, prefecture=prefecture
         )
-        db.session.add(new_user)
+        db.session.add(user)
         db.session.commit()
-        login_user(new_user, remember=True)
-        session.permanent = True  
-        return redirect(url_for('dashboard'))
-    except Exception as e:
-        db.session.rollback()
-        print("❌ 登録エラー:", e)
-        flash("登録に失敗しました")
-        return redirect(url_for('register'))
+        send_confirmation_email(email, username)
+        return '確認メールを送信しました'
+    return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
