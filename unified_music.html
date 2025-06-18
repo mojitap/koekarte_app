@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}音源プレイヤー - コエカルテ{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px; margin: 0 auto;">
+  <h2>🎧 音源プレイヤー</h2>
+  <p>無料・有料音源をこちらからご利用いただけます。</p>
+
+  <h3>🔓 無料音源</h3>
+  <ul>
+    <li><p>ポジティブ</p>
+      <audio controls><source src="{{ url_for('static', filename='free/free-positive.mp3') }}"></audio></li>
+    <li><p>マインドフルネス</p>
+      <audio controls><source src="{{ url_for('static', filename='free/free-mindfulness.mp3') }}"></audio></li>
+    <li><p>リラクゼーション</p>
+      <audio controls><source src="{{ url_for('static', filename='free/free-relaxation.mp3') }}"></audio></li>
+  </ul>
+
+  <h3 style="margin-top: 40px;">🎟 プレミアム音源</h3>
+
+  {% if can_play_premium %}
+    <p style="color: green;">✅ 無料期間中 / 有料プランのため、すべての音源を再生できます。</p>
+    {% set categories = {'ポジティブ': [], 'リラックス': [], 'マインドフルネス': []} %}
+    {% for track in tracks %}
+      {% if 'positive' in track.filename %}
+        {% set _ = categories['ポジティブ'].append(track) %}
+      {% elif 'relax' in track.filename %}
+        {% set _ = categories['リラックス'].append(track) %}
+      {% elif 'mindfulness' in track.filename %}
+        {% set _ = categories['マインドフルネス'].append(track) %}
+      {% endif %}
+    {% endfor %}
+
+    {% for label, group in categories.items() %}
+      <h4 class="toggle-header">🎶 {{ label }}系</h4>
+      <div class="toggle-content">
+        <ul style="list-style: none; padding: 0;">
+          {% for track in group %}
+          <li style="margin-bottom: 20px;">
+            <p>{{ track.display }}</p>
+            <audio controls style="width: 100%;">
+              <source src="{{ url_for('static', filename='paid/' + track.filename) }}" type="audio/mpeg">
+            </audio>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color: #a00;">
+      ⚠️ 無料期間は終了しました。<br>
+      プレミアム音源をご利用いただくには、有料プランへの登録が必要です。
+    </p>
+    <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ登録する</a>
+  {% endif %}
+
+  <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.toggle-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const next = header.nextElementSibling;
+      next.style.display = next.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+});
+</script>
+
+<style>
+.toggle-header {
+  cursor: pointer;
+  background-color: #f5f5f5;
+  padding: 8px;
+  border-radius: 5px;
+  margin-top: 15px;
+}
+.toggle-content {
+  display: none;
+}
+</style>
+{% endblock %}
