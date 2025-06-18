@@ -22,7 +22,7 @@
       {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
       {% if remaining_days > 0 %}
         <div style="padding: 12px; background-color: #f0fff0; border-left: 4px solid #28a745; margin-bottom: 16px;">
-          ✅ 無料期間中 / 有料プラン、すべての音源をご利用いただけます（あと<strong>{{ remaining_days }}</strong>日）
+          ✅ 現在すべての音源をご利用いただけます（あと<strong>{{ remaining_days }}</strong>日）
         </div>
       {% else %}
         <div style="padding: 12px; background-color: #fff0f0; border-left: 4px solid #dc3545; margin-bottom: 16px;">
