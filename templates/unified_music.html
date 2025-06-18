@@ -46,19 +46,21 @@
         </ul>
       </div>
     {% endfor %}
-  {% if not current_user.is_paid and current_user.created_at %}
-    {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
-    {% if remaining_days > 0 %}
-      <div style="padding: 12px; background-color: #f0fff0; border-left: 4px solid #28a745; margin-bottom: 16px;">
-        ✅ 無料期間中のため、すべての音源をご利用いただけます（あと<strong>{{ remaining_days }}</strong>日）
-      </div>
-    {% else %}
-      <div style="padding: 12px; background-color: #fff0f0; border-left: 4px solid #dc3545; margin-bottom: 16px;">
-        ⚠️ 無料期間は終了しました。<br>
-        プレミアム音源をご利用いただくには、有料プランへの登録が必要です。
-        <br><br>
-        <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ登録する</a>
-      </div>
+
+    {% if not current_user.is_paid and current_user.created_at %}
+      {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
+      {% if remaining_days > 0 %}
+        <div style="padding: 12px; background-color: #f0fff0; border-left: 4px solid #28a745; margin-bottom: 16px;">
+          ✅ 無料期間中のため、すべての音源をご利用いただけます（あと<strong>{{ remaining_days }}</strong>日）
+        </div>
+      {% else %}
+        <div style="padding: 12px; background-color: #fff0f0; border-left: 4px solid #dc3545; margin-bottom: 16px;">
+          ⚠️ 無料期間は終了しました。<br>
+          プレミアム音源をご利用いただくには、有料プランへの登録が必要です。
+          <br><br>
+          <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ登録する</a>
+        </div>
+      {% endif %}
     {% endif %}
   {% endif %}
 
