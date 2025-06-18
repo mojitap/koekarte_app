@@ -35,7 +35,7 @@ app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
 app.config['REMEMBER_COOKIE_SECURE'] = IS_PRODUCTION
-app.config['SESSION_COOKIE_DOMAIN'] = None
+app.config['SESSION_COOKIE_DOMAIN'] = "koekarte.com"
 
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
@@ -692,25 +692,16 @@ def edit_profile():
 @app.route('/api/register', methods=['POST'])
 def api_register():
     try:
-        # 1) リクエストボディ受信＆ログ
-        all_emails = [u.email for u in User.query.all()]
-        app.logger.debug(f"🗂️ 現在のユーザー（count={len(all_emails)}）: {all_emails}")
-
         data = request.get_json()
-        app.logger.debug(f"🔷 /api/register 受信データ: {data!r}")
-
-        # 2) 必須チェック
         email = data.get('email')
         username = data.get('username')
         password = data.get('password')
         if not email or not username or not password:
             return jsonify({'error': 'メール・名前・パスワードは必須です'}), 400
 
-        # 3) 重複チェック
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'このメールアドレスは既に使われています'}), 400
 
-        # 4) オプション情報のパース
         birthdate = None
         birthdate_str = data.get('birthdate')
         if birthdate_str:
@@ -719,7 +710,6 @@ def api_register():
         occupation = data.get('occupation')
         prefecture = data.get('prefecture')
 
-        # 5) 新規ユーザー作成
         hashed_pw = generate_password_hash(password)
         user = User(
             email=email,
@@ -734,21 +724,18 @@ def api_register():
         db.session.add(user)
         db.session.commit()
 
-        # 6) セッション登録＆ログ出力
         login_user(user)
         session.permanent = True
         app.logger.debug(f"🔷 login_user() 後の session: {dict(session)}")
 
-        # 7) レスポンス生成（Set-Cookie ヘッダ有無確認用）
-        resp = make_response(jsonify({
+        # ✅ 正しいAPIレスポンスを返す
+        return jsonify({
+            "message": "登録成功",
             "email": user.email,
             "created_at": user.created_at.isoformat(),
             "is_paid": user.is_paid,
             "is_free_extended": bool(user.is_free_extended),
-        }), 200)
-        app.logger.debug(f"🔷 レスポンスヘッダ: {dict(resp.headers)}")
-
-        return resp
+        }), 200
 
     except Exception as e:
         app.logger.error("❌ /api/register 内部エラー:", exc_info=e)
