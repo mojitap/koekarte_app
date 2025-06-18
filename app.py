@@ -1051,6 +1051,7 @@ def api_scores():
     scores = [{
         'date': log.timestamp.strftime('%Y-%m-%d'),
         'score': log.score
+        'is_fallback': log.is_fallback
     } for log in logs]
 
     if logs:
