@@ -29,13 +29,22 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 # Flaskアプリ作成
 app = Flask(__name__)
 
-# セッションCookie設定
+# ───── セッション／クッキー設定 ─────
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
-app.config['REMEMBER_COOKIE_SECURE'] = IS_PRODUCTION
-# app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
+
+if IS_PRODUCTION:
+    # 本番環境 (https://koekarte.com) 用
+    app.config['SESSION_COOKIE_SECURE']   = True
+    app.config['REMEMBER_COOKIE_SECURE']  = True
+    app.config['SESSION_COOKIE_DOMAIN']   = '.koekarte.com'
+else:
+    # ローカル開発環境 (http://localhost:5000 など) 用
+    app.config['SESSION_COOKIE_SECURE']   = False
+    app.config['REMEMBER_COOKIE_SECURE']  = False
+    # Domain を None にすると、アクセスしているホスト名 (localhost) が自動で使われる
+    app.config['SESSION_COOKIE_DOMAIN']   = None
 
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
@@ -67,10 +76,12 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 
 mail = Mail(app)
 
-# CORS設定（セッション対応）
+# CORS 設定にも開発用オリジンを追加しておくと確実です
 CORS(app, origins=[
-    "https://koekarte.com",                    # ← Webからのアクセス
-    "https://koekarte-app.mobile.app",         # ← React Native EASビルド後のドメイン（仮）
+    "https://koekarte.com",
+    "https://koekarte-app.mobile.app",
+    "http://localhost:5000",    # ← 追加
+    "http://127.0.0.1:5000"     # ← 追加
 ], supports_credentials=True)
 
 login_manager = LoginManager()
