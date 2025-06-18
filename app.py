@@ -35,7 +35,7 @@ app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
 app.config['REMEMBER_COOKIE_SECURE'] = IS_PRODUCTION
-app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'  # ←これが最重要
+app.config['SESSION_COOKIE_DOMAIN'] = None
 
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
