@@ -653,14 +653,31 @@ def legal():
 @login_required
 def edit_profile():
     if request.method == 'POST':
-        current_user.username = request.form['username']
-        current_user.birthdate = request.form['birthdate']
-        current_user.gender = request.form['gender']
-        current_user.occupation = request.form['occupation']
-        current_user.prefecture = request.form['prefecture']
-        db.session.commit()
-        flash("プロフィールを更新しました")
-        return jsonify({'message': '保存完了'})
+        try:
+            data = request.form
+
+            current_user.username = data.get('username', current_user.username)
+            
+            # 生年月日（文字列 → date型）に安全変換
+            birth_str = data.get('birthdate')
+            if birth_str:
+                try:
+                    current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
+                except Exception:
+                    pass
+
+            current_user.gender = data.get('gender', current_user.gender)
+            current_user.occupation = data.get('occupation', current_user.occupation)
+            current_user.prefecture = data.get('prefecture', current_user.prefecture)
+
+            db.session.commit()
+
+            flash("プロフィールを更新しました")
+            return redirect(url_for('edit_profile'))
+
+        except Exception as e:
+            flash("エラーが発生しました: " + str(e))
+            return redirect(url_for('edit_profile'))
 
     return render_template('edit_profile.html', user=current_user)
     
@@ -763,7 +780,7 @@ def api_login():
 @app.route('/api/update-profile', methods=['POST'])
 def update_profile():
     data = request.get_json()
-    is_json = request.content_type == 'application/json'
+    is_json = request.is_json
 
     print("📥 POSTデータ:", data)
 
