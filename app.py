@@ -35,7 +35,7 @@ app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
 app.config['REMEMBER_COOKIE_SECURE'] = IS_PRODUCTION
-app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'  # ←これが最重要
+# app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
 
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
@@ -234,7 +234,8 @@ def register():
         # ✅ 即ログイン → ダッシュボードへ
         login_user(user)
         session.permanent = True
-        return redirect(url_for('dashboard'))
+        resp = make_response(redirect(url_for('dashboard')))
+        return resp
 
     return render_template('register.html')
 
@@ -392,6 +393,14 @@ def set_paid(user_id):
 def dashboard():
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
 
+    # ✅ まず初期化しておく（これでUnboundLocalErrorを防止）
+    baseline = None
+    first_score = None
+    latest_score = None
+    diff = None
+    first_score_date = None
+    last_date = None
+
     if logs:
         scores = [log.score for log in logs]
         dates = [log.timestamp.strftime('%Y-%m-%d') for log in logs]
@@ -401,14 +410,11 @@ def dashboard():
         first_score_date = dates[0]
         last_date = dates[-1]
 
-        # ✅ 最初の5回分のスコアの平均をベースラインに
         if len(scores) >= 5:
             baseline = sum(scores[:5]) // 5
-
         else:
             baseline = sum(scores) // len(scores)
 
-        # ✅ ベースラインとの差分を計算（順番ここ！）
         diff = latest_score - baseline
 
     return render_template('dashboard.html',
