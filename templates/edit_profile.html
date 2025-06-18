@@ -3,6 +3,16 @@
 
 {% block title %}プロフィール編集 - コエカルテ{% endblock %}
 
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="flash-messages" style="padding: 10px; background-color: #ddffdd; border: 1px solid #99cc99;">
+      {% for message in messages %}
+        <p>{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
 {% block content %}
   <div class="form-container">
     <h2>📝 プロフィール編集</h2>
