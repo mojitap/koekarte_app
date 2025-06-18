@@ -774,6 +774,7 @@ def api_login():
 @app.route('/api/update-profile', methods=['POST'])
 def update_profile():
     data = request.get_json()
+    is_json = request.content_type == 'application/json'
 
     print("📥 POSTデータ:", data)
 
@@ -804,24 +805,34 @@ def update_profile():
         return jsonify({'error': '未ログインのため更新できません'}), 401
 
     try:
+        # ユーザー情報の更新処理
         current_user.email = data.get('email', current_user.email)
         current_user.username = data.get('username', current_user.username)
-
+        # 生年月日
         birth_str = data.get('birthdate')
         if birth_str:
             try:
                 current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
             except Exception:
                 pass
-
         current_user.gender = data.get('gender', current_user.gender)
         current_user.occupation = data.get('occupation', current_user.occupation)
         current_user.prefecture = data.get('prefecture', current_user.prefecture)
 
         db.session.commit()
-        return jsonify({'message': '✅ 通常プロフィール更新成功'})
+
+        if is_json:
+            return jsonify({'message': '✅ 通常プロフィール更新成功'})
+        else:
+            flash("プロフィールを更新しました")
+            return redirect(url_for('profile'))
+
     except Exception as e:
-        return jsonify({'error': f'プロフィール更新エラー: {str(e)}'}), 400
+        if is_json:
+            return jsonify({'error': f'プロフィール更新エラー: {str(e)}'}), 400
+        else:
+            flash("エラーが発生しました")
+            return redirect(url_for('profile'))
     
 @app.route('/music/free')
 def free_music():
