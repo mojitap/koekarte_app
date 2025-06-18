@@ -35,7 +35,7 @@ app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
 app.config['REMEMBER_COOKIE_SECURE'] = IS_PRODUCTION
-app.config['SESSION_COOKIE_DOMAIN'] = "koekarte.com"
+app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'  # ←これが最重要
 
 # ✅ 設定読み込み
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
@@ -211,33 +211,27 @@ def register():
         username = request.form['username']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
-
-        # ✅ 生年月日をdate型に変換
-        birthdate_str = request.form.get('birthdate')
-        try:
-            birthdate = datetime.strptime(birthdate_str, "%Y-%m-%d").date() if birthdate_str else None
-        except ValueError:
-            birthdate = None
-
+        birthdate = request.form.get('birthdate')
         gender = request.form.get('gender')
         occupation = request.form.get('occupation')
         prefecture = request.form.get('prefecture')
 
+        # ✅ 既にメールが使われていれば登録拒否
         if User.query.filter_by(email=email).first():
             flash('このメールアドレスは既に登録されています。')
             return redirect(url_for('register'))
 
+        # ✅ ユーザー作成
         user = User(
-            username=username,
-            email=email,
-            password=password,
-            birthdate=birthdate,
-            gender=gender,
-            occupation=occupation,
-            prefecture=prefecture
+            username=username, email=email, password=password,
+            birthdate=birthdate, gender=gender,
+            occupation=occupation, prefecture=prefecture,
+            is_verified=True  # ← 認証済としてマーク
         )
         db.session.add(user)
         db.session.commit()
+
+        # ✅ 即ログイン → ダッシュボードへ
         login_user(user)
         session.permanent = True
         return redirect(url_for('dashboard'))
