@@ -263,7 +263,8 @@ def register():
         )
         db.session.add(new_user)
         db.session.commit()
-        login_user(new_user)
+        login_user(new_user, remember=True)
+        session.permanent = True  
         return redirect(url_for('dashboard'))
     except Exception as e:
         db.session.rollback()
