@@ -3,6 +3,7 @@ import numpy as np
 import stripe
 import python_speech_features
 import librosa
+import datetime
 from datetime import datetime, date, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -216,32 +217,48 @@ def confirm_email(token):
         db.session.commit()
     return redirect(url_for('login'))
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register', methods=['POST'])
 def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = generate_password_hash(request.form['password'])
-        birthdate = request.form.get('birthdate')
-        gender = request.form.get('gender')
-        occupation = request.form.get('occupation')
-        prefecture = request.form.get('prefecture')
+    name = request.form.get('name')
+    email = request.form.get('email')
+    password = request.form.get('password')
+    birthdate_str = request.form.get('birthdate')
+    
+    # 入力バリデーション
+    if not all([name, email, password]):
+        flash("全ての項目を入力してください")
+        return redirect(url_for('register'))
 
-        # ✅ 既にメール or ユーザー名が使われていたら弾く
-        if User.query.filter_by(email=email).first():
-            flash('このメールアドレスは既に登録されています。')
+    birthdate = None
+    if birthdate_str:
+        try:
+            birthdate = datetime.strptime(birthdate_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash("生年月日の形式が正しくありません")
             return redirect(url_for('register'))
 
-        user = User(
-            username=username, email=email, password=password,
-            birthdate=birthdate, gender=gender,
-            occupation=occupation, prefecture=prefecture
+    # メールの重複チェック（推奨）
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        flash("このメールアドレスは既に登録されています")
+        return redirect(url_for('register'))
+
+    try:
+        new_user = User(
+            name=name,
+            email=email,
+            password=generate_password_hash(password),
+            birthdate=birthdate
         )
-        db.session.add(user)
+        db.session.add(new_user)
         db.session.commit()
-        send_confirmation_email(email, username)
-        return '確認メールを送信しました'
-    return render_template('register.html')
+        login_user(new_user)
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        db.session.rollback()
+        print("❌ 登録時のエラー:", e)
+        flash("登録中にエラーが発生しました")
+        return redirect(url_for('register'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
