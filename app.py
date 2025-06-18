@@ -396,18 +396,7 @@ def set_paid(user_id):
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if not current_user.is_verified:
-        flash("メールアドレスの確認が完了していません。")
-        return redirect(url_for('home'))
-
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
-
-    baseline = None
-    first_score = None
-    latest_score = None
-    diff = None
-    first_score_date = None
-    last_date = None
 
     if logs:
         scores = [log.score for log in logs]
