@@ -823,19 +823,17 @@ def update_profile():
             flash("エラーが発生しました")
             return redirect(url_for('profile'))
     
-@app.route('/music/free')
-def free_music():
-    return render_template('free_music.html')
-
-@app.route('/music/premium')
+@app.route('/music')
 @login_required
-def premium_music():
-    if not current_user.is_paid:
-        flash("プレミアム音源は有料プラン専用です。")
-        return jsonify({'message': '保存完了', 'score': stress_score})
+def music():
+    # 無料期間 or 有料 or 拡張フラグ
+    can_play_premium = (
+        current_user.is_paid or
+        current_user.is_free_extended or
+        (date.today() - current_user.created_at.date()).days < 5
+    )
 
     filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
-
     display_names = {
         "positive1.mp3": "サウンドトラック 01",
         "positive2.mp3": "サウンドトラック 02",
@@ -854,12 +852,9 @@ def premium_music():
         "mindfulness5.mp3": "サウンドトラック 15",
     }
 
-    tracks = [
-        {"filename": f, "display": display_names.get(f, f)}
-        for f in filenames
-    ]
+    tracks = [{"filename": f, "display": display_names.get(f, f)} for f in filenames]
 
-    return render_template('premium_music.html', tracks=tracks)
+    return render_template('unified_music.html', tracks=tracks, can_play_premium=can_play_premium)
 
 @app.route('/api/music')
 @login_required
