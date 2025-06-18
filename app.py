@@ -38,7 +38,7 @@ if IS_PRODUCTION:
     # 本番環境 (https://koekarte.com) 用
     app.config['SESSION_COOKIE_SECURE']   = True
     app.config['REMEMBER_COOKIE_SECURE']  = True
-    app.config['SESSION_COOKIE_DOMAIN']   = '.koekarte.com'
+    # app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
 else:
     # ローカル開発環境 (http://localhost:5000 など) 用
     app.config['SESSION_COOKIE_SECURE']   = False
