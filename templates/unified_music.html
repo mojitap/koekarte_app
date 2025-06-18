@@ -42,8 +42,6 @@
     </li>
   </ul>
 
-  <h3 style="margin-top: 40px;">🎟 プレミアム音源</h3>
-
   {% if not current_user.is_paid and current_user.created_at %}
     {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
     <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
@@ -60,6 +58,8 @@
       <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
     </div>
   {% endif %}
+
+  <h3 style="margin-top: 40px;">🎟 プレミアム音源</h3>
     
   {% if can_play_premium %}
     {% set categories = {'ポジティブ': [], 'リラックス': [], 'マインドフルネス': []} %}
