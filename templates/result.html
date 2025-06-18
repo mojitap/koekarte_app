@@ -1,58 +1,63 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ストレススコアの推移</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            text-align: center;
-            max-width: 700px;
-            margin: auto;
-            padding: 30px;
-            font-family: sans-serif;
-        }
-        a.button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            text-decoration: none;
-            color: #333;
-            font-weight: bold;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-            margin-top: 30px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ストレススコアの推移</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      text-align: center;
+      max-width: 700px;
+      margin: auto;
+      padding: 30px;
+      font-family: sans-serif;
+    }
+    a.button {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+      margin-top: 30px;
+    }
+    .btn-outline-primary {
+      display: inline-block;
+      padding: 8px 16px;
+      border: 1px solid #007bff;
+      border-radius: 5px;
+      color: #007bff;
+      background-color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .btn-outline-primary:hover {
+      background-color: #007bff;
+      color: #fff;
+    }
+    .btn-warning {
+      display: inline-block;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      background-color: #ffc107;
+      color: #000;
+      font-weight: bold;
+      text-decoration: none;
+    }
+  </style>
 </head>
 <body>
     <h1>📈 ストレススコアの推移</h1>
 
-    <p style="font-size: 14px; color: #666; margin-top: -10px; text-align: left;">
+    <p style="text-align: center; font-size: 14px;">
         ※ スコアは「声の元気さ・活力」を数値化したものです。<br>
         数値が高いほど、ストレスが少ない（調子が良い）傾向を示します。<br>
         登録初期5回の平均（ベースライン）と比較することで、日々の変化がわかります。
     </p>
-
-{% if not current_user.is_paid and current_user.created_at %}
-  {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
-  {% if remaining_days > 0 %}
-    <div style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 10px 0;">
-      <p style="font-size: 14px; color: #444;">
-        🕒 無料期間はあと <strong>{{ remaining_days }}</strong> 日で終了します。<br>
-        無料期間終了後は録音・分析・スコアグラフ・音楽ライブラリの利用に制限がかかります。
-      </p>
-    </div>
-  {% elif remaining_days <= 0 %}
-    <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
-      <p style="font-size: 14px; color: #a00;">
-        ⚠️ 無料期間は終了しました。引き続きご利用いただくには、有料プラン（月額300円）への登録が必要です。
-      </p>
-      <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
-    </div>
-  {% endif %}
-{% endif %}
 
     <p>過去のスコア推移を可視化したグラフです</p>
     
@@ -67,6 +72,23 @@
 
     <div id="iconRow" style="margin-top: 20px; font-size: 24px;"></div>
 
+{% if not current_user.is_paid and current_user.created_at %}
+  {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
+  <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
+    {% if remaining_days > 0 %}
+      <p style="font-size: 14px; color: #a00;">
+        🕒 無料期間はあと <strong>{{ remaining_days }}</strong> 日です。<br>
+        終了後は録音・分析・スコアグラフ・音楽ライブラリの利用に制限がかかります。
+      </p>
+    {% else %}
+      <p style="font-size: 14px; color: #a00;">
+        ⚠️ 無料期間は終了しました。<br>引き続きご利用いただくには、有料プラン（月額300円）への登録が必要です。
+      </p>
+    {% endif %}
+    <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
+  </div>
+{% endif %}
+
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
 
     <script>
@@ -74,11 +96,11 @@
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: {{ dates|tojson }},
+                labels: {{ dates|tojson|safe }},
                 datasets: [
                     {
                         label: 'ストレススコア',
-                        data: {{ scores|tojson }},
+                        data: {{ scores|tojson|safe }},
                         fill: false,
                         borderColor: 'rgba(75, 192, 192, 1)',
                         tension: 0.2
