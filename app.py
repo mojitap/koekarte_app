@@ -120,19 +120,6 @@ def bandpass_filter(signal, rate, lowcut=300, highcut=3400, order=5):
     b, a = butter(order, [low, high], btype='band')
     return lfilter(b, a, signal)
     
-
-# ======== メール送信 =========
-def send_confirmation_email(user_email, username):
-    token = serializer.dumps(user_email, salt='email-confirm')
-    confirm_url = url_for('confirm_email', token=token, _external=True, _scheme='https')
-    confirm_url = confirm_url.replace("localhost:5000", "koekarte.com")
-
-    msg = Message('【koekarte】ご登録ありがとうございます',
-                  sender='noreply@koekarte.com',  # ✅ 明示
-                  recipients=[user_email])
-    msg.body = f"""{username} 様\n\n以下のリンクをクリックして本登録を完了してください：\n{confirm_url}\n\nこのリンクは一定時間で無効になります。\n\n-- koekarte 運営"""
-    mail.send(msg)
-
 # ======== ルート定義 =========
 @app.route('/send-test-mail')
 def send_test_mail():
@@ -227,20 +214,26 @@ def register():
         occupation = request.form.get('occupation')
         prefecture = request.form.get('prefecture')
 
-        # ✅ 既にメール or ユーザー名が使われていたら弾く
+        # ✅ 既にメールが使われていれば登録拒否
         if User.query.filter_by(email=email).first():
             flash('このメールアドレスは既に登録されています。')
             return redirect(url_for('register'))
 
+        # ✅ ユーザー作成
         user = User(
             username=username, email=email, password=password,
             birthdate=birthdate, gender=gender,
-            occupation=occupation, prefecture=prefecture
+            occupation=occupation, prefecture=prefecture,
+            is_verified=True  # ← 認証済としてマーク
         )
         db.session.add(user)
         db.session.commit()
-        send_confirmation_email(email, username)
-        return '確認メールを送信しました'
+
+        # ✅ 即ログイン → ダッシュボードへ
+        login_user(user)
+        session.permanent = True
+        return redirect(url_for('dashboard'))
+
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -261,10 +254,6 @@ def login():
         if not check_password_hash(user.password, password):
             print("❌ パスワード不一致")
             return 'ログイン失敗'
-
-        if not user.is_verified:
-            print("⚠️ 未確認アカウント")
-            return 'メール確認が必要です'
 
         login_user(user)
         session.permanent = True
