@@ -79,8 +79,7 @@
     
     <p>📥 <a href="/export_csv" class="button">CSVでダウンロード</a></p>
 
-    <p>🎧 <a href="/music/free" class="button">無料の音源を聴く</a></p>
-    <p>🔓 <a href="/music/premium" class="button">プレミアム音源（有料）</a></p>
+    <p>🎵 <a href="/music" class="button">音楽ライブラリを見る</a></p>
   </div>
 
   <div class="music-info" style="margin-top: 30px;">
@@ -100,9 +99,10 @@
 
   {% if not current_user.is_paid %}
   <div style="margin-top: 20px; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
-    <p>現在は <strong>無料プラン</strong> をご利用中です。</p>
-    <p>🎧 プレミアム音源の全曲再生、ストレススコアの無制限記録などの機能をご希望の場合は、以下よりご登録ください。</p>
-    <a href="{{ url_for('checkout') }}" class="btn btn-primary">🎟 有料プランに今すぐ登録する（¥300/月）</a>
+    <p style="font-size: 13px; color: gray;">
+      ※音源は個人の目的や好みに応じて自由に選んでご利用いただけます。<br>
+      ※登録から5日間は全音源をご試聴いただけます（以降は一部制限されます）。
+    </p>
   </div>
   {% endif %}
 
