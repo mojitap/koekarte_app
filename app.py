@@ -1012,6 +1012,25 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
+    # ★ 直近5件で平均スコアを算出
+    last_5_logs = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .order_by(ScoreLog.timestamp.asc())
+        .limit(5)
+        .all()
+    )
+    if last_5_logs and len(last_5_logs) >= 1:
+        baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1)
+    else:
+        baseline = None
+
+    # ★ スコア差分（＝今日のスコア - 平均）
+    if today_score_value is not None and baseline is not None:
+        score_deviation = round(today_score_value - baseline, 1)
+    else:
+        score_deviation = None
+
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
@@ -1024,6 +1043,8 @@ def api_profile():
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
+        'baseline': baseline,
+        'score_deviation': score_deviation
     })
     
 try:
