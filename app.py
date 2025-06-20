@@ -222,31 +222,37 @@ def register():
         username = request.form['username']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
-        birthdate = request.form.get('birthdate')
         gender = request.form.get('gender')
         occupation = request.form.get('occupation')
         prefecture = request.form.get('prefecture')
 
-        # ✅ 既にメールが使われていれば登録拒否
+        # ✅ 生年月日の組み立て
+        year = request.form.get('birth_year')
+        month = request.form.get('birth_month')
+        day = request.form.get('birth_day')
+        try:
+            birthdate = datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").date()
+        except:
+            birthdate = None
+
+        # すでに登録済みか確認
         if User.query.filter_by(email=email).first():
             flash('このメールアドレスは既に登録されています。')
             return redirect(url_for('register'))
 
-        # ✅ ユーザー作成
+        # 新規ユーザー作成
         user = User(
             username=username, email=email, password=password,
             birthdate=birthdate, gender=gender,
             occupation=occupation, prefecture=prefecture,
-            is_verified=True  # ← 認証済としてマーク
+            is_verified=True
         )
         db.session.add(user)
         db.session.commit()
 
-        # ✅ 即ログイン → ダッシュボードへ
         login_user(user)
         session.permanent = True
-        resp = make_response(redirect(url_for('dashboard')))
-        return resp
+        return redirect(url_for('dashboard'))
 
     return render_template('register.html')
 
