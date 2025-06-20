@@ -1056,18 +1056,24 @@ def api_scores():
 
     scores = [{
         'date': log.timestamp.strftime('%Y-%m-%d'),
-        'score': log.score
+        'score': log.score,
         'is_fallback': log.is_fallback
     } for log in logs]
 
     if logs:
         baseline = sum(log.score for log in logs[:5]) / min(len(logs), 5)
+        latest_score = logs[-1].score
+        diff = round(latest_score - baseline, 1)
     else:
         baseline = 0
+        latest_score = 0
+        diff = 0
 
     return jsonify({
         'scores': scores,
-        'baseline': round(baseline, 1)
+        'baseline': round(baseline, 1),
+        'latest': latest_score,
+        'diff': diff
     }), 200
 
 @app.route('/create-admin')
