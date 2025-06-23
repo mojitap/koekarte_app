@@ -113,15 +113,15 @@ def analyze_stress_from_wav(wav_path):
         tempo_val = len(times)/(times[-1]-times[0]) if len(times)>1 else 0.0
 
         # スケーリング
-        vol_scaled = np.clip(volume_std * 1500, 0, 100)
+        vol_scaled = np.clip(volume_std * 2500, 0, 100)
         voice_scaled = np.clip(voiced_ratio * 120, 0, 100)
         zcr_scaled = np.clip(zcr * 5000, 0, 100)
-        pitch_scaled = np.clip(pitch_std * 0.07, 0, 100)
-        tempo_scaled = 100 - np.clip(abs(tempo_val - 5) * 20, 0, 100)
+        pitch_scaled = np.clip(pitch_std * 0.2, 0, 100)
+        tempo_scaled = 100 - np.clip(abs(tempo_val - 5) * 7, 0, 100)
 
-        raw = (vol_scaled * 0.20 + voice_scaled * 0.20 +
-               zcr_scaled * 0.25 + pitch_scaled * 0.25 + tempo_scaled * 0.10)
-        score = round(np.clip(raw, 30, 95))
+        raw = (vol_scaled * 0.3 + voice_scaled * 0.1 +
+               zcr_scaled * 0.2 + pitch_scaled * 0.3 + tempo_scaled * 0.1)
+        score = round(np.clip(raw, 25, 97))
 
         print(f"📊 スコア構成: vol={vol_scaled:.1f}, voice={voice_scaled:.1f}, "
               f"zcr={zcr_scaled:.1f}, pitch={pitch_scaled:.1f}, tempo={tempo_scaled:.1f} "
