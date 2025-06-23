@@ -299,6 +299,10 @@ def export_csv():
                     mimetype="text/csv",
                     headers={"Content-Disposition": "attachment;filename=stress_scores.csv"})
 
+@app.route('/faq')
+def faq():
+    return render_template('faq.html')
+
 @app.route('/api/score-history')
 @login_required
 def api_score_history():
@@ -1147,4 +1151,3 @@ def upgrade_db():
         return "✅ DB upgrade executed successfully", 200
     except Exception as e:
         return f"❌ Error: {e}", 500
-    
