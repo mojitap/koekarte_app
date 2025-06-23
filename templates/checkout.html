@@ -1,11 +1,38 @@
 {% extends "base.html" %}
-{% block title %}プレミアム登録{% endblock %}
+{% block title %}プレミアム登録のご案内{% endblock %}
 {% block content %}
-<div style="max-width: 700px; margin: 0 auto; text-align: center;">
-  <h1>🎧 プレミアムプランのご案内</h1>
-  <p>ストレス解析 + 録音・分析・スコアグラフ + 音楽ライブラリが使える月額300円プランです。</p>
-  <form action="/create-checkout-session" method="POST">
-    <button type="submit">月額プランに登録する</button>
-  </form>
+<div style="max-width: 700px; margin: 0 auto; padding: 20px; text-align: center; font-size: 18px;">
+
+  <h1>🎧 プレミアム登録のご案内</h1>
+
+  <p style="margin: 1em 0;"><strong>このような方におすすめ：</strong></p>
+  <ul style="list-style: none; padding-left: 0; text-align: left;">
+    <li>✅ 録音機能を続けて使いたい</li>
+    <li>✅ スコア記録・グラフを残したい</li>
+    <li>✅ メンタルケア音源をすべて聴きたい</li>
+  </ul>
+
+  <p style="margin: 1em 0;"><strong>月額300円ですべての機能が使い放題</strong></p>
+
+  <p><strong>ご利用の流れ</strong></p>
+  <ol style="text-align: left;">
+    <li>① ログイン</li>
+    <li>② プレミアム登録画面へ進む</li>
+    <li>③ クレジットカードを登録して完了</li>
+  </ol>
+
+  {% if current_user.is_authenticated %}
+    <form action="/create-checkout-session" method="POST" style="margin-top: 30px;">
+      <button type="submit" style="font-size: 18px; padding: 10px 30px;">🎟 プレミアム登録に進む</button>
+    </form>
+  {% else %}
+    <p style="margin-top: 30px; color: red;">※ ログインが必要です</p>
+    <a href="/login" style="font-size: 18px; color: #007bff;">🔑 ログインする</a>
+  {% endif %}
+
+  <p style="margin-top: 40px;">
+    ❓ <a href="/faq" style="font-size: 16px; color: #007bff;">よくある質問を見る</a>
+  </p>
+
 </div>
 {% endblock %}
