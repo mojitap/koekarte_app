@@ -19,7 +19,7 @@ from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
-from utils.auth_utils import check_can_use_premium
+from utils.auth_utils import check_can_use_premium, get_user_plan_status
 from flask import flash, redirect, url_for
 
 # .env 読み込み（FLASK_ENV の取得より先）
@@ -998,13 +998,7 @@ def api_profile():
             'created_at': None
         }), 401
 
-    now = datetime.now()
-    free_days = (now - current_user.created_at).days if current_user.created_at else 999
-    is_free_extended = (
-        current_user.is_free_extended or
-        current_user.email in ALLOWED_FREE_EMAILS or
-        (free_days < 5)
-    )
+    plan = get_user_plan_status(current_user)
 
     # 今日のスコア（最新1件）
     today = date.today()
@@ -1026,7 +1020,7 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
-    # ★ 直近5件で平均スコアを算出
+    # 直近5件で平均スコアを算出
     last_5_logs = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
@@ -1034,16 +1028,10 @@ def api_profile():
         .limit(5)
         .all()
     )
-    if last_5_logs and len(last_5_logs) >= 1:
-        baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1)
-    else:
-        baseline = None
+    baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1) if last_5_logs else None
 
-    # ★ スコア差分（＝今日のスコア - 平均）
-    if today_score_value is not None and baseline is not None:
-        score_deviation = round(today_score_value - baseline, 1)
-    else:
-        score_deviation = None
+    # スコア差分（＝今日のスコア - 平均）
+    score_deviation = round(today_score_value - baseline, 1) if today_score_value and baseline else None
 
     return jsonify({
         'email': current_user.email,
@@ -1052,22 +1040,13 @@ def api_profile():
         'gender': current_user.gender,
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
-        'is_paid': current_user.is_paid,
-        'is_free_extended': is_free_extended,
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
         'baseline': baseline,
         'score_deviation': score_deviation,
-        'can_use_premium': check_can_use_premium(current_user)
+        **plan  # ← is_paid / is_free_extended / can_use_premium / days_since_signup を展開
     })
-    
-try:
-    with app.app_context():
-        time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
-        db.create_all()
-except Exception as e:
-    print("❌ データベース接続に失敗しました:", e)
 
 @app.route('/api/scores')
 @login_required
