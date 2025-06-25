@@ -261,25 +261,22 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        print("📥 request.form:", request.form)
-
         identifier = request.form.get('username')
         password = request.form.get('password')
 
-        print(f"入力値: identifier={identifier}, password={password}")
+        user = User.query.filter(
+            (User.username == identifier) | (User.email == identifier)
+        ).first()
 
-        user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+        if not user or not check_password_hash(user.password, password):
+            return 'ログイン失敗'
 
-        if not user:
-            print("❌ 該当ユーザーなし")
-            return 'ログイン失敗'
-        if not check_password_hash(user.password, password):
-            print("❌ パスワード不一致")
-            return 'ログイン失敗'
+        # ✅ セッション切り替えを保証
+        if current_user.is_authenticated:
+            logout_user()
 
         login_user(user)
         session.permanent = True
-        print("✅ ログイン成功:", current_user.is_authenticated)
 
         return redirect(url_for('dashboard'))
 
@@ -779,6 +776,7 @@ def api_login():
 
         login_user(user)
         session.permanent = True
+        print("🍪 Login後 session:", dict(session)) 
 
         return jsonify({
             'message': 'ログイン成功',
