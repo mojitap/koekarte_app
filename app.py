@@ -20,7 +20,6 @@ from models import db, User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 from utils.auth_utils import check_can_use_premium
-from utils.auth_utils import get_user_plan_status
 from flask import flash, redirect, url_for
 
 # .env 読み込み（FLASK_ENV の取得より先）
@@ -41,7 +40,7 @@ if IS_PRODUCTION:
     # 本番環境 (https://koekarte.com) 用
     app.config['SESSION_COOKIE_SECURE']   = True
     app.config['REMEMBER_COOKIE_SECURE']  = True
-    app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
+    # app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
 else:
     # ローカル開発環境 (http://localhost:5000 など) 用
     app.config['SESSION_COOKIE_SECURE']   = False
@@ -262,22 +261,25 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        print("📥 request.form:", request.form)
+
         identifier = request.form.get('username')
         password = request.form.get('password')
 
-        user = User.query.filter(
-            (User.username == identifier) | (User.email == identifier)
-        ).first()
+        print(f"入力値: identifier={identifier}, password={password}")
 
-        if not user or not check_password_hash(user.password, password):
+        user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+
+        if not user:
+            print("❌ 該当ユーザーなし")
             return 'ログイン失敗'
-
-        # ✅ セッション切り替えを保証
-        if current_user.is_authenticated:
-            logout_user()
+        if not check_password_hash(user.password, password):
+            print("❌ パスワード不一致")
+            return 'ログイン失敗'
 
         login_user(user)
         session.permanent = True
+        print("✅ ログイン成功:", current_user.is_authenticated)
 
         return redirect(url_for('dashboard'))
 
@@ -777,7 +779,6 @@ def api_login():
 
         login_user(user)
         session.permanent = True
-        print("🍪 Login後 session:", dict(session)) 
 
         return jsonify({
             'message': 'ログイン成功',
@@ -999,7 +1000,13 @@ def api_profile():
             'created_at': None
         }), 401
 
-    can_use_premium = check_can_use_premium(current_user)
+    now = datetime.now()
+    free_days = (now - current_user.created_at).days if current_user.created_at else 999
+    is_free_extended = (
+        current_user.is_free_extended or
+        current_user.email in ALLOWED_FREE_EMAILS or
+        (free_days < 5)
+    )
 
     # 今日のスコア（最新1件）
     today = date.today()
@@ -1021,7 +1028,7 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
-    # 直近5件で平均スコアを算出
+    # ★ 直近5件で平均スコアを算出
     last_5_logs = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
@@ -1029,10 +1036,16 @@ def api_profile():
         .limit(5)
         .all()
     )
-    baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1) if last_5_logs else None
+    if last_5_logs and len(last_5_logs) >= 1:
+        baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1)
+    else:
+        baseline = None
 
-    # スコア差分（＝今日のスコア - 平均）
-    score_deviation = round(today_score_value - baseline, 1) if today_score_value and baseline else None
+    # ★ スコア差分（＝今日のスコア - 平均）
+    if today_score_value is not None and baseline is not None:
+        score_deviation = round(today_score_value - baseline, 1)
+    else:
+        score_deviation = None
 
     return jsonify({
         'email': current_user.email,
@@ -1041,15 +1054,22 @@ def api_profile():
         'gender': current_user.gender,
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
+        'is_paid': current_user.is_paid,
+        'is_free_extended': is_free_extended,
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
         'baseline': baseline,
         'score_deviation': score_deviation,
-        'is_paid': current_user.is_paid,
-        'is_free_extended': current_user.is_free_extended,
-        'can_use_premium': can_use_premium
+        'can_use_premium': check_can_use_premium(current_user)
     })
+    
+try:
+    with app.app_context():
+        time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
+        db.create_all()
+except Exception as e:
+    print("❌ データベース接続に失敗しました:", e)
 
 @app.route('/api/scores')
 @login_required
