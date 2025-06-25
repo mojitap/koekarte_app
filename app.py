@@ -20,6 +20,7 @@ from models import db, User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 from utils.auth_utils import check_can_use_premium
+from utils.auth_utils import get_user_plan_status
 from flask import flash, redirect, url_for
 
 # .env 読み込み（FLASK_ENV の取得より先）
