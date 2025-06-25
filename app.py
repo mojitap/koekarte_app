@@ -40,7 +40,7 @@ if IS_PRODUCTION:
     # 本番環境 (https://koekarte.com) 用
     app.config['SESSION_COOKIE_SECURE']   = True
     app.config['REMEMBER_COOKIE_SECURE']  = True
-    # app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
+    app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
 else:
     # ローカル開発環境 (http://localhost:5000 など) 用
     app.config['SESSION_COOKIE_SECURE']   = False
@@ -385,10 +385,12 @@ def logout():
     return redirect(url_for('home'))
 
 @app.route('/api/logout', methods=['POST'])
-@login_required
 def api_logout():
     logout_user()
-    return jsonify({'message': 'ログアウトしました'}), 200
+    session.clear()
+    resp = jsonify({'message': 'Logged out'})
+    resp.set_cookie('session', '', expires=0)  # 明示的にCookie削除
+    return resp
 
 @app.route('/set-paid/<int:user_id>')
 @login_required
@@ -764,6 +766,8 @@ def api_register():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     try:
+        logout_user()
+        
         data = request.get_json()
         identifier = data.get('email')  # フロント側では「email」に入れて送ってる（←identifierと見なす）
 
@@ -1000,15 +1004,8 @@ def api_profile():
             'created_at': None
         }), 401
 
-    now = datetime.now()
-    free_days = (now - current_user.created_at).days if current_user.created_at else 999
-    is_free_extended = (
-        current_user.is_free_extended or
-        current_user.email in ALLOWED_FREE_EMAILS or
-        (free_days < 5)
-    )
+    can_use_premium = check_can_use_premium(current_user)
 
-    # 今日のスコア（最新1件）
     today = date.today()
     today_score = (
         ScoreLog.query
@@ -1019,7 +1016,6 @@ def api_profile():
     )
     today_score_value = today_score.score if today_score else None
 
-    # 最終記録日
     last_log = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
@@ -1028,7 +1024,6 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
-    # ★ 直近5件で平均スコアを算出
     last_5_logs = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
@@ -1036,16 +1031,9 @@ def api_profile():
         .limit(5)
         .all()
     )
-    if last_5_logs and len(last_5_logs) >= 1:
-        baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1)
-    else:
-        baseline = None
+    baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1) if last_5_logs else None
 
-    # ★ スコア差分（＝今日のスコア - 平均）
-    if today_score_value is not None and baseline is not None:
-        score_deviation = round(today_score_value - baseline, 1)
-    else:
-        score_deviation = None
+    score_deviation = round(today_score_value - baseline, 1) if today_score_value and baseline else None
 
     return jsonify({
         'email': current_user.email,
@@ -1054,14 +1042,14 @@ def api_profile():
         'gender': current_user.gender,
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
-        'is_paid': current_user.is_paid,
-        'is_free_extended': is_free_extended,
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
         'last_score': today_score_value,
         'last_recorded': last_recorded,
         'baseline': baseline,
         'score_deviation': score_deviation,
-        'can_use_premium': check_can_use_premium(current_user)
+        'is_paid': current_user.is_paid,
+        'is_free_extended': current_user.is_free_extended,
+        'can_use_premium': can_use_premium
     })
     
 try:
