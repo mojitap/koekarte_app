@@ -1,4 +1,3 @@
-# utils/auth_utils.py
 from datetime import date
 
 def check_can_use_premium(user):
