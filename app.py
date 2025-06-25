@@ -999,7 +999,7 @@ def api_profile():
             'created_at': None
         }), 401
 
-    plan = get_user_plan_status(current_user)
+    can_use_premium = check_can_use_premium(current_user)
 
     # 今日のスコア（最新1件）
     today = date.today()
@@ -1046,7 +1046,9 @@ def api_profile():
         'last_recorded': last_recorded,
         'baseline': baseline,
         'score_deviation': score_deviation,
-        **plan  # ← is_paid / is_free_extended / can_use_premium / days_since_signup を展開
+        'is_paid': current_user.is_paid,
+        'is_free_extended': current_user.is_free_extended,
+        'can_use_premium': can_use_premium
     })
 
 @app.route('/api/scores')
