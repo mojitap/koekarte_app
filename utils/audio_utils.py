@@ -113,14 +113,14 @@ def analyze_stress_from_wav(wav_path):
         tempo_val = len(times)/(times[-1]-times[0]) if len(times)>1 else 0.0
 
         # スケーリング
-        vol_scaled = np.clip(volume_std * 2500, 0, 100)
-        voice_scaled = np.clip(voiced_ratio * 120, 0, 100)
-        zcr_scaled = np.clip(zcr * 5000, 0, 100)
-        pitch_scaled = np.clip(pitch_std * 0.2, 0, 100)
-        tempo_scaled = 100 - np.clip(abs(tempo_val - 5) * 7, 0, 100)
+        vol_scaled = np.clip(volume_std * 3000, 0, 100)
+        voice_scaled = np.clip(voiced_ratio * 150, 0, 100)
+        zcr_scaled = np.clip(zcr * 7000, 0, 100)
+        pitch_scaled = np.clip(pitch_std * 0.3, 0, 100)
+        tempo_scaled = 100 - np.clip(abs(tempo_val - 4.5) * 8, 0, 100)
 
-        raw = (vol_scaled * 0.3 + voice_scaled * 0.1 +
-               zcr_scaled * 0.2 + pitch_scaled * 0.3 + tempo_scaled * 0.1)
+        raw = (vol_scaled * 0.25 + voice_scaled * 0.2 +
+               zcr_scaled * 0.2 + pitch_scaled * 0.2 + tempo_scaled * 0.15)
         score = round(np.clip(raw, 25, 97))
 
         print(f"📊 スコア構成: vol={vol_scaled:.1f}, voice={voice_scaled:.1f}, "
@@ -128,9 +128,9 @@ def analyze_stress_from_wav(wav_path):
               f"→ raw={raw:.1f} → score={score}")
 
         # 🔻 単調すぎ・小声すぎへの罰則
-        if volume_std < 0.005 or pitch_std < 1.0 or tempo_val < 1.0:
+        if volume_std < 0.003 or pitch_std < 0.5 or tempo_val < 0.5:
             print("⚠️ 話し方が単調または声量が極端に小さいため補正スコア適用")
-            return 35, True
+            return 30 + np.random.randint(0, 10), True
 
         return score, False
 
