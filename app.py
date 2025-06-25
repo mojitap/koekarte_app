@@ -19,6 +19,8 @@ from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import db, User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
+from utils.auth_utils import check_can_use_premium
+from flask import flash, redirect, url_for
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -286,6 +288,9 @@ def login():
 @app.route('/export_csv')
 @login_required
 def export_csv():
+    if not check_can_use_premium(current_user):
+        flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
+        return redirect(url_for('dashboard'))
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
 
     si = StringIO()
@@ -493,8 +498,11 @@ def api_forgot_password():
     
 @app.route('/record')
 @login_required
-def record_page():  # ← 関数名変更
-    return render_template('record.html')  # ← ファイル名は適宜変更
+def record_page():
+    if not check_can_use_premium(current_user):
+        flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
+        return redirect(url_for('dashboard'))
+    return render_template('record.html')
 
 @app.route('/api/record')
 @login_required
@@ -588,6 +596,9 @@ def upload():
 @app.route('/result')
 @login_required
 def result():
+    if not check_can_use_premium(current_user):
+        flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
+        return redirect(url_for('dashboard'))
     range_type = request.args.get('range', 'all')
     today = date.today()
 
@@ -614,7 +625,6 @@ def result():
     baseline = round(sum(first_five_scores) / len(first_five_scores), 2) if first_five_scores else 0
 
     return render_template('result.html', dates=dates, scores=scores, first_score=scores[0] if scores else 0, baseline=baseline)
-
 
 @app.route('/admin')
 @login_required
@@ -850,12 +860,12 @@ def update_profile():
 @app.route('/music')
 @login_required
 def music():
+    if not check_can_use_premium(current_user):
+        flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
+        return redirect(url_for('dashboard'))
+    
     # 無料期間 or 有料 or 拡張フラグ
-    can_play_premium = (
-        current_user.is_paid or
-        current_user.is_free_extended or
-        (date.today() - current_user.created_at.date()).days < 5
-    )
+    can_play_premium = check_can_use_premium(current_user)
 
     filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
     display_names = {
@@ -883,10 +893,12 @@ def music():
 @app.route('/api/music')
 @login_required
 def api_music():
-    if not current_user.is_paid:
+    if not check_can_use_premium(current_user):
         return jsonify({
-            'error': 'プレミアム音源は有料プラン専用です。'
+            'error': '無料期間が終了しています。有料登録が必要です。'
         }), 403
+
+    # …以降はそのまま
 
     filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
 
@@ -1048,7 +1060,8 @@ def api_profile():
         'last_score': today_score_value,
         'last_recorded': last_recorded,
         'baseline': baseline,
-        'score_deviation': score_deviation
+        'score_deviation': score_deviation,
+        'can_use_premium': check_can_use_premium(current_user)
     })
     
 try:
