@@ -7,9 +7,12 @@ from datetime import datetime, date, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from redis import Redis
+from rq import Queue
+from tasks import background_job
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message
+from flask_mailman import Mail, EmailMessage
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from dotenv import load_dotenv
 from io import StringIO
@@ -136,10 +139,12 @@ def bandpass_filter(signal, rate, lowcut=300, highcut=3400, order=5):
 # ======== ルート定義 =========
 @app.route('/send-test-mail')
 def send_test_mail():
-    msg = Message(subject="テスト送信",
-                  recipients=["ta714kadvance@gmail.com"],
-                  body="MailerSendのSMTP経由で送信されたテストメールです。")
-    mail.send(msg)
+    email = EmailMessage(
+        subject="テスト送信",
+        body="MailerSendのSMTP経由で送信されたテストメールです。",
+        to=["ta714kadvance@gmail.com"]
+    )
+    email.send()
     return "メールを送信しました！"
 
 @app.route('/contact', methods=['GET', 'POST'])
@@ -149,18 +154,19 @@ def contact():
         email = request.form['email']
         message = request.form['message']
 
-        msg = Message(subject="【koekarte】お問い合わせ",
-                      sender='noreply@koekarte.com',
-                      recipients=['koekarte.info@gmail.com'])
-        msg.body = f"""
-【お問い合わせ】
+        email_msg = EmailMessage(
+            subject="【koekarte】お問い合わせ",
+            body=f"""【お問い合わせ】
 名前: {name}
 メール: {email}
 
 内容:
 {message}
-"""
-        mail.send(msg)
+""",
+            to=['koekarte.info@gmail.com'],
+            from_email='noreply@koekarte.com'  # 明示的に指定
+        )
+        email_msg.send()
         flash("お問い合わせを送信しました。ありがとうございます。")
         return redirect(url_for('contact'))
 
@@ -169,7 +175,7 @@ def contact():
 @app.route('/api/contact', methods=['POST'])
 def api_contact():
     data = request.get_json()
-    print("📩 API受信データ:", data)  # ← 追加！
+    print("📩 API受信データ:", data)
 
     name = data.get('name')
     email = data.get('email')
@@ -180,20 +186,20 @@ def api_contact():
         return jsonify({'error': 'すべての項目を入力してください'}), 400
 
     try:
-        msg = Message(
+        email_msg = EmailMessage(
             subject="【koekarte】お問い合わせ",
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=["koekarte.info@gmail.com"],
             body=f"""【お問い合わせ】
 名前: {name}
 メール: {email}
 
 内容:
 {message}
-"""
+""",
+            to=["koekarte.info@gmail.com"],
+            from_email=app.config['MAIL_DEFAULT_SENDER']
         )
-        print("📤 メール送信準備完了:", msg)
-        mail.send(msg)
+        print("📤 メール送信準備完了:", email_msg)
+        email_msg.send()
         print("✅ メール送信成功")
         return jsonify({'message': '送信成功'})
     except Exception as e:
@@ -333,18 +339,19 @@ def send_reset_email(user):
     token = serializer.dumps(user.email, salt='reset-password')
     reset_url = url_for('reset_password', token=token, _external=True, _scheme='https')
 
-    msg = Message('【koekarte】パスワード再設定リンク',
-                  sender='noreply@koekarte.com',  # ✅ 明示
-                  recipients=[user.email])
-    msg.body = f"""
-{user.username} 様
+    subject = '【コエカルテ】パスワード再設定リンク'
+    message = f"""{user.username} 様
 
 以下のリンクよりパスワードの再設定を行ってください：
 {reset_url}
 
 このリンクは1時間で無効になります。
+
+※このメールに覚えがない場合は無視してください。
 """
-    mail.send(msg)
+
+    msg = EmailMessage(subject, message, to=[user.email])
+    msg.send()
 
 # --- パスワードリセット申請ページ ---
 @app.route('/forgot', methods=['GET', 'POST'])
