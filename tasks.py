@@ -23,16 +23,29 @@ def enqueue_detailed_analysis(wav_path, user_id):
     return job.get_id()
 
 def detailed_worker(wav_path, user_id):
-    # ④⑤ を含む重い解析
-    score, _ = detailed_analyze(wav_path)
-    # DB に書き戻し
+    result = detailed_analyze(wav_path)  # ← dictで取得
+
     from app import db, ScoreLog, User
     from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone(timedelta(hours=9)))
-    log = ScoreLog(user_id=user_id, timestamp=now, score=score, is_fallback=False)
+
+    log = ScoreLog(
+        user_id=user_id,
+        timestamp=now,
+        score=result["score"],
+        is_fallback=result["is_fallback"],
+        volume_std=result.get("volume_std"),
+        voiced_ratio=result.get("voiced_ratio"),
+        zcr=result.get("zcr"),
+        pitch_std=result.get("pitch_std"),
+        tempo_val=result.get("tempo_val"),
+    )
     db.session.add(log)
+
+    # ユーザー情報更新（オプション）
     user = User.query.get(user_id)
-    user.last_score = score
+    user.last_score = result["score"]
     user.last_recorded = now
+
     db.session.commit()
-    print(f"✅ Detailed analysis complete for user {user_id}, score={score}")
+    print(f"✅ Detailed analysis complete for user {user_id}, score={result['score']}")
