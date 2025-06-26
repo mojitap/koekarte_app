@@ -77,7 +77,7 @@ def is_valid_wav(wav_path, min_duration_sec=1.5):
         return False
 
 # ────────── フル解析（①〜⑤）──────────
-def analyze_stress_from_wav(wav_path):
+def analyze_stress_from_wav(wav_path, user_id=None):
     """
     return (score:int, is_fallback:bool)
     30–95 点でスコアリング
@@ -113,7 +113,7 @@ def analyze_stress_from_wav(wav_path):
         tempo_val = len(times)/(times[-1]-times[0]) if len(times)>1 else 0.0
 
         # スケーリング
-        vol_scaled = np.clip(volume_std * 3000, 0, 100)
+        vol_scaled = np.clip(volume_std * 7000, 0, 100)
         voice_scaled = np.clip(voiced_ratio * 150, 0, 100)
         zcr_scaled = np.clip(zcr * 7000, 0, 100)
         pitch_scaled = np.clip(pitch_std * 0.3, 0, 100)
@@ -123,6 +123,12 @@ def analyze_stress_from_wav(wav_path):
                zcr_scaled * 0.2 + pitch_scaled * 0.2 + tempo_scaled * 0.15)
         score = round(np.clip(raw, 25, 97))
 
+        user = User.query.get(user_id)
+        if user and user.volume_baseline:
+            if volume_std < user.volume_baseline * 0.5:
+                print("⚠️ 声量が極端に低下 → 減点補正")
+                score = max(25, score - 10)
+
         print(f"📊 スコア構成: vol={vol_scaled:.1f}, voice={voice_scaled:.1f}, "
               f"zcr={zcr_scaled:.1f}, pitch={pitch_scaled:.1f}, tempo={tempo_scaled:.1f} "
               f"→ raw={raw:.1f} → score={score}")
@@ -130,10 +136,34 @@ def analyze_stress_from_wav(wav_path):
         # 🔻 単調すぎ・小声すぎへの罰則
         if volume_std < 0.003 or pitch_std < 0.5 or tempo_val < 0.5:
             print("⚠️ 話し方が単調または声量が極端に小さいため補正スコア適用")
-            return 30 + np.random.randint(0, 10), True
+            return {
+                "score": 30 + np.random.randint(0, 10),
+                "is_fallback": True,
+                "volume_std": volume_std,
+                "voiced_ratio": voiced_ratio,
+                "zcr": zcr,
+                "pitch_std": pitch_std,
+                "tempo_val": tempo_val,
+            }
 
-        return score, False
+        return {
+            "score": score,
+            "is_fallback": False,
+            "volume_std": volume_std,
+            "voiced_ratio": voiced_ratio,
+            "zcr": zcr,
+            "pitch_std": pitch_std,
+            "tempo_val": tempo_val,
+        }
 
     except Exception as e:
         print("❌ analyze error:", e)
-        return 50, True
+        return {
+            "score": 50,
+            "is_fallback": True,
+            "volume_std": None,
+            "voiced_ratio": None,
+            "zcr": None,
+            "pitch_std": None,
+            "tempo_val": None,
+        }
