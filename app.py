@@ -1159,3 +1159,11 @@ def upgrade_db():
         return "✅ DB upgrade executed successfully", 200
     except Exception as e:
         return f"❌ Error: {e}", 500
+
+@app.route('/enqueue')
+def enqueue_test():
+    from tasks import enqueue_detailed_analysis
+    test_path = "/tmp/uploads/test.wav"
+    user_id = 1  # 実際に存在するID
+    job_id = enqueue_detailed_analysis(test_path, user_id)
+    return f"ジョブを送信しました: {job_id}"
