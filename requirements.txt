@@ -1,3 +1,5 @@
+--prefer-binary
+
 setuptools>=65.0.0
 wheel
 build
@@ -23,7 +25,7 @@ Werkzeug==2.3.7
 stripe==8.6.0
 joblib==1.4.2
 librosa==0.11.0
-numba==0.61.2  # 追加
+numba==0.61.2
 python_speech_features==0.6
 flask-cors==3.0.10
 flask-migrate==4.0.5
