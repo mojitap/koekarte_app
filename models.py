@@ -8,6 +8,10 @@ class User(UserMixin, db.Model):
     __tablename__ = 'user'
     __table_args__ = {'extend_existing': True}
 
+    volume_baseline = db.Column(db.Float)
+    pitch_baseline = db.Column(db.Float)
+    tempo_baseline = db.Column(db.Float)
+
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     username = db.Column(db.String(100), nullable=False)
@@ -49,6 +53,13 @@ class ScoreLog(db.Model):
     score = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=db.func.now())
     is_fallback = db.Column(db.Boolean, default=False)
+
+    # 🎯 追加する特徴量
+    volume_std = db.Column(db.Float)      # 声量変動（振幅の標準偏差）
+    voiced_ratio = db.Column(db.Float)    # 有声音率
+    zcr = db.Column(db.Float)             # ゼロ交差率
+    pitch_std = db.Column(db.Float)       # ピッチの標準偏差
+    tempo_val = db.Column(db.Float)       # テンポ（発話速度）
 
 class ActionLog(db.Model):
     __tablename__ = 'action_log'
