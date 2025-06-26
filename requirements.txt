@@ -1,9 +1,11 @@
-setuptools>=61.0.0
+setuptools>=65.0.0
+wheel
+build
 Flask==2.3.3
 gunicorn==21.2.0
 flask_sqlalchemy==3.1.1
 flask_login==0.6.3
-flask_mail==0.9.1
+flask-mailman==0.3.7
 python-dotenv==1.0.1
 requests==2.31.0
 pyAudioAnalysis==0.3.14
