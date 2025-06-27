@@ -9,6 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from redis import Redis
 from rq import Queue
+from app_instance import app, db, login_manager
 from tasks import enqueue_detailed_analysis
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
