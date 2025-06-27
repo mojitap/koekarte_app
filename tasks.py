@@ -2,8 +2,8 @@ import os
 import redis as real_redis
 from rq import Queue
 from utils.audio_utils import analyze_stress_from_wav as detailed_analyze
-from app import app  # ✅ 必ず関数の外でインポート
-from models import db, ScoreLog, User, ActionLog
+from app_instance import app, db  # ✅ ← これが正解！
+from models import ScoreLog, User, ActionLog
 from datetime import datetime, timedelta, timezone
 
 # Redis接続
