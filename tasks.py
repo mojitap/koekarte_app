@@ -23,9 +23,9 @@ def enqueue_detailed_analysis(wav_path, user_id):
     return job.get_id()
 
 def detailed_worker(wav_path, user_id):
-    result = detailed_analyze(wav_path)  # ← dictで取得
+    result = detailed_analyze(wav_path)
 
-    from app import db, ScoreLog, User
+    from app import db, ScoreLog, User, ActionLog  # ← ここで ActionLog も
     from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone(timedelta(hours=9)))
 
@@ -42,10 +42,18 @@ def detailed_worker(wav_path, user_id):
     )
     db.session.add(log)
 
-    # ユーザー情報更新（オプション）
     user = User.query.get(user_id)
     user.last_score = result["score"]
     user.last_recorded = now
+
+    # ActionLog 登録
+    log_action = ActionLog(
+        admin_email=None,
+        user_email=user.email,
+        action=f"詳細スコア解析を実行（score={result['score']}）",
+        timestamp=now
+    )
+    db.session.add(log_action)
 
     db.session.commit()
     print(f"✅ Detailed analysis complete for user {user_id}, score={result['score']}")
