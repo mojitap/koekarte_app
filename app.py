@@ -596,11 +596,15 @@ def upload():
     from tasks import enqueue_detailed_analysis
     job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
 
-    # 速報スコアを即返却
-    return jsonify({
-        'quick_score': quick_score,
-        'job_id': job_id
-    }), 200
+    # 速報スコアを即返却（JSONエラー対策でtry包む）
+    try:
+        return jsonify({
+            'quick_score': quick_score,
+            'job_id': job_id or ""
+        }), 200
+    except Exception as e:
+        print("❌ JSONレスポンス作成エラー:", str(e))
+        return jsonify({'error': 'レスポンスの作成に失敗しました'}), 500
 
 @app.route('/result')
 @login_required
