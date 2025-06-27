@@ -24,6 +24,7 @@ from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 from utils.auth_utils import check_can_use_premium
 from flask import flash, redirect, url_for
+from sqlalchemy.sql import func
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -522,11 +523,19 @@ def record_api():  # ← こちらも別名にしておくと安心
 @login_required
 def upload():
     if 'audio_data' not in request.files:
-        return jsonify({'error': '音声データが見つかりません'}), 400
+        return Response(
+            json.dumps({'error': '音声データが見つかりません'}, ensure_ascii=False),
+            status=400,
+            content_type='application/json'
+        )
 
     file = request.files['audio_data']
     if file.filename == '':
-        return jsonify({'error': 'ファイルが選択されていません'}), 400
+        return Response(
+            json.dumps({'error': 'ファイルが選択されていません'}, ensure_ascii=False),
+            status=400,
+            content_type='application/json'
+        )
 
     UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -549,7 +558,7 @@ def upload():
     except Exception as e:
         print("❌ ファイルサイズ確認エラー:", e)
 
-    # 形式変換
+    # 音声形式の変換＋音量正規化
     try:
         wav_path = save_path.replace(f".{original_ext}", ".wav")
         if original_ext.lower() == "m4a":
@@ -559,30 +568,39 @@ def upload():
         else:
             raise ValueError("対応していないファイル形式です")
 
-        # 時間チェック（短すぎる録音は拒否）
         if not is_valid_wav(wav_path):
-            return jsonify({'error': '録音が短すぎます。5秒以上の録音をお願いします。'}), 400
+            return Response(
+                json.dumps({'error': '録音が短すぎます。5秒以上の録音をお願いします。'}, ensure_ascii=False),
+                status=400,
+                content_type='application/json'
+            )
 
         normalized_path = wav_path.replace(".wav", "_normalized.wav")
         normalize_volume(wav_path, normalized_path)
-        
+
     except Exception as e:
         print("❌ 音声変換エラー:", e)
-        return jsonify({'error': '音声変換に失敗しました'}), 500
+        return Response(
+            json.dumps({'error': '音声変換に失敗しました'}, ensure_ascii=False),
+            status=500,
+            content_type='application/json'
+        )
 
-    # ✅ 1日1回制限（fallbackでも不可）
+    # ✅ 1日1回制限
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
         db.func.date(ScoreLog.timestamp) == today
     ).first()
     if already_logged:
-        return jsonify({
-            'error': '📅 本日はすでにスコアを記録済みです。明日またご利用ください。'
-        }), 400
+        return Response(
+            json.dumps({'error': '📅 本日はすでにスコアを記録済みです。明日またご利用ください。'}, ensure_ascii=False),
+            status=400,
+            content_type='application/json'
+        )
 
-    # 軽量解析（①〜③）の呼び出し
+    # 軽量スコア解析
     quick_score, is_fallback = light_analyze(normalized_path)
 
-    # 速報スコアを DB に仮保存
+    # 仮保存
     fallback_log = ScoreLog(
         user_id=current_user.id,
         timestamp=now,
@@ -592,19 +610,16 @@ def upload():
     db.session.add(fallback_log)
     db.session.commit()
 
-    # 詳細解析ジョブをキューに登録
+    # RQへ詳細解析ジョブを登録
     from tasks import enqueue_detailed_analysis
     job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
 
-    # 速報スコアを即返却（JSONエラー対策でtry包む）
-    try:
-        return jsonify({
-            'quick_score': quick_score,
-            'job_id': job_id or ""
-        }), 200
-    except Exception as e:
-        print("❌ JSONレスポンス作成エラー:", str(e))
-        return jsonify({'error': 'レスポンスの作成に失敗しました'}), 500
+    # 即レスポンス
+    return Response(
+        json.dumps({'quick_score': quick_score, 'job_id': job_id}, ensure_ascii=False),
+        status=200,
+        content_type='application/json'
+    )
 
 @app.route('/result')
 @login_required
