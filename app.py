@@ -969,12 +969,16 @@ def create_checkout_session():
         return str(e), 400
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")  # .env に追加が必要！
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
+    # 🔸 JSON形式以外のリクエストは弾く（セキュリティ強化・無駄ログ回避）
+    if request.headers.get("Content-Type") != "application/json":
+        return "Unsupported Media Type", 415
+
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")  # ←関数内に移動してもOK
 
     try:
         event = stripe.Webhook.construct_event(
@@ -993,7 +997,9 @@ def stripe_webhook():
         if user:
             user.is_paid = True
             db.session.commit()
-            print(f"✅ {email} を有料プランに更新しました")
+
+            # 🔸 ログ出力：Renderログなどで確認しやすくする
+            print(f"✅ Webhook受信: {email} の支払いが完了しました（Session ID: {session['id']}）")
 
     return jsonify(success=True)
 
