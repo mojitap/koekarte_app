@@ -25,8 +25,7 @@ def enqueue_detailed_analysis(wav_path, user_id):
 def detailed_worker(wav_path, user_id):
     result = detailed_analyze(wav_path)
 
-    from db import db
-    from models import ScoreLog, User, ActionLog
+    from models import db, ScoreLog, User, ActionLog
     from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone(timedelta(hours=9)))
 
