@@ -1174,8 +1174,13 @@ def enqueue_test():
     job_id = enqueue_detailed_analysis(test_path, user_id)
     return f"ジョブを送信しました: {job_id}"
 
-if __name__ == '__main__':
+# ✅ ローカルでも本番でも動くDB初期化
+try:
     with app.app_context():
-        time.sleep(3)
         db.create_all()
+except Exception as e:
+    print("❌ DB作成エラー:", e)
+
+# ✅ ローカル起動用（Renderでは無視される）
+if __name__ == '__main__':
     app.run(debug=True)
