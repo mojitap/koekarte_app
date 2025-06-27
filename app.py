@@ -558,7 +558,7 @@ def upload():
     except Exception as e:
         print("❌ ファイルサイズ確認エラー:", e)
 
-    # 音声形式の変換＋音量正規化
+    # 音声変換＋正規化
     try:
         wav_path = save_path.replace(f".{original_ext}", ".wav")
         if original_ext.lower() == "m4a":
@@ -586,7 +586,7 @@ def upload():
             content_type='application/json'
         )
 
-    # ✅ 1日1回制限
+    # ✅ 再チェック（レースコンディション対策）
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
         db.func.date(ScoreLog.timestamp) == today
     ).first()
@@ -600,7 +600,7 @@ def upload():
     # 軽量スコア解析
     quick_score, is_fallback = light_analyze(normalized_path)
 
-    # 仮保存
+    # スコア保存（←ここまでに再チェック済）
     fallback_log = ScoreLog(
         user_id=current_user.id,
         timestamp=now,
@@ -610,11 +610,10 @@ def upload():
     db.session.add(fallback_log)
     db.session.commit()
 
-    # RQへ詳細解析ジョブを登録
+    # RQに詳細解析を登録
     from tasks import enqueue_detailed_analysis
     job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
 
-    # 即レスポンス
     return Response(
         json.dumps({'quick_score': quick_score, 'job_id': job_id}, ensure_ascii=False),
         status=200,
