@@ -1,13 +1,24 @@
 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
   <h1>お問い合わせ</h1>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% with messages = get_flashed_messages() %}
     {% if messages %}
-      <ul style="padding: 10px; background-color: #f0fff0; border: 1px solid #ccc; color: #333;">
-        {% for category, message in messages %}
+      <ul id="flash-message" style="padding: 10px; background-color: #f0fff0; border: 1px solid #ccc; color: #333; transition: opacity 0.5s ease;">
+        {% for message in messages %}
           <li>{{ message }}</li>
         {% endfor %}
       </ul>
+
+      <!-- JavaScriptで自動的に非表示 -->
+      <script>
+        setTimeout(function () {
+          const flash = document.getElementById("flash-message");
+          if (flash) {
+            flash.style.opacity = "0";  // フェードアウト
+            setTimeout(() => flash.remove(), 500);  // DOMから削除（オプション）
+          }
+        }, 3000);  // 3秒後に非表示
+      </script>
     {% endif %}
   {% endwith %}
 
