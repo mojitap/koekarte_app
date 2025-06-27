@@ -1,10 +1,10 @@
 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
   <h1>お問い合わせ</h1>
 
-  {% with messages = get_flashed_messages() %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <ul style="padding: 10px; background-color: #f0fff0; border: 1px solid #ccc; color: #333;">
-        {% for message in messages %}
+        {% for category, message in messages %}
           <li>{{ message }}</li>
         {% endfor %}
       </ul>
