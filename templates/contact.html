@@ -1,6 +1,16 @@
 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
   <h1>お問い合わせ</h1>
 
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul style="padding: 10px; background-color: #f0fff0; border: 1px solid #ccc; color: #333;">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
   <form method="POST">
     <label>お名前：</label><br>
     <input type="text" name="name" required style="width: 100%; margin-bottom: 10px;"><br>
