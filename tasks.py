@@ -25,11 +25,11 @@ def enqueue_detailed_analysis(wav_path, user_id):
 def detailed_worker(wav_path, user_id):
     result = detailed_analyze(wav_path)
 
-    from app import db, ScoreLog, User, ActionLog
+    from db import db
+    from models import ScoreLog, User, ActionLog
     from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone(timedelta(hours=9)))
 
-    # ✅ 速報スコア（本日分）に対して詳細スコアを上書きする
     log = ScoreLog.query.filter_by(user_id=user_id).filter(
         db.func.date(ScoreLog.timestamp) == now.date()
     ).order_by(ScoreLog.timestamp.desc()).first()
@@ -38,7 +38,6 @@ def detailed_worker(wav_path, user_id):
         print(f"❌ ScoreLog が見つかりません: user_id={user_id}")
         return
 
-    # スコア上書き
     log.score = result["score"]
     log.is_fallback = result["is_fallback"]
     log.volume_std = result.get("volume_std")
@@ -47,12 +46,10 @@ def detailed_worker(wav_path, user_id):
     log.pitch_std = result.get("pitch_std")
     log.tempo_val = result.get("tempo_val")
 
-    # ユーザー情報の更新
     user = User.query.get(user_id)
     user.last_score = result["score"]
     user.last_recorded = now
 
-    # アクションログの追加
     log_action = ActionLog(
         admin_email=None,
         user_email=user.email,
@@ -60,6 +57,6 @@ def detailed_worker(wav_path, user_id):
         timestamp=now
     )
     db.session.add(log_action)
-
     db.session.commit()
+
     print(f"✅ 詳細解析＆上書き完了 for user {user_id}, score={result['score']}")
