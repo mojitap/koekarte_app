@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 redis_url = os.getenv('REDIS_URL')
 if redis_url:
     redis_conn = real_redis.from_url(redis_url)
-    q = Queue(connection=redis_conn)
+    q = Queue('default', connection=redis_conn)
 else:
     redis_conn = None
     q = None
@@ -27,7 +27,8 @@ def detailed_worker(wav_path, user_id):
     result = detailed_analyze(wav_path)
 
     with app.app_context():  # ✅ Flaskのアプリケーションコンテキストを使用
-        now = datetime.now(timezone(timedelta(hours=9)))
+        jst = timezone(timedelta(hours=9))
+        now = datetime.now(jst)
 
         log = ScoreLog.query.filter_by(user_id=user_id).filter(
             db.func.date(ScoreLog.timestamp) == now.date()
