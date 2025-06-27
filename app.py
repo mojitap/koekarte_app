@@ -1173,3 +1173,9 @@ def enqueue_test():
     user_id = 1  # 実際に存在するID
     job_id = enqueue_detailed_analysis(test_path, user_id)
     return f"ジョブを送信しました: {job_id}"
+
+if __name__ == '__main__':
+    with app.app_context():
+        time.sleep(3)
+        db.create_all()
+    app.run(debug=True)
