@@ -33,9 +33,6 @@ load_dotenv()
 # ✅ 本番環境かどうか判定（SESSION_COOKIE_SECUREに使用）
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 
-# Flaskアプリ作成
-app = Flask(__name__)
-
 # ───── セッション／クッキー設定 ─────
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -91,7 +88,6 @@ CORS(app, origins=[
     "http://127.0.0.1:5000"     # ← 追加
 ], supports_credentials=True)
 
-login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
