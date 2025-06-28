@@ -56,7 +56,6 @@ app.secret_key = os.getenv('SECRET_KEY')
 app.logger.debug(f"\ud83d\udd0d SQLALCHEMY_DATABASE_URI = {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 # ✅ DBとアプリを紐付け
-db.init_app(app)
 migrate = Migrate(app, db)
 
 # 👇この位置に追加
