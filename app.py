@@ -609,9 +609,15 @@ def upload():
 
     # RQに詳細解析を登録
     from tasks import enqueue_detailed_analysis
+    import shutil
+
+    persistent_path = os.path.join(os.path.dirname(__file__), 'uploads', os.path.basename(normalized_path))
+    os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
+    shutil.copy(normalized_path, persistent_path)
 
     print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
-    job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
+    job_id = enqueue_detailed_analysis(persistent_path, current_user.id)  # ← ここも persistent_path に変更
+
     print(f"✅ ジョブID: {job_id}")
 
     return Response(
