@@ -20,7 +20,7 @@ from io import StringIO
 from scipy.signal import butter, lfilter
 from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
-from models import db, User, ScoreLog, ScoreFeedback
+from models import User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 from utils.auth_utils import check_can_use_premium
@@ -1114,9 +1114,10 @@ def api_scores():
         'is_fallback': log.is_fallback
     } for log in logs]
 
-    if logs:
-        baseline = sum(log.score for log in logs[:5]) / min(len(logs), 5)
-        latest_score = logs[-1].score
+    valid_logs = [log for log in logs if not log.is_fallback]
+    if valid_logs:
+        baseline = sum(log.score for log in valid_logs[:5]) / min(len(valid_logs), 5)
+        latest_score = valid_logs[-1].score
         diff = round(latest_score - baseline, 1)
     else:
         baseline = 0
