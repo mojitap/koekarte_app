@@ -1,4 +1,4 @@
-# worker.py（ルートディレクトリに新規作成）
+import os  # ← これが必要
 from redis import Redis
 from rq import Worker, Queue, Connection
 from app_instance import app
