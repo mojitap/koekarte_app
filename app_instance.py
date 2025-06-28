@@ -1,8 +1,6 @@
-# app_instance.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
 
-app = Flask(__name__)  # 定義だけ
-db = SQLAlchemy()
-login_manager = LoginManager()
+app = Flask(__name__)
+app.config.from_object('config.Config')  # DB URIなどを読み込む
+db = SQLAlchemy(app)  # ← 直接バインド方式に変更（推奨）
