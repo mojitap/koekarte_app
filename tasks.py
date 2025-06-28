@@ -24,20 +24,31 @@ def enqueue_detailed_analysis(wav_path, user_id):
     return job.get_id()
 
 def detailed_worker(wav_path, user_id):
-    result = detailed_analyze(wav_path)
+    print(f"🚀 detailed_worker START: user_id={user_id}, path={wav_path}")
 
-    with app.app_context():  # ✅ Flaskのアプリケーションコンテキストを使用
+    result = detailed_analyze(wav_path)
+    print(f"🎯 analyze result = {result}")
+
+    with app.app_context():
+        print("📝 DB書き込み処理に入ります")
+
         jst = timezone(timedelta(hours=9))
         now = datetime.now(jst)
 
-        log = ScoreLog.query.filter_by(user_id=user_id).filter(
-            db.func.date(ScoreLog.timestamp) == now.date()
+        start_of_day = datetime(now.year, now.month, now.day, tzinfo=jst)
+        end_of_day = start_of_day + timedelta(days=1)
+
+        log = ScoreLog.query.filter(
+            ScoreLog.user_id == user_id,
+            ScoreLog.timestamp >= start_of_day,
+            ScoreLog.timestamp < end_of_day
         ).order_by(ScoreLog.timestamp.desc()).first()
 
         if not log:
             print(f"❌ ScoreLog が見つかりません: user_id={user_id}")
             return
 
+        # スコア情報更新
         log.score = result["score"]
         log.is_fallback = result["is_fallback"]
         log.volume_std = result.get("volume_std")
