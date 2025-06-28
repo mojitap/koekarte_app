@@ -609,7 +609,10 @@ def upload():
 
     # RQに詳細解析を登録
     from tasks import enqueue_detailed_analysis
+
+    print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
     job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
+    print(f"✅ ジョブID: {job_id}")
 
     return Response(
         json.dumps({'quick_score': quick_score, 'job_id': job_id}, ensure_ascii=False),
