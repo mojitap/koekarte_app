@@ -35,17 +35,17 @@ def detailed_worker(wav_path, user_id):
         jst = timezone(timedelta(hours=9))
         now = datetime.now(jst)
 
-        start_of_day = datetime(now.year, now.month, now.day, tzinfo=jst)
-        end_of_day = start_of_day + timedelta(days=1)
+        window_start = now - timedelta(minutes=5)
+        window_end = now + timedelta(minutes=1)
 
         log = ScoreLog.query.filter(
             ScoreLog.user_id == user_id,
-            ScoreLog.timestamp >= start_of_day,
-            ScoreLog.timestamp < end_of_day
+            ScoreLog.timestamp >= window_start,
+            ScoreLog.timestamp <= window_end
         ).order_by(ScoreLog.timestamp.desc()).first()
 
         if not log:
-            print(f"❌ ScoreLog が見つかりません: user_id={user_id}")
+            print(f"❌ ScoreLog が見つかりません: user_id={user_id}, 時刻範囲: {window_start}〜{window_end}")
             return
 
         # スコア情報更新
