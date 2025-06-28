@@ -50,7 +50,7 @@ def detailed_worker(wav_path, user_id):
 
         # スコア情報更新
         log.score = result["score"]
-        log.is_fallback = result["is_fallback"]
+        log.is_fallback = bool(result.get("is_fallback", True))
         log.volume_std = result.get("volume_std")
         log.voiced_ratio = result.get("voiced_ratio")
         log.zcr = result.get("zcr")
