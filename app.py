@@ -612,7 +612,6 @@ def upload():
         score=quick_score,
         is_fallback=is_fallback,
         filename=normalized_filename,
-        method='light'
     )
     db.session.add(fallback_log)
     db.session.commit()
