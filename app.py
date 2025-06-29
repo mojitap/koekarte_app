@@ -632,8 +632,11 @@ def upload():
             content_type='application/json'
         )
 
+    normalized_filename = os.path.basename(normalized_path)
+    upload_to_s3(normalized_path, normalized_filename)
+
     print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
-    job_id = enqueue_detailed_analysis(persistent_path, current_user.id)
+    job_id = enqueue_detailed_analysis(normalized_filename, current_user.id)
 
     print(f"✅ ジョブID: {job_id}")
 
