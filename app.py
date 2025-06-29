@@ -556,19 +556,24 @@ def upload():
     # 音声変換＋正規化
     try:
         wav_path = save_path.replace(f".{original_ext}", ".wav")
+        convert_success = False
         if original_ext.lower() == "m4a":
-            convert_m4a_to_wav(save_path, wav_path)
+            convert_success = convert_m4a_to_wav(save_path, wav_path)
         elif original_ext.lower() == "webm":
-            convert_webm_to_wav(save_path, wav_path)
+            convert_success = convert_webm_to_wav(save_path, wav_path)
         else:
             raise ValueError("対応していないファイル形式です")
 
-        if not is_valid_wav(wav_path):
+        if not convert_success or not is_valid_wav(wav_path):
             return Response(
-                json.dumps({'error': '録音が短すぎます。5秒以上の録音をお願いします。'}, ensure_ascii=False),
+                json.dumps({'error': '録音が短すぎるか、変換に失敗しました。'}, ensure_ascii=False),
                 status=400,
                 content_type='application/json'
             )
+
+        raw_debug_path = os.path.join(os.path.dirname(__file__), 'uploads/raw', os.path.basename(wav_path))
+        os.makedirs(os.path.dirname(raw_debug_path), exist_ok=True)
+        shutil.copy(wav_path, raw_debug_path)
 
         normalized_path = wav_path.replace(".wav", "_normalized.wav")
         normalize_volume(wav_path, normalized_path)
