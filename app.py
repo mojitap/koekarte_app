@@ -26,6 +26,8 @@ from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize
 from utils.auth_utils import check_can_use_premium
 from sqlalchemy.sql import func
 import json
+from s3_utils import upload_to_s3
+from werkzeug.utils import secure_filename
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -544,6 +546,8 @@ def upload():
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
     save_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(save_path)
+
+    upload_to_s3(save_path, filename)
 
     try:
         file_size = os.path.getsize(save_path)
