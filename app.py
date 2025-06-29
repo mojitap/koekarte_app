@@ -576,7 +576,8 @@ def upload():
         os.makedirs(os.path.dirname(raw_debug_path), exist_ok=True)
         shutil.copy(wav_path, raw_debug_path)
 
-        normalized_path = wav_path.replace(".wav", "_normalized.wav")
+        normalized_filename = os.path.basename(wav_path).replace(".wav", "_normalized.wav")
+        normalized_path = os.path.join("/tmp", normalized_filename)
         normalize_volume(wav_path, normalized_path)
 
     except Exception as e:
@@ -592,11 +593,10 @@ def upload():
         db.func.date(ScoreLog.timestamp) == today
     ).first()
     if already_logged:
-        return Response(
-            json.dumps({'error': '📅 本日はすでにスコアを記録済みです。明日またご利用ください。'}, ensure_ascii=False),
-            status=400,
-            content_type='application/json'
-        )
+        return jsonify({
+            'success': False,
+            'message': '本日はすでにスコアを記録済みです。明日またご利用ください'
+        }), 200
 
     # 軽量スコア解析
     quick_score, is_fallback = light_analyze(normalized_path)
@@ -616,7 +616,7 @@ def upload():
     shutil.copy(normalized_path, persistent_path)
 
     print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
-    job_id = enqueue_detailed_analysis(persistent_path, current_user.id)  # ← ここも persistent_path に変更
+    job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
 
     print(f"✅ ジョブID: {job_id}")
 
