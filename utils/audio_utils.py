@@ -60,7 +60,7 @@ def convert_m4a_to_wav(input_path, output_path):
     print("✅ ffmpeg変換成功")
     return True
 
-def normalize_volume(input_path, output_path, target_dBFS=-5.0):
+def normalize_volume(input_path, output_path, target_dBFS=-3.0):
     audio = AudioSegment.from_file(input_path)
     diff = target_dBFS - audio.dBFS
     normalized = audio.apply_gain(diff)
