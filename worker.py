@@ -6,6 +6,7 @@ from redis import Redis
 from rq import Worker, Queue, Connection
 from app_instance import app
 import tasks  # tasks.py を読み込んでおくことで関数エラーを防止
+import boto3
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,3 +26,12 @@ while True:
         traceback.print_exc()
         print("🔁 5秒後に再起動します...")
         time.sleep(5)
+
+def download_from_s3(s3_key, local_path):
+    s3 = boto3.client('s3',
+                      aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                      aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                      region_name='us-east-1')
+
+    s3.download_file('koekarte-uploads', s3_key, local_path)
+    print("✅ S3からファイルを取得:", local_path)
