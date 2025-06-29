@@ -616,7 +616,7 @@ def upload():
     shutil.copy(normalized_path, persistent_path)
 
     print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
-    job_id = enqueue_detailed_analysis(normalized_path, current_user.id)
+    job_id = enqueue_detailed_analysis(persistent_path, current_user.id)
 
     print(f"✅ ジョブID: {job_id}")
 
