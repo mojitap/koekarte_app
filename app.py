@@ -610,7 +610,9 @@ def upload():
         user_id=current_user.id,
         timestamp=now,
         score=quick_score,
-        is_fallback=is_fallback
+        is_fallback=is_fallback,
+        filename=normalized_filename,
+        method='light'
     )
     db.session.add(fallback_log)
     db.session.commit()
@@ -639,6 +641,8 @@ def upload():
     job_id = enqueue_detailed_analysis(normalized_filename, current_user.id)
 
     print(f"✅ ジョブID: {job_id}")
+
+    add_action_log(current_user.id, "録音アップロード（light）")
 
     return Response(
         json.dumps({'quick_score': quick_score, 'job_id': job_id}, ensure_ascii=False),
