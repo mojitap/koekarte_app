@@ -611,10 +611,6 @@ def upload():
     db.session.add(fallback_log)
     db.session.commit()
 
-    # RQに詳細解析を登録
-    from tasks import enqueue_detailed_analysis
-    import shutil
-
     persistent_path = os.path.join(os.path.dirname(__file__), 'uploads', os.path.basename(normalized_path))
     os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
     shutil.copy(normalized_path, persistent_path)
