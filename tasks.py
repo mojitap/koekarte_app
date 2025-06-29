@@ -16,12 +16,12 @@ else:
     redis_conn = None
     q = None
 
-def enqueue_detailed_analysis(s3_key, user_id):
+def enqueue_detailed_analysis(s3_filename, user_id):
     if not q:
         print("⚠️ Redis 未設定のため詳細解析ジョブをスキップ")
         return None
-    print(f"📤 Redis にジョブ登録中: user_id={user_id}, wav={wav_path}")
-    job = q.enqueue(detailed_worker, s3_key, user_id)
+    print(f"📤 Redis にジョブ登録中: user_id={user_id}, filename={s3_filename}")
+    job = q.enqueue(detailed_worker, s3_filename, user_id)
     print(f"✅ Redis 登録完了: job.id={job.id}")
     return job.get_id()
 
