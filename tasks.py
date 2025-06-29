@@ -27,6 +27,10 @@ def enqueue_detailed_analysis(wav_path, user_id):
 def detailed_worker(wav_path, user_id):
     print(f"🚀 detailed_worker START: user_id={user_id}, path={wav_path}")
 
+    if not os.path.exists(wav_path):
+        print(f"❌ ファイルが存在しません: {wav_path}")
+        return
+
     result = detailed_analyze(wav_path)
     print(f"🎯 analyze result = {result}")
 
