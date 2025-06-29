@@ -615,6 +615,19 @@ def upload():
     os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
     shutil.copy(normalized_path, persistent_path)
 
+    for i in range(10):  # 最大1秒待つ
+        if os.path.exists(persistent_path):
+            break
+        print(f"⌛ persistent_pathがまだ存在しないため、待機中... ({i})")
+        time.sleep(0.1)
+    else:
+        print(f"❌ persistent_path が作成されませんでした: {persistent_path}")
+        return Response(
+            json.dumps({'error': '内部エラー：ファイル保存失敗'}, ensure_ascii=False),
+            status=500,
+            content_type='application/json'
+        )
+
     print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
     job_id = enqueue_detailed_analysis(persistent_path, current_user.id)
 
