@@ -25,7 +25,7 @@ def light_analyze(wav_path):
 
     duration = len(y) / sr
     abs_y = np.abs(y)
-    if duration < 1.5 or np.mean(abs_y < 0.01) > 0.95:
+    if duration < 1.5 or np.mean(abs_y < 0.005) > 0.98:
         return 40, True
 
     # ① 声量変動（振幅STD）
@@ -92,7 +92,7 @@ def analyze_stress_from_wav(wav_path, user_id=None):
 
         duration = len(y) / sr
         abs_y = np.abs(y)
-        if duration < 1.5 or np.mean(abs_y < 0.01) > 0.95:
+        if duration < 1.5 or np.mean(abs_y < 0.005) > 0.98:
             return 50, True
 
         # ① 声量変動
