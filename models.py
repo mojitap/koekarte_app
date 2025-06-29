@@ -52,6 +52,8 @@ class ScoreLog(db.Model):
     timestamp = db.Column(db.DateTime, default=db.func.now())
     is_fallback = db.Column(db.Boolean, default=False)
 
+    filename = db.Column(db.String(255), nullable=True)  # ←★ここを追加
+
     # 🎯 追加する特徴量
     volume_std = db.Column(db.Float)      # 声量変動（振幅の標準偏差）
     voiced_ratio = db.Column(db.Float)    # 有声音率
