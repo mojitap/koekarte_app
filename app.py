@@ -1,4 +1,5 @@
 import os, time, glob, wave, csv, joblib
+import shutil
 import numpy as np
 import stripe
 import python_speech_features
