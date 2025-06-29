@@ -47,17 +47,31 @@ def light_analyze(wav_path):
 
 # ────────── WAV 変換系 ──────────
 def convert_webm_to_wav(input_path, output_path):
-    audio = AudioSegment.from_file(input_path, format="webm")
-    audio.export(output_path, format="wav")
+    import subprocess
+    command = [
+        'ffmpeg', '-y', '-i', input_path,
+        '-acodec', 'pcm_s16le', '-ac', '1', '-ar', '44100',
+        '-f', 'wav', output_path
+    ]
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        print(f"❌ ffmpeg変換エラー (webm): {result.stderr.decode()}")
+        return False
+    print("✅ ffmpeg変換成功 (webm)")
+    return True
 
 def convert_m4a_to_wav(input_path, output_path):
     import subprocess
-    command = ['ffmpeg', '-y', '-i', input_path, output_path]
+    command = [
+        'ffmpeg', '-y', '-i', input_path,
+        '-acodec', 'pcm_s16le', '-ac', '1', '-ar', '44100',
+        '-f', 'wav', output_path
+    ]
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
-        print(f"❌ ffmpeg変換エラー: {result.stderr.decode()}")
+        print(f"❌ ffmpeg変換エラー (m4a): {result.stderr.decode()}")
         return False
-    print("✅ ffmpeg変換成功")
+    print("✅ ffmpeg変換成功 (m4a)")
     return True
 
 def normalize_volume(input_path, output_path, target_dBFS=-3.0):
@@ -72,7 +86,11 @@ def normalize_volume(input_path, output_path, target_dBFS=-3.0):
 def is_valid_wav(wav_path, min_duration_sec=1.5):
     try:
         with wave.open(wav_path, 'rb') as wf:
-            return wf.getnframes() / wf.getframerate() >= min_duration_sec
+            frames = wf.getnframes()
+            framerate = wf.getframerate()
+            duration = frames / float(framerate)
+            print(f"⏱ WAV duration = {duration:.2f}s, framerate = {framerate}")
+            return duration >= min_duration_sec
     except Exception as e:
         print("❌ WAV検証エラー:", e)
         return False
