@@ -28,6 +28,7 @@ from sqlalchemy.sql import func
 import json
 from s3_utils import upload_to_s3
 from werkzeug.utils import secure_filename
+from utils.log_utils import add_action_log
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
