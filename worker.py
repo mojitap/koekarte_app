@@ -1,3 +1,4 @@
+import sys
 import os
 import time
 import traceback
@@ -5,6 +6,8 @@ from redis import Redis
 from rq import Worker, Queue, Connection
 from app_instance import app
 import tasks  # tasks.py を読み込んでおくことで関数エラーを防止
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 listen_queues = ['default']
 redis_url = os.getenv('REDIS_URL') or 'redis://localhost:6379'
