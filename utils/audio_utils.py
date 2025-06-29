@@ -52,12 +52,13 @@ def convert_webm_to_wav(input_path, output_path):
 
 def convert_m4a_to_wav(input_path, output_path):
     import subprocess
-    subprocess.run([
-        'ffmpeg', '-y', '-i', input_path,
-        '-acodec', 'pcm_s16le', '-ac', '1', '-ar', '44100',
-        '-f', 'wav', output_path
-    ], check=True)
+    command = ['ffmpeg', '-y', '-i', input_path, output_path]
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        print(f"❌ ffmpeg変換エラー: {result.stderr.decode()}")
+        return False
     print("✅ ffmpeg変換成功")
+    return True
 
 def normalize_volume(input_path, output_path, target_dBFS=-5.0):
     audio = AudioSegment.from_file(input_path)
