@@ -5,6 +5,7 @@ from utils.audio_utils import analyze_stress_from_wav as detailed_analyze
 from app_instance import app, db  # ✅ ← これが正解！
 from models import ScoreLog, User, ActionLog
 from datetime import datetime, timedelta, timezone
+from s3_utils import download_from_s3
 
 # Redis接続
 redis_url = os.getenv('REDIS_URL')
@@ -15,23 +16,30 @@ else:
     redis_conn = None
     q = None
 
-def enqueue_detailed_analysis(wav_path, user_id):
+def enqueue_detailed_analysis(s3_key, user_id):
     if not q:
         print("⚠️ Redis 未設定のため詳細解析ジョブをスキップ")
         return None
     print(f"📤 Redis にジョブ登録中: user_id={user_id}, wav={wav_path}")
-    job = q.enqueue(detailed_worker, wav_path, user_id)
+    job = q.enqueue(detailed_worker, s3_key, user_id)
     print(f"✅ Redis 登録完了: job.id={job.id}")
     return job.get_id()
 
-def detailed_worker(wav_path, user_id):
-    print(f"🚀 detailed_worker START: user_id={user_id}, path={wav_path}")
+def detailed_worker(s3_key, user_id):
+    print(f"🚀 detailed_worker START: user_id={user_id}, s3_key={s3_key}")
 
-    if not os.path.exists(wav_path):
-        print(f"❌ ファイルが存在しません: {wav_path}")
+    local_path = f"/tmp/{os.path.basename(s3_key)}"
+
+    # ✅ S3からダウンロード
+    if not download_from_s3(s3_key, local_path):
+        print(f"❌ S3からのダウンロード失敗: {s3_key}")
         return
 
-    result = detailed_analyze(wav_path)
+    if not os.path.exists(local_path):
+        print(f"❌ ファイルが存在しません: {local_path}")
+        return
+
+    result = detailed_analyze(local_path)
     print(f"🎯 analyze result = {result}")
 
     with app.app_context():
