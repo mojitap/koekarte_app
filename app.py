@@ -1033,7 +1033,12 @@ def stripe_webhook():
 
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
-    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+    # ✅ 環境に応じてWebhookシークレットを切り替える！
+    if os.getenv("FLASK_ENV") == "development":
+        endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET_TEST")
+    else:
+        endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
