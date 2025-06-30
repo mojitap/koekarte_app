@@ -15,22 +15,37 @@
     </p>
   </div>
 
-  <!-- ✅ これはテンプレートに組み込む "無料期間あと◯日" 表示ブロック例です -->
-{% if not current_user.is_paid and current_user.created_at %}
-  {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
-  <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
-    {% if remaining_days > 0 %}
-      <p style="font-size: 14px; color: #a00;">
-        🕒 無料期間はあと <strong>{{ remaining_days }}</strong> 日です。<br>
-        終了後は録音・分析・スコアグラフ・音楽ライブラリの利用に制限がかかります。
-      </p>
-    {% else %}
-      <p style="font-size: 14px; color: #a00;">
-        ⚠️ 無料期間は終了しました。<br>引き続きご利用いただくには、有料プラン（月額300円）への登録が必要です。
-      </p>
-    {% endif %}
-    <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
+<!-- ✅ 有料登録済みユーザーへの表示 -->
+{% if current_user.is_paid %}
+  <div style="padding: 10px; border: 1px solid #0a0; border-radius: 6px; background-color: #f0fff0; margin: 10px 0;">
+    <p style="font-size: 14px; color: #080;">
+      ✅ 有料会員です（自動継続中）。<br>
+      いつもご利用ありがとうございます！
+    </p>
   </div>
+
+<!-- ⏰ 無料期間中の表示 -->
+{% elif current_user.created_at %}
+  {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
+  {% if remaining_days > 0 %}
+    <div style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 10px 0;">
+      <p style="font-size: 14px; color: #444;">
+        ⏰ 無料期間中です（あと <strong>{{ remaining_days }}</strong> 日）。<br>
+        終了後は録音・分析・音楽機能などに制限がかかります。
+      </p>
+      <a href="{{ url_for('checkout') }}" class="btn btn-info">🎟 有料プランの詳細を見る</a>
+    </div>
+
+  <!-- ⚠️ 無料期間終了後の表示 -->
+  {% else %}
+    <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
+      <p style="font-size: 14px; color: #a00;">
+        ⚠️ 無料期間は終了しました。<br>
+        引き続きご利用いただくには、有料プラン（月額300円）への登録が必要です。
+      </p>
+      <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
+    </div>
+  {% endif %}
 {% endif %}
 
   <div class="profile-info">
