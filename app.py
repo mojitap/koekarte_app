@@ -25,6 +25,7 @@ from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 from utils.auth_utils import check_can_use_premium
 from sqlalchemy.sql import cast, func, text
+from sqlalchemy import Date
 import json
 from s3_utils import upload_to_s3
 from werkzeug.utils import secure_filename
