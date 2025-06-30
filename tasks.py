@@ -56,9 +56,6 @@ def detailed_worker(s3_key, user_id):
     with app.app_context():
         print("📝 DB書き込み処理に入ります")
 
-        # ✅ app_contextの中でimportし直す（←これが重要）
-        from models import User
-
         jst = timezone(timedelta(hours=9))
         now = datetime.now(timezone.utc)
 
