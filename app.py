@@ -1061,6 +1061,9 @@ def stripe_webhook():
         if user:
             user.is_paid = True
             db.session.commit()
+
+            login_user(user, fresh=True)
+            
             print(f"💰 {email} の支払いステータスを更新しました")
 
     return jsonify(success=True)
