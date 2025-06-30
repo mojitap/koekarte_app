@@ -3,7 +3,6 @@ import redis as real_redis
 from rq import Queue
 from utils.audio_utils import analyze_stress_from_wav as detailed_analyze
 from app_instance import app, db  # ✅ ← これが正解！
-from models import ScoreLog, User, ActionLog
 from datetime import datetime, timedelta, timezone
 from s3_utils import download_from_s3
 from utils.log_utils import add_action_log
@@ -27,6 +26,8 @@ def enqueue_detailed_analysis(s3_filename, user_id):
     return job.get_id()
 
 def detailed_worker(s3_key, user_id):
+    from models import ScoreLog, User, ActionLog
+    
     print(f"🚀 detailed_worker START: user_id={user_id}, s3_key={s3_key}")
 
     local_path = f"/tmp/{os.path.basename(s3_key)}"
