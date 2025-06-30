@@ -47,7 +47,7 @@ def detailed_worker(s3_key, user_id):
         print("📝 DB書き込み処理に入ります")
 
         jst = timezone(timedelta(hours=9))
-        now = datetime.now(jst)
+        now = datetime.now(timezone.utc)
 
         window_start = now - timedelta(minutes=5)
         window_end = now + timedelta(minutes=1)
