@@ -9,42 +9,29 @@ import shutil
 print("🎯 audio_utils path:", __file__)
 
 def light_analyze(wav_path):
-    """
-    ①〜③ の超軽量解析だけを行い、
-    (score:int, is_fallback:bool) を返す
-    """
-    # WAV読み込み：soundfile → pydub フォールバック
+    y, sr = librosa.load(wav_path, sr=None)
+
+    volume_std = np.std(y)
+
     try:
-        y, sr = sf.read(wav_path, dtype='float32')
-    except Exception:
-        audio = AudioSegment.from_file(wav_path)
-        arr = np.array(audio.get_array_of_samples()).astype(np.float32)
-        sr = audio.frame_rate
-        if audio.channels == 2:
-            arr = arr.reshape((-1, 2)).mean(axis=1)
-        y = arr
+        f0, voiced_flag, voiced_probs = librosa.pyin(y, fmin=80, fmax=350, sr=sr)
+        pitch_std = np.nanstd(f0)
+    except:
+        pitch_std = None
 
-    duration = len(y) / sr
-    abs_y = np.abs(y)
-    if duration < 1.5 or np.mean(abs_y < 0.005) > 0.98:
-        return 40, True
+    intervals = librosa.effects.split(y, top_db=25)
+    total_voiced = sum([(end - start) for start, end in intervals])
+    duration_sec = librosa.get_duration(y=y, sr=sr)
+    tempo_val = total_voiced / duration_sec if duration_sec > 0 else 0
 
-    # ① 声量変動（振幅STD）
-    vol_std = float(np.std(abs_y))
-    # ② 有声音率（単純閾値）
-    voiced_ratio = float((abs_y > 0.02).sum()) / len(abs_y)
-    # ③ ゼロ交差率（高速）
-    zero_crossings = ((y[:-1] * y[1:]) < 0).sum()
-    zcr = float(zero_crossings) / len(y)
+    score = int(
+        (volume_std * 2500 * 0.3 if volume_std else 0) +
+        (pitch_std * 0.1 * 0.4 if pitch_std else 0) +
+        (tempo_val * 10 * 0.3)
+    )
+    score = max(30, min(score, 95))
 
-    # スケーリング 0–100
-    vol_s = np.clip(vol_std * 1000, 0, 100)
-    voice_s = np.clip(voiced_ratio * 100, 0, 100)
-    zcr_s = np.clip(zcr * 100, 0, 100)
-
-    raw = vol_s * 0.4 + voice_s * 0.4 + zcr_s * 0.2
-    score = round(np.clip(raw, 30, 95))
-    return score, False
+    return score, False if pitch_std else True
 
 # ────────── WAV 変換系 ──────────
 def convert_webm_to_wav(input_path, output_path):
