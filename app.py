@@ -1005,7 +1005,7 @@ def checkout():
 @login_required
 def create_checkout_session():
     try:
-        stripe.api_key = os.getenv("STRIPE_SECRET_KEY") 
+        stripe.api_key = os.getenv("STRIPE_TEST_SECRET_KEY")
         
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
