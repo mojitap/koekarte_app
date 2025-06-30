@@ -1005,6 +1005,8 @@ def checkout():
 @login_required
 def create_checkout_session():
     try:
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY") 
+        
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -1019,8 +1021,6 @@ def create_checkout_session():
         return redirect(checkout_session.url, code=303)
     except Exception as e:
         return str(e), 400
-
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
