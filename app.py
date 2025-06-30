@@ -599,8 +599,8 @@ def upload():
 
     # JSTの暦日で「すでに録音済みか」を確認
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
-        text("timestamp AT TIME ZONE 'Asia/Tokyo'::text::timestamptz::date = :date")
-    ).params(date=today_jst_str).first()
+        cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today
+    ).first()
     if already_logged:
         return jsonify({
             'success': False,
@@ -1055,18 +1055,30 @@ def stripe_webhook():
     if event["type"] == "checkout.session.completed":
         session_data = event["data"]["object"]
         email = session_data.get("customer_email")
-        print(f"🎯 顧客メール: {email}")
+    
+        # 🔍 customer_emailがない場合はcustomerから取得
+        if not email and session_data.get("customer"):
+            try:
+                customer = stripe.Customer.retrieve(session_data["customer"])
+                email = customer.get("email")
+                print(f"📧 Stripe顧客情報から取得したメール: {email}")
+            except Exception as e:
+                print(f"❌ 顧客情報の取得に失敗: {e}")
 
-        user = User.query.filter_by(email=email).first()
-        if user:
-            user.is_paid = True
-            db.session.commit()
+        if email:
+            print(f"🎯 顧客メール: {email}")
+            user = User.query.filter_by(email=email).first()
+            if user:
+                print(f"✅ ユーザー {email} が見つかりました。is_paidを更新します")
+                user.is_paid = True
+                db.session.commit()
+                print(f"💰 {email} の支払いステータスを更新しました")
+            else:
+                print(f"❌ ユーザー {email} が見つかりませんでした")
+        else:
+            print("❌ 顧客メールが取得できませんでした")
 
-            login_user(user, fresh=True)
-            
-            print(f"💰 {email} の支払いステータスを更新しました")
-
-    return jsonify(success=True)
+        return jsonify(success=True)
 
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
