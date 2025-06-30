@@ -6,6 +6,7 @@ from app_instance import app, db  # ✅ ← これが正解！
 from models import ScoreLog, User, ActionLog
 from datetime import datetime, timedelta, timezone
 from s3_utils import download_from_s3
+from utils.log_utils import add_action_log
 
 # Redis接続
 redis_url = os.getenv('REDIS_URL')
@@ -57,8 +58,19 @@ def detailed_worker(s3_key, user_id):
             ScoreLog.timestamp <= window_end
         ).order_by(ScoreLog.timestamp.desc()).first()
 
+        user = User.query.get(user_id)  # ここで先に取得しておく
+
         if not log:
             print(f"❌ ScoreLog が見つかりません: user_id={user_id}, 時刻範囲: {window_start}〜{window_end}")
+            if user:
+                log_action = ActionLog(
+                    admin_email=None,
+                    user_email=user.email,
+                    action=f"詳細スコア解析を試行（ScoreLog見つからず、score={result['score']}）",
+                    timestamp=now
+                )
+                db.session.add(log_action)
+                db.session.commit()
             return
 
         # スコア情報更新
@@ -70,13 +82,13 @@ def detailed_worker(s3_key, user_id):
         log.pitch_std = result.get("pitch_std")
         log.tempo_val = result.get("tempo_val")
 
-        user = User.query.get(user_id)
-        user.last_score = result["score"]
-        user.last_recorded = now
+        if user:
+            user.last_score = result["score"]
+            user.last_recorded = now
 
         log_action = ActionLog(
             admin_email=None,
-            user_email=user.email,
+            user_email=user.email if user else None,
             action=f"詳細スコア解析を実行（score={result['score']}）",
             timestamp=now
         )
