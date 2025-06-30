@@ -1024,34 +1024,39 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
-    # 🔸 JSON形式以外のリクエストは弾く（セキュリティ強化・無駄ログ回避）
+    print("📩 Webhook受信しました")
+    print(f"Content-Type: {request.headers.get('Content-Type')}")
+    print(f"Stripe-Signature: {request.headers.get('Stripe-Signature')}")
+
     if request.headers.get("Content-Type") != "application/json":
         return "Unsupported Media Type", 415
 
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
-    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")  # ←関数内に移動してもOK
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, endpoint_secret
-        )
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
     except ValueError:
+        print("❌ Invalid payload")
         return "Invalid payload", 400
-    except stripe.error.SignatureVerificationError:
+    except stripe.error.SignatureVerificationError as e:
+        print("❌ Invalid signature")
+        print(f"詳細: {str(e)}")
         return "Invalid signature", 400
 
-    # ✅ 支払い完了時に実行
+    print(f"✅ Event type: {event['type']}")
+
     if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        email = session.get("customer_email")
+        session_data = event["data"]["object"]
+        email = session_data.get("customer_email")
+        print(f"🎯 顧客メール: {email}")
+
         user = User.query.filter_by(email=email).first()
         if user:
             user.is_paid = True
             db.session.commit()
-
-            # 🔸 ログ出力：Renderログなどで確認しやすくする
-            print(f"✅ Webhook受信: {email} の支払いが完了しました（Session ID: {session['id']}）")
+            print(f"💰 {email} の支払いステータスを更新しました")
 
     return jsonify(success=True)
 
