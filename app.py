@@ -24,7 +24,7 @@ from models import User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, analyze_stress_from_wav, light_analyze
 from utils.auth_utils import check_can_use_premium
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 import json
 from s3_utils import upload_to_s3
 from werkzeug.utils import secure_filename
@@ -540,7 +540,7 @@ def upload():
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
     jst = timezone(timedelta(hours=9))
-    now = datetime.now(jst)
+    now = datetime.now(timezone.utc)
     today = now.date()
 
     original_ext = file.filename.split('.')[-1]
@@ -594,9 +594,13 @@ def upload():
         )
 
     # ✅ 再チェック（レースコンディション対策）
+    # JSTベースの日付文字列（例："2025-06-30"）
+    today_jst_str = now.strftime('%Y-%m-%d')
+
+    # JSTの暦日で「すでに録音済みか」を確認
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
-        db.func.date(ScoreLog.timestamp) == today
-    ).first()
+        text("timestamp AT TIME ZONE 'Asia/Tokyo'::text::timestamptz::date = :date")
+    ).params(date=today_jst_str).first()
     if already_logged:
         return jsonify({
             'success': False,
