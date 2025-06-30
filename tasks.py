@@ -27,8 +27,6 @@ def enqueue_detailed_analysis(s3_filename, user_id):
     return job.get_id()
 
 def detailed_worker(s3_key, user_id):
-    from models import User
-    
     print(f"🚀 detailed_worker START: user_id={user_id}, s3_key={s3_key}")
 
     local_path = f"/tmp/{os.path.basename(s3_key)}"
@@ -42,11 +40,24 @@ def detailed_worker(s3_key, user_id):
         print(f"❌ ファイルが存在しません: {local_path}")
         return
 
-    result = detailed_analyze(local_path)
+    try:
+        result = detailed_analyze(local_path)
+    except Exception as e:
+        print(f"❌ analyze error: {e}")
+        return  # ← 解析エラー時は上書きせず終了
+
     print(f"🎯 analyze result = {result}")
+
+    # fallbackなら上書きせず終了
+    if result.get("is_fallback", True):
+        print("⚠️ fallbackスコアのため、score_logは上書きしません")
+        return
 
     with app.app_context():
         print("📝 DB書き込み処理に入ります")
+
+        # ✅ app_contextの中でimportし直す（←これが重要）
+        from models import User
 
         jst = timezone(timedelta(hours=9))
         now = datetime.now(timezone.utc)
@@ -60,7 +71,7 @@ def detailed_worker(s3_key, user_id):
             ScoreLog.timestamp <= window_end
         ).order_by(ScoreLog.timestamp.desc()).first()
 
-        user = User.query.get(user_id)  # ここで先に取得しておく
+        user = User.query.get(user_id)
 
         if not log:
             print(f"❌ ScoreLog が見つかりません: user_id={user_id}, 時刻範囲: {window_start}〜{window_end}")
@@ -77,7 +88,7 @@ def detailed_worker(s3_key, user_id):
 
         # スコア情報更新
         log.score = result["score"]
-        log.is_fallback = bool(result.get("is_fallback", True))
+        log.is_fallback = False
         log.volume_std = result.get("volume_std")
         log.voiced_ratio = result.get("voiced_ratio")
         log.zcr = result.get("zcr")
