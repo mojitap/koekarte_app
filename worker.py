@@ -13,6 +13,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 listen_queues = ['default']
 redis_url = os.getenv('REDIS_URL') or 'redis://localhost:6379'
 
+# プロジェクトルートを追加（models.pyがある位置）
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+import models  # ✅ 明示的に読み込む（重要）
+
 while True:
     try:
         redis_conn = Redis.from_url(redis_url)
