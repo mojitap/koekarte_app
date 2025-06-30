@@ -27,6 +27,8 @@ def enqueue_detailed_analysis(s3_filename, user_id):
     return job.get_id()
 
 def detailed_worker(s3_key, user_id):
+    from models import User
+    
     print(f"🚀 detailed_worker START: user_id={user_id}, s3_key={s3_key}")
 
     local_path = f"/tmp/{os.path.basename(s3_key)}"
