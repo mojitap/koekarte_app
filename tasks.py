@@ -25,21 +25,18 @@ def enqueue_detailed_analysis(s3_filename, user_id):
     return job.get_id()
 
 def detailed_worker(s3_key, user_id):
-    from models import ScoreLog, User, ActionLog
-    # 遅延インポートしてメモリを節約
-    from utils.audio_utils import light_analyze as detailed_analyze
+    from models import ScoreLog, User
+    from utils.audio_utils import light_analyze, compute_rms
 
     print(f"🚀 detailed_worker START: user_id={user_id}, s3_key={s3_key}")
     local_path = f"/tmp/{os.path.basename(s3_key)}"
 
-    # S3 からダウンロード
     if not download_from_s3(s3_key, local_path):
         print(f"❌ S3からのダウンロード失敗: {s3_key}")
         return
 
-    # 音声解析
     try:
-        score, is_fallback = detailed_analyze(local_path)
+        score, is_fallback = light_analyze(local_path)
     except Exception as e:
         print(f"❌ analyze error: {e}")
         return
@@ -49,7 +46,6 @@ def detailed_worker(s3_key, user_id):
         print("⚠️ fallbackスコアのため、score_logは上書きしません")
         return
 
-    # DB 更新
     with app.app_context():
         now = datetime.now(timezone.utc)
         window_start = now - timedelta(minutes=5)
@@ -62,18 +58,19 @@ def detailed_worker(s3_key, user_id):
 
         user = User.query.get(user_id)
 
+        # raw_rms 再計算＆ベースライン更新
+        fresh_rms = compute_rms(local_path)
+        user.volume_baseline = 0.8 * (user.volume_baseline or fresh_rms) + 0.2 * fresh_rms
+        user.last_score      = score
+        user.last_recorded   = now
+
         if not log:
-            # 見つからないならログだけ残して終了
-            action = f"詳細スコア解析試行（ScoreLog見つからず、score={score}）"
-            add_action_log(user_id, action)
+            add_action_log(user_id, f"詳細スコア解析試行（ScoreLog見つからず、score={score}）")
             return
 
         # スコア更新
-        log.score = score
+        log.score       = score
         log.is_fallback = False
-        if user:
-            user.last_score = score
-            user.last_recorded = now
 
         add_action_log(user_id, f"詳細スコア解析完了（score={score}）")
         db.session.commit()
