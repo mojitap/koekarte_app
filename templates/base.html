@@ -140,6 +140,177 @@
       margin: 0 auto;
       padding-left: 16px;
       padding-right: 16px;
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ✅ ロゴ（マイページリンク） -->
+  <div class="logo-container">
+    <a href="/dashboard">
+      <img src="{{ url_for('static', filename='koekarte-image.png') }}" alt="koekarte logo">
+    </a>
+  </div>
+
+  <!-- ✅ ページ個別コンテンツ -->
+  {% block content %}{% endblock %}
+
+  <!-- ✅ フッター -->
+  <footer style="margin-top: 40px; padding: 20px; border-top: 2px solid #ccc; background-color: #f9f9f9;">
+    <div style="max-width: 800px; margin: 0 auto; text-align: center;">
+      <p style="font-size: 14px;">
+        <a href="/terms">利用規約</a> |
+        <a href="/privacy">プライバシーポリシー</a> |
+        <a href="/legal">特定商取引法に基づく表記</a> |
+        <a href="{{ url_for('contact') }}">お問い合わせ</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{% endblock %}</title>
+
+  <!-- ブラウザタブ用 -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
+
+  <!-- iPhone ホーム画面用 -->
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+
+  <!-- Android PWA用（任意） -->
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+  <style>
+    /* ✅ 全ページ共通の中央寄せレイアウト */
+    .container {
+    max-width: 700px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 10px 15px;
+    }
+    /* ✅ グローバルリセット＆スマホ横スクロール防止 */
+    html {
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    *, *::before, *::after {
+      box-sizing: inherit;
+      word-wrap: break-word;
+    }
+
+    body {
+      margin: 0;
+      padding: 30px 20px;
+      font-family: sans-serif;
+      font-size: 17px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ✅ ロゴ全体の配置 */
+    .logo-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    .logo-container img {
+      width: 240px;
+      max-width: 90vw;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    /* ✅ ボタンリンク */
+    .auth-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .auth-links a {
+      padding: 10px 20px;
+      background-color: #f0f0f0;
+      color: #333;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .auth-links a:hover {
+      background-color: #ddd;
+    }
+
+    /* ✅ ダッシュボード用カード */
+    .dashboard-card {
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 30px;
+      border-radius: 12px;
+      background-color: #f9f9f9;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: left;
+    }
+
+    /* ✅ スマホ対応見出し */
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.5rem;
+        line-height: 1.4;
+        word-break: keep-all;
+      }
+    }
+
+    /* ✅ 入力フォーム調整 */
+    input, select, textarea {
+      pointer-events: auto;
+      touch-action: manipulation;
+      z-index: 1;
+    }
+
+    /* ✅ 録音ページ用 */
+    .record-container {
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .record-container button {
+      padding: 12px 24px;
+      font-size: 16px;
+      margin: 10px;
+      border-radius: 8px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+    }
+
+    .record-container button:disabled {
+      background-color: #ccc;
+      color: #666;
+    }
+
+    .home-wrapper {
+      max-width: 680px;
+      width: 100%;
+      margin: 0 auto;
+      padding-left: 16px;
+      padding-right: 16px;
     }
   </style>
 </head>
