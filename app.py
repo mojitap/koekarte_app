@@ -4,7 +4,7 @@ import numpy as np
 import stripe
 import python_speech_features
 import librosa
-import real_redis as redis
+import redis as real_redis
 from datetime import datetime, date, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_cors import CORS
