@@ -612,13 +612,17 @@ def upload():
 
     # ─── 生の RMS を先に算出 ───
     from utils.audio_utils import compute_rms, light_analyze
-    raw_rms = compute_rms(wav_path)    compute_rms,
-    
+    raw_rms = compute_rms(wav_path)
+
     # ─── ベースライン取得 ───
-    recent = ScoreLog.query.filter_by(user_id=current_user.id) \
-                 .filter(ScoreLog.volume_std.isnot(None)) \
-                 .order_by(ScoreLog.timestamp.desc()) \
-                 .limit(5).all()
+    recent = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .filter(ScoreLog.volume_std.isnot(None))
+        .order_by(ScoreLog.timestamp.desc())
+        .limit(5)
+        .all()
+    )
     baseline_rms = (sum(log.volume_std for log in recent) / len(recent)) if recent else raw_rms
 
     # ─── 拡張 light_analyze 呼び出し ───
