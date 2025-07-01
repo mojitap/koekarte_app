@@ -600,13 +600,9 @@ def upload():
             content_type='application/json'
         )
 
-    # ✅ 再チェック（レースコンディション対策）
-    # JSTベースの日付文字列（例："2025-06-30"）
-    today_jst_str = now.strftime('%Y-%m-%d')
-
-    # JSTの暦日で「すでに録音済みか」を確認
+    # ─── JSTの暦日で「すでに録音済みか」を確認 ───
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
-        cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today
+        cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == now.date()
     ).first()
     if already_logged:
         return jsonify({
@@ -614,16 +610,32 @@ def upload():
             'message': '本日はすでにスコアを記録済みです。明日またご利用ください'
         }), 200
 
-    # 軽量スコア解析
-    quick_score, is_fallback = light_analyze(normalized_path)
+    # ─── 生の RMS を先に算出 ───
+    from utils.audio_utils import compute_rms, light_analyze
+    raw_rms = compute_rms(wav_path)    compute_rms,
+    
+    # ─── ベースライン取得 ───
+    recent = ScoreLog.query.filter_by(user_id=current_user.id) \
+                 .filter(ScoreLog.volume_std.isnot(None)) \
+                 .order_by(ScoreLog.timestamp.desc()) \
+                 .limit(5).all()
+    baseline_rms = (sum(log.volume_std for log in recent) / len(recent)) if recent else raw_rms
 
-    # スコア保存（←ここまでに再チェック済）
+    # ─── 拡張 light_analyze 呼び出し ───
+    quick_score, is_fallback = light_analyze(
+        normalized_path,
+        raw_rms=raw_rms,
+        rms_baseline=baseline_rms
+    )
+
+    # ─── ログ保存 ───
     fallback_log = ScoreLog(
         user_id=current_user.id,
         timestamp=now,
         score=quick_score,
         is_fallback=is_fallback,
         filename=normalized_filename,
+        volume_std=raw_rms,
     )
     db.session.add(fallback_log)
     db.session.commit()
