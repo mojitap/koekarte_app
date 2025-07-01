@@ -101,44 +101,55 @@ stopButton.addEventListener('click', () => {
 });
 
 uploadButton.addEventListener('click', async () => {
-    const blob = uploadButton.blob;
-    if (!blob) {
-        alert("録音データがありません");
-        return;
+  const blob = uploadButton.blob;
+  if (!blob) {
+    alert("録音データがありません");
+    return;
+  }
+
+  // 1) サーバーへ送信 → job_id を取得
+  const formData = new FormData();
+  formData.append('audio_data', blob, 'recording.webm');
+
+  let res;
+  try {
+    res = await fetch('/api/upload', { method: 'POST', body: formData });
+  } catch (err) {
+    alert("❌ ネットワークエラー: " + err);
+    return;
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    alert("❌ アップロード失敗: " + text);
+    return;
+  }
+  const { job_id } = await res.json();
+  if (!job_id) {
+    alert("❌ サーバーから job_id が取得できません");
+    return;
+  }
+
+  // 2) ポーリング開始（1.5秒ごと）
+  const poll = setInterval(async () => {
+    let statusRes, statusJ;
+    try {
+      statusRes = await fetch(`/api/job_status/${job_id}`);
+      statusJ   = await statusRes.json();
+    } catch (err) {
+      console.error("ポーリングエラー", err);
+      return;
     }
 
-    const formData = new FormData();
-    formData.append('audio_data', blob, 'recording.webm');
-
-    // 1) サーバーへ送信して job_id を受け取る
-    const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-    });
-
-    if (!response.ok) {
-        const err = await response.text();
-        alert('❌ アップロード失敗: ' + err);
-        return;
+    if (statusJ.status === 'finished') {
+      clearInterval(poll);
+      alert(`✅ 詳細解析完了！スコア：${statusJ.score} 点`);
+      window.location.href = '/dashboard';
     }
-
-    const { job_id } = await response.json();
-
-    // 2) ポーリング開始：詳細解析が終わるまで 1.5 秒間隔で問い合わせ
-    const poll = setInterval(async () => {
-        const statusRes = await fetch(`/api/job_status/${job_id}`);
-        const statusJ = await statusRes.json();
-
-        if (statusJ.status === 'finished') {
-            clearInterval(poll);
-            alert(`✅ 詳細解析完了！スコア：${statusJ.score} 点`);
-            window.location.href = '/dashboard';
-        }
-        else if (statusJ.status === 'failed') {
-            clearInterval(poll);
-            alert('❌ 詳細解析に失敗しました。');
-            window.location.href = '/dashboard';
-        }
-        // running の間は何もしない
-    }, 1500);
+    else if (statusJ.status === 'failed') {
+      clearInterval(poll);
+      alert('❌ 詳細解析に失敗しました。');
+      window.location.href = '/dashboard';
+    }
+    // 'running' の間は何もしない
+  }, 1500);
 });
