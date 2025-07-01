@@ -30,6 +30,7 @@ import json
 from s3_utils import upload_to_s3
 from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
+from rq.job import Job
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -433,64 +434,98 @@ def set_paid(user_id):
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+    # まず「詳細解析済み（is_fallback=False）」の最新レコードを探す
+    detailed = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id, is_fallback=False)
+        .order_by(ScoreLog.timestamp.desc())
+        .first()
+    )
+    if detailed:
+        latest = detailed
+    else:
+        # なければ light（fallback）版を最新で取ってくる
+        latest = (
+            ScoreLog.query
+            .filter_by(user_id=current_user.id, is_fallback=True)
+            .order_by(ScoreLog.timestamp.desc())
+            .first()
+        )
 
-    # ✅ まず初期化しておく（これでUnboundLocalErrorを防止）
-    baseline = None
-    first_score = None
-    latest_score = None
-    diff = None
-    first_score_date = None
-    last_date = None
+    # 基本情報は logs からじゃなく latest だけ見ればOK
+    if not latest:
+        # ログ0件時の処理
+        return render_template('dashboard.html', message="まだ記録がありません")
 
-    if logs:
-        scores = [log.score for log in logs]
-        dates = [log.timestamp.strftime('%Y-%m-%d') for log in logs]
+    # ベースライン算出（過去5件のスコア平均などはこれまで通り）
+    past5 = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .order_by(ScoreLog.timestamp)
+        .limit(5)
+        .all()
+    )
+    scores5 = [l.score for l in past5]
+    baseline = sum(scores5) // len(scores5)
 
-        first_score = logs[0].score
-        latest_score = logs[-1].score
-        first_score_date = dates[0]
-        last_date = dates[-1]
-
-        if len(scores) >= 5:
-            baseline = sum(scores[:5]) // 5
-        else:
-            baseline = sum(scores) // len(scores)
-
-        diff = latest_score - baseline
+    diff = latest.score - baseline
 
     return render_template('dashboard.html',
-                           user=current_user,
-                           first_score=first_score,
-                           latest_score=latest_score,
-                           diff=diff,
-                           first_score_date=first_score_date,
-                           last_date=last_date,
-                           baseline=baseline)
+        user=current_user,
+        first_score=past5[0].score if past5 else latest.score,
+        latest_score=latest.score,
+        diff=diff,
+        first_score_date=past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
+        last_date=latest.timestamp.strftime('%Y-%m-%d'),
+        baseline=baseline,
+        detailed_ready= (detailed is not None)
+    )
 
 @app.route('/api/dashboard')
 @login_required
 def api_dashboard():
-    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+    # 1) 詳細済みの最新
+    detailed = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id, is_fallback=False)
+        .order_by(ScoreLog.timestamp.desc())
+        .first()
+    )
+    if detailed:
+        latest = detailed
+        detailed_ready = True
+    else:
+        # 2) なければ light（fallback）
+        latest = (
+            ScoreLog.query
+            .filter_by(user_id=current_user.id, is_fallback=True)
+            .order_by(ScoreLog.timestamp.desc())
+            .first()
+        )
+        detailed_ready = False
 
-    if not logs:
+    if not latest:
         return jsonify({'message': 'ログがありません'}), 200
 
-    scores = [log.score for log in logs]
-    dates = [log.timestamp.strftime('%Y-%m-%d') for log in logs]
-    first_score = logs[0].score
-    latest_score = logs[-1].score
-
-    baseline = sum(scores[:5]) // 5 if len(scores) >= 5 else sum(scores) // len(scores)
-    diff = latest_score - baseline
+    # ベースラインは過去5件の平均などで
+    past5 = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .order_by(ScoreLog.timestamp)
+        .limit(5)
+        .all()
+    )
+    scores5 = [l.score for l in past5]
+    baseline = sum(scores5) // len(scores5) if scores5 else latest.score
 
     return jsonify({
-        'first_score': first_score,
-        'latest_score': latest_score,
-        'first_score_date': dates[0],
-        'last_date': dates[-1],
+        'first_score': past5[0].score if past5 else latest.score,
+        'latest_score': latest.score,
+        'first_score_date': past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
+        'last_date': latest.timestamp.strftime('%Y-%m-%d'),
         'baseline': baseline,
-        'diff': diff,
+        'diff': latest.score - baseline,
+        'detailed_ready': detailed_ready
     }), 200
 
 @app.route('/api/forgot-password', methods=['POST'])
@@ -1281,6 +1316,25 @@ try:
         db.create_all()
 except Exception as e:
     print("❌ DB作成エラー:", e)
+
+@app.route('/api/job_status/<job_id>')
+@login_required
+def job_status(job_id):
+    job = Job.fetch(job_id, connection=redis_conn)
+    if job.is_finished:
+        scorelog = (
+            ScoreLog.query
+            .filter_by(
+                user_id=current_user.id,
+                filename=job.args[0],      # enqueue時の第一引数が filename
+                is_fallback=False
+            )
+            .first()
+        )
+        return jsonify({'status': 'finished', 'score': scorelog.score}), 200
+    if job.is_failed:
+        return jsonify({'status': 'failed'}), 200
+    return jsonify({'status': 'running'}), 200
 
 # ✅ ローカル起動用（Renderでは無視される）
 if __name__ == '__main__':
