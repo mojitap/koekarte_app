@@ -142,6 +142,19 @@
       padding-right: 16px;
       text-align: left;
     }
+
+    /* リストそのものの余白をリセット */
+    .home-wrapper ul {
+      margin: 0;            /* 外側の余白を完全にリセット */
+      padding: 0;           /* 内側のパディングもリセット */
+      list-style-position: inside; /* “・” をテキスト先頭と同じ位置に */
+    }
+
+    /* 見出し自体も念のためパディング/マージンをリセット（デフォルトで left:0 ですが、不要なら省略可） */
+    .home-wrapper h2 {
+      margin-left: 0;
+      padding-left: 0;
+    }
   </style>
 </head>
 
