@@ -1,7 +1,7 @@
 import os
 import redis as real_redis
 from rq import Queue
-from utils.audio_utils import analyze_stress_from_wav as detailed_analyze
+from utils.audio_utils import light_analyze as detailed_analyze
 from app_instance import app, db  # ✅ ← これが正解！
 from datetime import datetime, timedelta, timezone
 from s3_utils import download_from_s3
@@ -88,8 +88,6 @@ def detailed_worker(s3_key, user_id):
         log.score = result["score"]
         log.is_fallback = False
         log.volume_std = result.get("volume_std")
-        log.voiced_ratio = result.get("voiced_ratio")
-        log.zcr = result.get("zcr")
         log.pitch_std = result.get("pitch_std")
         log.tempo_val = result.get("tempo_val")
 
