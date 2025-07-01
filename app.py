@@ -627,7 +627,7 @@ def upload():
 
     # ─── 拡張 light_analyze 呼び出し ───
     quick_score, is_fallback = light_analyze(
-        normalized_path,
+        wav_path,
         raw_rms=raw_rms,
         rms_baseline=baseline_rms
     )
