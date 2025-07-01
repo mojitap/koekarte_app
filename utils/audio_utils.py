@@ -43,7 +43,8 @@ def light_analyze(wav_path, raw_rms=None, rms_baseline=None,
             total_pitch += zc * 100
 
             # tempo（有声音率）
-            voiced = np.mean(np.abs(block) > 1e-4)
+            threshold = np.max(np.abs(block)) * 0.02
+            voiced = np.mean(np.abs(block) > threshold)
             total_tempo += voiced * 10
 
             chunks += 1
@@ -56,6 +57,9 @@ def light_analyze(wav_path, raw_rms=None, rms_baseline=None,
     # 3) 合成＆クランプ
     raw_score = 0.3*vol_score + 0.4*pitch_score + 0.3*tempo_score
     score = int(np.clip(raw_score, 30, 95))
+
+    print(f"⚙️ light_analyze: vol={vol_score:.1f}, pitch={pitch_score:.1f}, tempo={tempo_score:.1f} → score={score}")
+    
     return score, False
 
 # ────────── WAV 変換系 ──────────
