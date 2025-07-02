@@ -70,6 +70,14 @@
     <p>📝 <strong>今日のスコア：</strong>{{ latest_score }}</p>
     <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}減少{% elif diff < 0 %}増加{% else %}変化なし{% endif %}）</p>
   </div>
+
+  <!-- ここから：グラフ描画用キャンバス -->
+  <div class="score-chart-wrapper" style="margin: 30px 0;">
+    <h3>ストレススコアの推移</h3>
+    <canvas id="scoreChart" width="400" height="200"></canvas>
+  </div>
+  <!-- ここまで -->
+
   {% else %}
   <div class="no-score-warning">
     <p>
@@ -96,4 +104,36 @@
     <a href="/logout">🚪 ログアウト</a>
   </div>
 </div>
+
+<script>
+  const ctx = document.getElementById('scoreChart').getContext('2d');
+  const scoreChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{ dates|tojson }},    // 日付の配列
+      datasets: [{
+        label: 'ストレススコア',
+        data: {{ scores|tojson }},    // スコアの配列
+        fill: false,
+        borderWidth: 2,
+        pointRadius: 5,
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        tooltip: { enabled: true }
+      },
+      onClick: (evt, elements) => {
+        if (elements.length > 0) {
+          const idx = elements[0].index;
+          const date = scoreChart.data.labels[idx];
+          const score = scoreChart.data.datasets[0].data[idx];
+          alert(`${date} のスコア：${score}点`);
+        }
+      }
+    }
+  });
+</script>
 {% endblock %}
