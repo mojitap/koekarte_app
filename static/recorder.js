@@ -108,11 +108,11 @@ uploadButton.addEventListener('click', async () => {
   uploadButton.disabled = true;
   statusP.textContent   = 'ただいま解析してアップロード中…';
 
-  // 2) サーバーへ送信
+  // 2) サーバーへ送信 (overwrite フラグなし)
   const formData = new FormData();
   formData.append('audio_data', blob, 'recording.webm');
 
-  let res;
+  let res, json;
   try {
     res = await fetch('/api/upload', { method: 'POST', body: formData });
   } catch (err) {
@@ -132,23 +132,56 @@ uploadButton.addEventListener('click', async () => {
     return;
   }
 
-  // ↓ここから job_id を必ずチェックするロジック↓
-  const json = await res.json();                 // レスポンス全体を受け取る
+  json = await res.json();
   console.log('📤 /api/upload response:', json);
-  const jobId = json.job_id;                     // json.job_id を取り出す
-  if (!jobId) {
-    // サーバーが job_id を返していない or undefined だった場合
+
+  // 3) 既存レコードあり → 上書き確認ダイアログ
+  if (json.already) {
+    const proceed = confirm(json.message);
+    if (!proceed) {
+      statusP.textContent = '';
+      uploadButton.disabled = false;
+      return;
+    }
+    // 上書きリクエスト
+    try {
+      res = await fetch('/api/upload?overwrite=true', { method: 'POST', body: formData });
+    } catch (err) {
+      console.error("❌ ネットワークエラー", err);
+      statusP.textContent = '';
+      alert("ネットワークエラーが発生しました。");
+      uploadButton.disabled = false;
+      return;
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn("❌ アップロード失敗", text);
+      statusP.textContent = '';
+      alert("アップロードに失敗しました: " + text);
+      uploadButton.disabled = false;
+      return;
+    }
+    json = await res.json();
+    console.log('📤 /api/upload overwrite response:', json);
+  }
+
+  // 4) success / job_id チェック
+  if (json.success === false) {
     statusP.textContent = '';
-    alert('ジョブIDの取得に失敗しました。\nページを再読み込みしてから再度お試しください。');
+    alert(json.message);
     uploadButton.disabled = false;
     return;
   }
-  // ↑ここまで差し替え↑
+  const jobId = json.job_id;
+  if (!jobId) {
+    statusP.textContent = '';
+    alert('ジョブIDの取得に失敗しました。ページを再読み込みして再度お試しください。');
+    uploadButton.disabled = false;
+    return;
+  }
 
-  // 3) アップロード成功 UI
+  // 5) ポーリング開始
   statusP.textContent = 'アップロード完了。詳細解析中…';
-
-  // 4) ポーリング開始
   let tries = 0;
   const MAX_TRIES = 20;
   const poll = setInterval(async () => {
