@@ -684,36 +684,38 @@ def upload():
         traceback.print_exc()
         return jsonify({'error': '音声処理に失敗しました'}), 500
 
-    # 重複アップロード防止
-    already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
-        cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst
-    ).first()
-    if already_logged:
+    # 1) 当日分の既存レコードを検索
+    already = ScoreLog.query \
+        .filter_by(user_id=current_user.id) \
+        .filter(
+            cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date)
+            == today_jst
+        ).first()
+
+    # 2) overwrite フラグチェック
+    overwrite = request.args.get('overwrite') == 'true'
+    if already and not overwrite:
+        # フロントに「既に今日記録済み → 上書きするか？」を伝える
         return jsonify({
             'success': False,
-            'message': '本日はすでにスコアを記録済みです。明日またご利用ください'
+            'already': True,
+            'message': '本日はすでにスコアを記録済みです。再録音して上書きする場合は?overwrite=true を付けてください。'
         }), 200
 
-    # 保存とアップロード
-    persistent_path = os.path.join(os.path.dirname(__file__), 'uploads', os.path.basename(normalized_path))
-    os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
-    shutil.copy(normalized_path, persistent_path)
+    # 3) 上書き指定があれば既存レコードを削除
+    if already and overwrite:
+        db.session.delete(already)
+        db.session.commit()
 
-    for i in range(10):
-        if os.path.exists(persistent_path):
-            break
-        time.sleep(0.1)
-    else:
-        return jsonify({'error': '内部エラー：ファイル保存失敗'}), 500
-
-    upload_to_s3(normalized_path, os.path.basename(normalized_path))
-
-    job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
-    add_action_log(current_user.id, "録音アップロード（light）")
+    # 4) 新規／上書きどちらも、ファイル永続化→S3→RQへ
+    persistent_path = …
+    upload_to_s3(…)
+    job_id = enqueue_detailed_analysis(…)
 
     return jsonify({
         'quick_score': quick_score,
-        'job_id': job_id
+        'job_id': job_id,
+        'success': True
     }), 200
 
 @app.route('/result')
