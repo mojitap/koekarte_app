@@ -453,12 +453,11 @@ def dashboard():
             .first()
         )
 
-    # 基本情報は logs からじゃなく latest だけ見ればOK
+    # ログがない場合
     if not latest:
-        # ログ0件時の処理
         return render_template('dashboard.html', message="まだ記録がありません")
 
-    # ベースライン算出（過去5件のスコア平均などはこれまで通り）
+    # ベースライン算出（過去5件のスコア平均など）
     past5 = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
@@ -468,8 +467,13 @@ def dashboard():
     )
     scores5 = [l.score for l in past5]
     baseline = sum(scores5) // len(scores5)
-
     diff = latest.score - baseline
+
+    # ── グラフ用に全ログから日付とスコアを準備 ──
+    logs = ScoreLog.query.filter_by(user_id=current_user.id) \
+                         .order_by(ScoreLog.timestamp).all()
+    dates = [l.timestamp.strftime('%Y-%m-%d') for l in logs]
+    scores = [l.score for l in logs]
 
     return render_template('dashboard.html',
         user=current_user,
@@ -479,7 +483,10 @@ def dashboard():
         first_score_date=past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
         last_date=latest.timestamp.strftime('%Y-%m-%d'),
         baseline=baseline,
-        detailed_ready= (detailed is not None)
+        detailed_ready=(detailed is not None),
+        # ← ここに追加
+        dates=dates,
+        scores=scores,
     )
 
 @app.route('/api/dashboard')
@@ -583,8 +590,8 @@ def upload():
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
     jst = timezone(timedelta(hours=9))
-    now = datetime.now(timezone.utc)
-    today = now.date()
+    now_jst = datetime.now(jst)
+    today_jst = now_jst.date()
 
     original_ext = file.filename.split('.')[-1]
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
@@ -638,7 +645,7 @@ def upload():
 
     # ─── JSTの暦日で「すでに録音済みか」を確認 ───
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
-        cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == now.date()
+        cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst
     ).first()
     if already_logged:
         return jsonify({
