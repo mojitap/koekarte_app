@@ -1,65 +1,131 @@
-<div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h1>お問い合わせ</h1>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お問い合わせ</title>
+  <style>
+    body {
+      font-size: 16px;
+      line-height: 1.8;
+      color: #333;
+      padding: 0;
+      margin: 0;
+    }
 
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <div id="toast" class="toast">
-        {{ messages[0] }}
-      </div>
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 30px 20px;
+      font-size: 17px;
+      line-height: 1.8;
+    }
 
-      <style>
-        .toast {
-          position: fixed;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-          background-color: #4caf50;
-          color: white;
-          padding: 12px 24px;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-          z-index: 9999;
-          opacity: 0;
-          animation: fadeIn 0.6s forwards, fadeOut 0.6s 2.5s forwards;
-        }
+    .container h1 {
+      text-align: center;
+      margin-bottom: 24px;
+    }
 
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
+    input[type="text"],
+    input[type="email"],
+    textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
 
-        @keyframes fadeOut {
-          from { opacity: 1; transform: translateX(-50%) translateY(0); }
-          to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-        }
-      </style>
-    {% endif %}
-  {% endwith %}
+    button[type="submit"] {
+      display: block;
+      margin: 0 auto;
+      padding: 12px 24px;
+      background-color: #007AFF;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
-  <form method="POST">
-    <label>お名前：</label><br>
-    <input type="text" name="name" required style="width: 100%; margin-bottom: 10px;"><br>
+    .auth-links {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #f0f0f0;
+      color: #333;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
 
-    <label>メールアドレス：</label><br>
-    <input type="email" name="email" required style="width: 100%; margin-bottom: 10px;"><br>
+    footer {
+      margin-top: 40px;
+      padding: 20px 0;
+      border-top: 2px solid #ccc;
+      background-color: #f9f9f9;
+      text-align: center;
+      font-size: 14px;
+    }
 
-    <label>内容：</label><br>
-    <textarea name="message" required style="width: 100%; height: 100px;"></textarea><br><br>
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #4caf50;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      z-index: 9999;
+      opacity: 0;
+      animation: fadeIn 0.6s forwards, fadeOut 0.6s 2.5s forwards;
+    }
 
-    <button type="submit">送信する</button>
-  </form>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
 
-  <!-- 🏠 マイページに戻るボタン -->
-  <div style="margin-top: 30px; text-align: center;">
-    <a href="/dashboard" class="auth-links" style="display: inline-block; padding: 10px 20px; background-color: #f0f0f0; color: #333; border-radius: 8px; text-decoration: none; font-weight: bold; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
-      🏠 マイページに戻る
-    </a>
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateX(-50%) translateY(0); }
+      to   { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>お問い合わせ</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div id="toast" class="toast">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+      <label>お名前：</label><br>
+      <input type="text" name="name" required><br>
+
+      <label>メールアドレス：</label><br>
+      <input type="email" name="email" required><br>
+
+      <label>内容：</label><br>
+      <textarea name="message" required style="height: 100px;"></textarea><br>
+
+      <button type="submit">送信する</button>
+    </form>
+
+    <div style="margin-top: 30px; text-align: center;">
+      <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
+    </div>
+
+    <footer>
+      <a href="/terms">利用規約</a> |
+      <a href="/privacy">プライバシーポリシー</a> |
+      <a href="/legal"><strong>特定商取引法に基づく表記</strong></a>
+    </footer>
   </div>
-
-  <!-- 👇 ここを追加！ -->
-  <footer style="margin-top: 32px; text-align: center;">
-    <a href="/terms">利用規約</a> |
-    <a href="/privacy">プライバシーポリシー</a> |
-    <a href="/legal"><strong>特定商取引法に基づく表記</strong></a>
-  </footer>
-</div>
+</body>
