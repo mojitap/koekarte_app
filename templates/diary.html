@@ -2,34 +2,22 @@
 {% block title %}📔 音声日記はアプリ限定機能です{% endblock %}
 
 {% block content %}
-<div class="centered-container">
-  <h1>📔 音声日記はアプリ限定機能です</h1>
-  <p>「今日ちょっと疲れたかも…」<br>「今日こんなことがあった…」</p>
-  <p>
-    コエカルテのアプリ版では、<strong>毎日15秒の音声</strong>を記録できる
-    「音声日記」機能をご用意しています。<br>
-    録音した声はカレンダー形式で残り、あとから聞き返すこともできます。<br><br>
-    現在、この機能はスマートフォンアプリでのみご利用いただけます。
-  </p>
-  <p style="margin: 30px 0;">
-    <a href="#" class="btn btn-info">✅ アプリをダウンロードする</a>
-  </p>
-  <div style="text-align:center; margin-top:40px;">
-    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
-      🏠 マイページに戻る
-    </a>
-  </div>
-</div>
-
-<footer style="margin-top: 40px; padding: 20px; border-top: 2px solid #ccc; background-color: #f9f9f9;">
-  <div style="max-width: 800px; margin: 0 auto; text-align: center;">
-    <p style="font-size: 14px;">
-      <a href="/terms">利用規約</a> |
-      <a href="/privacy">プライバシーポリシー</a> |
-      <a href="/legal">特定商取引法に基づく表記</a> |
-      <a href="{{ url_for('contact') }}">お問い合わせ</a>
+  <div class="centered-container">
+    <h1>📔 音声日記はアプリ限定機能です</h1>
+    <p>「今日ちょっと疲れたかも…」<br>「今日こんなことがあった…」</p>
+    <p>
+      コエカルテのアプリ版では、<strong>毎日15秒の音声</strong>を記録できる
+      「音声日記」機能をご用意しています。<br>
+      録音した声はカレンダー形式で残り、あとから聞き返すこともできます。<br><br>
+      現在、この機能はスマートフォンアプリでのみご利用いただけます。
     </p>
+    <p style="margin: 30px 0;">
+      <a href="#" class="btn btn-info">✅ アプリをダウンロードする</a>
+    </p>
+    <div style="text-align:center; margin-top:40px;">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+        🏠 マイページに戻る
+      </a>
+    </div>
   </div>
-</footer>
-</head>
 {% endblock %}
