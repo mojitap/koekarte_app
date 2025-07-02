@@ -104,10 +104,11 @@ uploadButton.addEventListener('click', async () => {
     return;
   }
 
-  // UIフィードバック
+  // 1) UIフィードバック
   uploadButton.disabled = true;
   statusP.textContent   = 'ただいま解析してアップロード中…';
 
+  // 2) サーバーへ送信
   const formData = new FormData();
   formData.append('audio_data', blob, 'recording.webm');
 
@@ -131,22 +132,35 @@ uploadButton.addEventListener('click', async () => {
     return;
   }
 
-  const { job_id } = await res.json();
+  // ↓ここから job_id を必ずチェックするロジック↓
+  const json = await res.json();                 // レスポンス全体を受け取る
+  console.log('📤 /api/upload response:', json);
+  const jobId = json.job_id;                     // json.job_id を取り出す
+  if (!jobId) {
+    // サーバーが job_id を返していない or undefined だった場合
+    statusP.textContent = '';
+    alert('ジョブIDの取得に失敗しました。\nページを再読み込みしてから再度お試しください。');
+    uploadButton.disabled = false;
+    return;
+  }
+  // ↑ここまで差し替え↑
+
+  // 3) アップロード成功 UI
   statusP.textContent = 'アップロード完了。詳細解析中…';
 
-  const MAX_TRIES = 20;
+  // 4) ポーリング開始
   let tries = 0;
-
+  const MAX_TRIES = 20;
   const poll = setInterval(async () => {
     tries++;
     let statusJ;
     try {
-      const statusRes = await fetch(`/api/job_status/${job_id}`);
+      const statusRes = await fetch(`/api/job_status/${jobId}`);
       if (!statusRes.ok) throw new Error('ステータス取得エラー');
       statusJ = await statusRes.json();
     } catch (err) {
       console.warn('ポーリング中のエラー（無視）', err);
-      return;  // 一時的なネットワークエラーは無視
+      return;
     }
 
     if (statusJ.status === 'finished') {
@@ -161,9 +175,9 @@ uploadButton.addEventListener('click', async () => {
 
     } else if (tries >= MAX_TRIES) {
       clearInterval(poll);
-      statusP.textContent = 
+      statusP.textContent =
         '解析が長引いています…数分後にマイページで結果をご確認ください。';
     }
-    // else: still 'running' → 何もしない
+    // running のあいだは何もしない
   }, 1500);
 });
