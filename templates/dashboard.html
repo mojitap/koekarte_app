@@ -112,10 +112,10 @@
   const scoreChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: {{ dates|tojson }},    // 日付の配列
+      labels: {{ dates|default([])|tojson }},    // 日付の配列
       datasets: [{
         label: 'ストレススコア',
-        data: {{ scores|tojson }},    // スコアの配列
+        data: {{ scores|default([])|tojson }},    // スコアの配列
         fill: false,
         borderWidth: 2,
         pointRadius: 5,
