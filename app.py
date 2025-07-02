@@ -270,6 +270,7 @@ def register():
 
         login_user(user)
         session.permanent = True
+        print("✅ login_user実行済み：is_authenticated =", current_user.is_authenticated)
         return redirect(url_for('dashboard'))
 
     return render_template('register.html')
