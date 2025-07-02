@@ -707,10 +707,20 @@ def upload():
         db.session.delete(already)
         db.session.commit()
 
-    # 4) 新規／上書きどちらも、ファイル永続化→S3→RQへ
-    persistent_path = …
-    upload_to_s3(…)
-    job_id = enqueue_detailed_analysis(…)
+    # 4) （新規／上書きともに）normalized ファイルを保存→S3→RQ enqueue
+    persistent_path = os.path.join(
+        os.path.dirname(__file__),
+        'uploads',
+        os.path.basename(normalized_path)
+    )
+    os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
+    shutil.copy(normalized_path, persistent_path)
+    upload_to_s3(normalized_path, os.path.basename(normalized_path))
+
+    job_id = enqueue_detailed_analysis(
+        os.path.basename(normalized_path), current_user.id
+    )
+    add_action_log(current_user.id, "録音アップロード（light）")
 
     return jsonify({
         'quick_score': quick_score,
