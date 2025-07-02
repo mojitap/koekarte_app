@@ -667,58 +667,56 @@ def upload():
             rms_baseline=baseline_rms
         )
 
-        fallback_log = ScoreLog(
-            user_id=current_user.id,
-            timestamp=now,
-            score=quick_score,
-            is_fallback=is_fallback,
-            filename=normalized_filename,
-            volume_std=raw_rms,
-        )
-        db.session.add(fallback_log)
-        db.session.commit()
-
     except Exception as e:
         print("❌ 音声処理エラー:", e)
         import traceback
         traceback.print_exc()
         return jsonify({'error': '音声処理に失敗しました'}), 500
 
-    # 1) 当日分の既存レコードを検索
-    existing = ScoreLog.query \
-        .filter_by(user_id=current_user.id) \
-        .filter(cast(ScoreLog.timestamp, Date) == today_jst) \
+    # 1) 当日分の既存レコードを検索（JSTに変換してから日付比較）
+    existing = (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id)
+        .filter(
+            cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date)
+            == today_jst
+        )
         .first()
+    )
 
     # 2) overwrite フラグチェック
     overwrite = request.args.get('overwrite') == 'true'
     if existing and not overwrite:
-        # フロントに「上書きですか？」を返す
-        return jsonify(
-            success=False,
-            already=True,
-            message='本日はすでにスコアを記録済みです。再録音して上書きする場合は OK を押してください。'
-        ), 200
+        return jsonify({
+            'success': False,
+            'already': True,
+            'message': '本日はすでにスコアを記録済みです。再録音して上書きする場合は OK を押してください。'
+        }), 200
 
+    # 3) 上書きなら既存レコードを削除
     if existing and overwrite:
-        # 既存レコードを消す or 更新する
         db.session.delete(existing)
         db.session.commit()
 
-    # 2) 新しい fallback ログを作成（上書き時も必ずここで再作成）
-    new_log = ScoreLog(
+    # 4) （新規／上書きともに）1回だけログを作成
+    log = ScoreLog(
         user_id=current_user.id,
-        timestamp=datetime.now(timezone(timedelta(hours=9))),
+        timestamp=now,               # 先に作った now_jst
         score=quick_score,
         is_fallback=True,
         filename=normalized_filename,
         volume_std=raw_rms,
     )
-    db.session.add(new_log)
+    db.session.add(log)
     db.session.commit()
 
-    # 3) ファイルを永続化→S3→RQへ
-    persistent_path = os.path.join(…)
+    # 5) 永続化→S3→RQ enqueue
+    persistent_path = os.path.join(
+        os.path.dirname(__file__),
+        'uploads',
+        os.path.basename(normalized_path)
+    )
+    os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
     shutil.copy(normalized_path, persistent_path)
     upload_to_s3(normalized_path, os.path.basename(normalized_path))
 
@@ -726,9 +724,9 @@ def upload():
     add_action_log(current_user.id, "録音アップロード（light）")
 
     return jsonify({
-        success: True,
-        quick_score: quick_score,
-        job_id: job_id
+        'quick_score': quick_score,
+        'job_id': job_id,
+        'success': True
     }), 200
 
 @app.route('/result')
