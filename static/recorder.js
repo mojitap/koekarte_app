@@ -134,26 +134,36 @@ uploadButton.addEventListener('click', async () => {
   const { job_id } = await res.json();
   statusP.textContent = 'アップロード完了。詳細解析中…';
 
+  const MAX_TRIES = 20;
+  let tries = 0;
+
   const poll = setInterval(async () => {
+    tries++;
     let statusJ;
     try {
       const statusRes = await fetch(`/api/job_status/${job_id}`);
+      if (!statusRes.ok) throw new Error('ステータス取得エラー');
       statusJ = await statusRes.json();
     } catch (err) {
-      console.error("❌ ポーリングエラー", err);
-      return;
+      console.warn('ポーリング中のエラー（無視）', err);
+      return;  // 一時的なネットワークエラーは無視
     }
 
     if (statusJ.status === 'finished') {
       clearInterval(poll);
       statusP.textContent = `✅ 詳細解析完了！スコア：${statusJ.score} 点`;
       setTimeout(() => window.location.href = '/dashboard', 800);
-    }
-    else if (statusJ.status === 'failed') {
+
+    } else if (statusJ.status === 'failed') {
       clearInterval(poll);
-      statusP.textContent = '';
-      alert('❌ 詳細解析に失敗しました。');
+      alert('❌ 詳細解析に失敗しました。再度お試しください。');
       window.location.href = '/dashboard';
+
+    } else if (tries >= MAX_TRIES) {
+      clearInterval(poll);
+      statusP.textContent = 
+        '解析が長引いています…数分後にマイページで結果をご確認ください。';
     }
+    // else: still 'running' → 何もしない
   }, 1500);
 });
