@@ -71,13 +71,6 @@
     <p>📊 <strong>スコア差分：</strong>{{ diff }}ポイント（ストレス{% if diff > 0 %}減少{% elif diff < 0 %}増加{% else %}変化なし{% endif %}）</p>
   </div>
 
-  <!-- ここから：グラフ描画用キャンバス -->
-  <div class="score-chart-wrapper" style="margin: 30px 0;">
-    <h3>ストレススコアの推移</h3>
-    <canvas id="scoreChart" width="400" height="200"></canvas>
-  </div>
-  <!-- ここまで -->
-
   {% else %}
   <div class="no-score-warning">
     <p>
