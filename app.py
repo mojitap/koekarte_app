@@ -587,6 +587,7 @@ def upload():
     jst = timezone(timedelta(hours=9))
     now_jst = datetime.now(jst)
     today_jst = now_jst.date()
+    now = now_jst  # UTCではなくJSTで統一
 
     original_ext = file.filename.split('.')[-1]
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
@@ -604,8 +605,8 @@ def upload():
     except Exception as e:
         print("❌ ファイルサイズ確認エラー:", e)
 
-    # 音声変換＋正規化
     try:
+        # 音声変換
         wav_path = save_path.replace(f".{original_ext}", ".wav")
         convert_success = False
         if original_ext.lower() == "m4a":
@@ -630,15 +631,48 @@ def upload():
         normalized_path = os.path.join("/tmp", normalized_filename)
         normalize_volume(wav_path, normalized_path)
 
+        # light_analyze処理
+        from utils.audio_utils import compute_rms, light_analyze
+        raw_rms = compute_rms(wav_path)
+
+        recent = (
+            ScoreLog.query
+            .filter_by(user_id=current_user.id)
+            .filter(ScoreLog.volume_std.isnot(None))
+            .order_by(ScoreLog.timestamp.desc())
+            .limit(5)
+            .all()
+        )
+        baseline_rms = (sum(log.volume_std for log in recent) / len(recent)) if recent else raw_rms
+
+        quick_score, is_fallback = light_analyze(
+            wav_path,
+            raw_rms=raw_rms,
+            rms_baseline=baseline_rms
+        )
+
+        fallback_log = ScoreLog(
+            user_id=current_user.id,
+            timestamp=now,
+            score=quick_score,
+            is_fallback=is_fallback,
+            filename=normalized_filename,
+            volume_std=raw_rms,
+        )
+        db.session.add(fallback_log)
+        db.session.commit()
+
     except Exception as e:
-        print("❌ 音声変換エラー:", e)
+        print("❌ 音声処理エラー:", e)
+        import traceback
+        traceback.print_exc()
         return Response(
-            json.dumps({'error': '音声変換に失敗しました'}, ensure_ascii=False),
+            json.dumps({'error': '音声処理に失敗しました'}, ensure_ascii=False),
             status=500,
             content_type='application/json'
         )
 
-    # ─── JSTの暦日で「すでに録音済みか」を確認 ───
+    # 重複アップロード防止（同日に複数回）
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
         cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst
     ).first()
@@ -648,65 +682,25 @@ def upload():
             'message': '本日はすでにスコアを記録済みです。明日またご利用ください'
         }), 200
 
-    # ─── 生の RMS を先に算出 ───
-    from utils.audio_utils import compute_rms, light_analyze
-    raw_rms = compute_rms(wav_path)
-
-    # ─── ベースライン取得 ───
-    recent = (
-        ScoreLog.query
-        .filter_by(user_id=current_user.id)
-        .filter(ScoreLog.volume_std.isnot(None))
-        .order_by(ScoreLog.timestamp.desc())
-        .limit(5)
-        .all()
-    )
-    baseline_rms = (sum(log.volume_std for log in recent) / len(recent)) if recent else raw_rms
-
-    # ─── 拡張 light_analyze 呼び出し ───
-    quick_score, is_fallback = light_analyze(
-        wav_path,
-        raw_rms=raw_rms,
-        rms_baseline=baseline_rms
-    )
-
-    # ─── ログ保存 ───
-    fallback_log = ScoreLog(
-        user_id=current_user.id,
-        timestamp=now,
-        score=quick_score,
-        is_fallback=is_fallback,
-        filename=normalized_filename,
-        volume_std=raw_rms,
-    )
-    db.session.add(fallback_log)
-    db.session.commit()
-
+    # 保存とアップロード
     persistent_path = os.path.join(os.path.dirname(__file__), 'uploads', os.path.basename(normalized_path))
     os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
     shutil.copy(normalized_path, persistent_path)
 
-    for i in range(10):  # 最大1秒待つ
+    for i in range(10):
         if os.path.exists(persistent_path):
             break
-        print(f"⌛ persistent_pathがまだ存在しないため、待機中... ({i})")
         time.sleep(0.1)
     else:
-        print(f"❌ persistent_path が作成されませんでした: {persistent_path}")
         return Response(
             json.dumps({'error': '内部エラー：ファイル保存失敗'}, ensure_ascii=False),
             status=500,
             content_type='application/json'
         )
 
-    normalized_filename = os.path.basename(normalized_path)
-    upload_to_s3(normalized_path, normalized_filename)
+    upload_to_s3(normalized_path, os.path.basename(normalized_path))
 
-    print(f"🚀 detailed_analysis を enqueue 実行します (user_id={current_user.id})") 
-    job_id = enqueue_detailed_analysis(normalized_filename, current_user.id)
-
-    print(f"✅ ジョブID: {job_id}")
-
+    job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
     add_action_log(current_user.id, "録音アップロード（light）")
 
     return Response(
