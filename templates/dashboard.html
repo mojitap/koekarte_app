@@ -4,7 +4,11 @@
 
 {% block content %}
 <div class="dashboard-card">
-  <h1>{{ user.username }}さんのマイページ</h1>
+  {% if user and user.username %}
+    <h1>{{ user.username }}さんのマイページ</h1>
+  {% else %}
+    <h1>マイページ</h1>
+  {% endif %}
 
   <div class="user-guide" style="margin-bottom: 20px;">
     <p>
@@ -49,11 +53,13 @@
 {% endif %}
 
   <div class="profile-info">
-    <p>📧 <strong>メールアドレス：</strong>{{ user.email }}</p>
-    <p>🏠 <strong>地域：</strong>{{ user.prefecture }}</p>
-    <p>👤 <strong>性別：</strong>{{ user.gender }}</p>
-    <p>🎂 <strong>生年月日：</strong>{{ user.birthdate }}</p>
-    <p>💼 <strong>職業：</strong>{{ user.occupation or "未設定" }}</p>
+    {% if user %}
+      <p>📧 <strong>メールアドレス：</strong>{{ user.email }}</p>
+      <p>🏠 <strong>地域：</strong>{{ user.prefecture }}</p>
+      <p>👤 <strong>性別：</strong>{{ user.gender }}</p>
+      <p>🎂 <strong>生年月日：</strong>{{ user.birthdate }}</p>
+      <p>💼 <strong>職業：</strong>{{ user.occupation or "未設定" }}</p>
+    {% endif %}
   </div>
 
   <div style="margin-bottom: 10px;">
