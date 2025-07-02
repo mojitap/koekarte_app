@@ -478,6 +478,7 @@ def dashboard():
         last_date=latest.timestamp.strftime('%Y-%m-%d'),
         baseline=baseline,
         detailed_ready=(detailed is not None),
+        dates=[]
     )
 
 @app.route('/api/dashboard')
