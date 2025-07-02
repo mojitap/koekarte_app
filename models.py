@@ -1,6 +1,6 @@
 from app_instance import db
 from flask_login import UserMixin
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
@@ -42,36 +42,47 @@ class User(UserMixin, db.Model):
     def is_active(self):
         return True
 
+JST = timezone(timedelta(hours=9))
+
 class ScoreLog(db.Model):
     __tablename__ = 'score_log'
     __table_args__ = {'extend_existing': True}
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    score = db.Column(db.Integer)
-    timestamp = db.Column(db.DateTime, default=db.func.now())
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    score      = db.Column(db.Integer)
+    # ← ここをタイムゾーン付きに変更
+    timestamp  = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(JST)
+    )
     is_fallback = db.Column(db.Boolean, default=False)
-
-    filename = db.Column(db.String(255), nullable=True)  # ←★ここを追加
-
-    # 🎯 追加する特徴量
-    volume_std = db.Column(db.Float)      # 声量変動（振幅の標準偏差）
-    voiced_ratio = db.Column(db.Float)    # 有声音率
-    zcr = db.Column(db.Float)             # ゼロ交差率
-    pitch_std = db.Column(db.Float)       # ピッチの標準偏差
-    tempo_val = db.Column(db.Float)       # テンポ（発話速度）
+    filename   = db.Column(db.String(255), nullable=True)
+    volume_std    = db.Column(db.Float)
+    voiced_ratio  = db.Column(db.Float)
+    zcr           = db.Column(db.Float)
+    pitch_std     = db.Column(db.Float)
+    tempo_val     = db.Column(db.Float)
 
 class ActionLog(db.Model):
     __tablename__ = 'action_log'
-    id = db.Column(db.Integer, primary_key=True)
-    admin_email = db.Column(db.String(150))  # 操作した管理者
-    user_email = db.Column(db.String(150))   # 対象ユーザー
-    action = db.Column(db.String(100))       # 内容（例: 有料に変更）
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    id          = db.Column(db.Integer, primary_key=True)
+    admin_email = db.Column(db.String(150))
+    user_email  = db.Column(db.String(150))
+    action      = db.Column(db.String(100))
+    # こちらも JST 付きに
+    timestamp   = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(JST)
+    )
 
 class ScoreFeedback(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    internal = db.Column(db.Float, nullable=False)
-    user_score = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id          = db.Column(db.Integer, primary_key=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    internal    = db.Column(db.Float, nullable=False)
+    user_score  = db.Column(db.Integer, nullable=False)
+    # created_at も合わせて
+    created_at  = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(JST)
+    )
