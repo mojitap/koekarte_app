@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block title %}ストレスチェック録音ページ{% endblock %}
-
 {% block content %}
 <div class="record-container">
   <h1>ストレスチェック録音ページ</h1>
@@ -29,9 +28,6 @@
     <button id="uploadButton" disabled>⬆️ アップロード</button>
 
     <p id="uploadStatus" style="margin-top:8px; color:#555;"></p>
-
-    <br><br>
-    <!-- ② 録音再生用は一度だけ -->
     <audio id="audioPlayback" controls></audio>
 
     <br><br>
