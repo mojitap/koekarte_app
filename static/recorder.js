@@ -1,103 +1,87 @@
 let mediaRecorder;
 let recordedChunks = [];
 
-const recordButton = document.getElementById('recordButton');
-const stopButton = document.getElementById('stopButton');
-const uploadButton = document.getElementById('uploadButton');
-const audioPlayback = document.getElementById('audioPlayback');
+const recordButton   = document.getElementById('recordButton');
+const stopButton     = document.getElementById('stopButton');
+const uploadButton   = document.getElementById('uploadButton');
+const audioPlayback  = document.getElementById('audioPlayback');
+const statusP        = document.getElementById('uploadStatus');
 
-// タイマー用
-let timerInterval;
-let autoStopTimer = null;
-let seconds = 0;
+let timerInterval, autoStopTimer, seconds;
 
 function startTimer() {
-    seconds = 0;
-    timerInterval = setInterval(() => {
-        seconds++;
-        audioPlayback.innerText = `録音中: ${seconds}秒`;
-    }, 1000);
+  seconds = 0;
+  timerInterval = setInterval(() => {
+    seconds++;
+    audioPlayback.innerText = `録音中: ${seconds}秒`;
+  }, 1000);
 }
 
 function stopTimer() {
-    clearInterval(timerInterval);
-    audioPlayback.innerText = "";
+  clearInterval(timerInterval);
+  audioPlayback.innerText = "";
 }
 
 recordButton.addEventListener('click', async () => {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("✅ マイクアクセス成功");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus',
+      audioBitsPerSecond: 128000
+    });
+    recordedChunks = [];
 
-        mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus',
-            audioBitsPerSecond: 128000
-        });
-        recordedChunks = [];
+    // マイク切断検知
+    stream.getAudioTracks()[0].onended = () => {
+      alert("⚠️ マイクが途中で切断されました。");
+      stopTimer();
+      recordButton.disabled = false;
+      stopButton.disabled = true;
+    };
 
-        // ✅ マイクの物理切断を検知
-        stream.getAudioTracks()[0].onended = () => {
-            alert("⚠️ マイクが途中で切断されました。");
-            stopTimer();
-            recordButton.disabled = false;
-            stopButton.disabled = true;
-        };
+    mediaRecorder.addEventListener('dataavailable', e => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    });
 
-        mediaRecorder.addEventListener('dataavailable', event => {
-            if (event.data.size > 0) {
-                recordedChunks.push(event.data);
-                console.log("🎙️ 録音データ取得");
-            }
-        });
+    mediaRecorder.addEventListener('stop', () => {
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      if (blob.size === 0) {
+        alert("⚠️ 録音できていません。");
+        return;
+      }
+      audioPlayback.src = URL.createObjectURL(blob);
+      audioPlayback.load();
+      uploadButton.disabled = false;
+      uploadButton.blob = blob;
+    });
 
-        mediaRecorder.addEventListener('stop', () => {
-            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+    mediaRecorder.start();
+    startTimer();
+    recordButton.disabled = true;
+    stopButton.disabled = false;
 
-            if (blob.size === 0) {
-                alert("⚠️ 録音できていません。マイクを確認してください。");
-                return;
-            }
-
-            audioPlayback.src = URL.createObjectURL(blob);
-            audioPlayback.load();
-            console.log("🎧 再生用URL生成");
-
-            uploadButton.disabled = false;
-            uploadButton.blob = blob;
-        });
-
-        mediaRecorder.start();
-        console.log("🔴 録音スタート");
-        startTimer();
-
-        // ✅ 自動停止（60秒で）
-        autoStopTimer = setTimeout(() => {
-            if (mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-                console.log("🕒 自動停止");
-                stopTimer();
-                recordButton.disabled = false;
-                stopButton.disabled = true;
-            }
-        }, 60000);
-
-        recordButton.disabled = true;
-        stopButton.disabled = false;
-    } catch (err) {
-        console.error("❌ マイクの取得に失敗:", err);
-        alert("マイクが使えません。ブラウザの設定をご確認ください。");
-    }
-});
-
-stopButton.addEventListener('click', () => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        clearTimeout(autoStopTimer);
+    autoStopTimer = setTimeout(() => {
+      if (mediaRecorder.state === "recording") {
         mediaRecorder.stop();
-        console.log("🛑 手動停止");
         stopTimer();
         recordButton.disabled = false;
         stopButton.disabled = true;
-    }
+      }
+    }, 60000);
+
+  } catch (err) {
+    alert("マイクの取得に失敗しました。");
+  }
+});
+
+stopButton.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    clearTimeout(autoStopTimer);
+    mediaRecorder.stop();
+    stopTimer();
+    recordButton.disabled = false;
+    stopButton.disabled = true;
+  }
 });
 
 uploadButton.addEventListener('click', async () => {
@@ -107,7 +91,11 @@ uploadButton.addEventListener('click', async () => {
     return;
   }
 
-  // 1) サーバーへ送信 → job_id を取得
+  // 1) 処理中 UI
+  uploadButton.disabled = true;
+  statusP.textContent   = 'ただいま解析してアップロード中…';
+
+  // 2) サーバーへ送信
   const formData = new FormData();
   formData.append('audio_data', blob, 'recording.webm');
 
@@ -115,41 +103,44 @@ uploadButton.addEventListener('click', async () => {
   try {
     res = await fetch('/api/upload', { method: 'POST', body: formData });
   } catch (err) {
-    alert("❌ ネットワークエラー: " + err);
+    statusP.textContent = '';
+    alert("ネットワークエラー: " + err);
+    uploadButton.disabled = false;
     return;
   }
   if (!res.ok) {
     const text = await res.text();
-    alert("❌ アップロード失敗: " + text);
-    return;
-  }
-  const { job_id } = await res.json();
-  if (!job_id) {
-    alert("❌ サーバーから job_id が取得できません");
+    statusP.textContent = '';
+    alert("アップロード失敗: " + text);
+    uploadButton.disabled = false;
     return;
   }
 
-  // 2) ポーリング開始（1.5秒ごと）
+  const { job_id } = await res.json();
+
+  // 3) アップロード成功 UI
+  statusP.textContent = 'アップロード完了。詳細解析中…';
+
+  // 4) 詳細解析完了をポーリング
   const poll = setInterval(async () => {
-    let statusRes, statusJ;
+    let statusJ;
     try {
-      statusRes = await fetch(`/api/job_status/${job_id}`);
-      statusJ   = await statusRes.json();
-    } catch (err) {
-      console.error("ポーリングエラー", err);
+      const statusRes = await fetch(`/api/job_status/${job_id}`);
+      statusJ = await statusRes.json();
+    } catch {
       return;
     }
 
     if (statusJ.status === 'finished') {
       clearInterval(poll);
-      alert(`✅ 詳細解析完了！スコア：${statusJ.score} 点`);
-      window.location.href = '/dashboard';
+      statusP.textContent = `✅ 詳細解析完了！スコア：${statusJ.score} 点`;
+      setTimeout(() => window.location.href = '/dashboard', 800);
     }
     else if (statusJ.status === 'failed') {
       clearInterval(poll);
+      statusP.textContent = '';
       alert('❌ 詳細解析に失敗しました。');
       window.location.href = '/dashboard';
     }
-    // 'running' の間は何もしない
   }, 1500);
 });
