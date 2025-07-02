@@ -31,14 +31,14 @@
 　</div>
 
   　<br><br>
-  　<div style="text-align: left; font-size: 0.95em; line-height: 1.7; margin-top: 30px;">
-    　<p>📘 <strong>※使い方（録音の流れ）</strong></p>
-    　<p>🔁 <strong>録音の流れ：</strong>「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
-    　<p>▶️ 再生ボタンで録音内容を確認できます</p>
-    　<p>✅ 確認せずにアップロードしても構いません</p>
-    　<p>🔁 アップロードしなければ、録音は何回でもやり直し可能です</p>
-    　<p>🎯 より正確なストレス分析のためには、<strong>1回の録音</strong>が理想です</p>
-  　</div>
+    <div style="text-align:left; font-size:0.95em; line-height:1.4; margin-top:1.5em;">
+      <p>📘 <strong>※使い方（録音の流れ）</strong></p>
+      <p style="margin:0.5em 0;">🔁 録音の流れ：「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
+      <p style="margin:0.5em 0;">▶️ 再生ボタンで録音内容を確認できます</p>
+      <p style="margin:0.5em 0;">✅ 確認せずにアップロードしても構いません</p>
+      <p style="margin:0.5em 0;">🔁 アップロードしなければ、何度でもやり直し可能です</p>
+      <p style="margin:0.5em 0;">🎯 1回の録音が理想です</p>
+    </div>
 
   　{% if not current_user.is_paid and current_user.created_at %}
     　{% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
