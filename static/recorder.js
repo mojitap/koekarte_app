@@ -97,120 +97,90 @@ stopButton.addEventListener('click', () => {
 });
 
 uploadButton.addEventListener('click', async () => {
-  console.log('▶️ uploadButton clicked');
+  // 録音データがなければ終了
   const blob = uploadButton.blob;
-  if (!blob) {
-    alert("録音データがありません");
-    return;
-  }
+  if (!blob) { return alert("録音データがありません"); }
 
-  // 1) UIフィードバック
   uploadButton.disabled = true;
   statusP.textContent   = 'ただいま解析してアップロード中…';
 
-  // 2) サーバーへ送信 (overwrite フラグなし)
   const formData = new FormData();
   formData.append('audio_data', blob, 'recording.webm');
 
   let res, json;
+
+  // --- Step 1: 初回アップロード ---
   try {
     res = await fetch('/api/upload', { method: 'POST', body: formData });
   } catch (err) {
-    console.error("❌ ネットワークエラー", err);
+    console.error(err);
     statusP.textContent = '';
-    alert("ネットワークエラーが発生しました。");
     uploadButton.disabled = false;
-    return;
+    return alert("ネットワークエラーが発生しました。");
   }
-
   if (!res.ok) {
     const text = await res.text();
-    console.warn("❌ アップロード失敗", text);
     statusP.textContent = '';
-    alert("アップロードに失敗しました: " + text);
     uploadButton.disabled = false;
-    return;
+    return alert("アップロードに失敗しました: " + text);
   }
-
   json = await res.json();
-  console.log('📤 /api/upload response:', json);
 
-  // 3) 既存レコードあり → 上書き確認ダイアログ
+  // --- Step 2: 当日分既存なら「上書きしますか？」を確認 ---
   if (json.already) {
-    const proceed = confirm(json.message);
-    if (!proceed) {
+    const ok = confirm(json.message);
+    if (!ok) {
       statusP.textContent = '';
       uploadButton.disabled = false;
       return;
     }
     // 上書きリクエスト
-    try {
-      res = await fetch('/api/upload?overwrite=true', { method: 'POST', body: formData });
-    } catch (err) {
-      console.error("❌ ネットワークエラー", err);
-      statusP.textContent = '';
-      alert("ネットワークエラーが発生しました。");
-      uploadButton.disabled = false;
-      return;
-    }
+    res = await fetch('/api/upload?overwrite=true', { method: 'POST', body: formData });
     if (!res.ok) {
       const text = await res.text();
-      console.warn("❌ アップロード失敗", text);
       statusP.textContent = '';
-      alert("アップロードに失敗しました: " + text);
       uploadButton.disabled = false;
-      return;
+      return alert("上書きアップロードに失敗しました: " + text);
     }
     json = await res.json();
-    console.log('📤 /api/upload overwrite response:', json);
   }
 
-  // 4) success / job_id チェック
+  // --- Step 3: 成功／job_idをチェック ---
   if (json.success === false) {
     statusP.textContent = '';
-    alert(json.message);
     uploadButton.disabled = false;
-    return;
+    return alert(json.message);
   }
   const jobId = json.job_id;
   if (!jobId) {
     statusP.textContent = '';
-    alert('ジョブIDの取得に失敗しました。ページを再読み込みして再度お試しください。');
     uploadButton.disabled = false;
-    return;
+    return alert('ジョブIDの取得に失敗しました。再読み込みしてください。');
   }
 
-  // 5) ポーリング開始
+  // --- Step 4: ポーリング開始 ---
   statusP.textContent = 'アップロード完了。詳細解析中…';
   let tries = 0;
-  const MAX_TRIES = 20;
   const poll = setInterval(async () => {
     tries++;
     let statusJ;
     try {
       const statusRes = await fetch(`/api/job_status/${jobId}`);
-      if (!statusRes.ok) throw new Error('ステータス取得エラー');
       statusJ = await statusRes.json();
-    } catch (err) {
-      console.warn('ポーリング中のエラー（無視）', err);
-      return;
+    } catch {
+      return; // 一時的エラーは無視
     }
-
     if (statusJ.status === 'finished') {
       clearInterval(poll);
       statusP.textContent = `✅ 詳細解析完了！スコア：${statusJ.score} 点`;
-      setTimeout(() => window.location.href = '/dashboard', 800);
-
+      setTimeout(() => location.href = '/dashboard', 800);
     } else if (statusJ.status === 'failed') {
       clearInterval(poll);
-      alert('❌ 詳細解析に失敗しました。再度お試しください。');
-      window.location.href = '/dashboard';
-
-    } else if (tries >= MAX_TRIES) {
+      return alert('詳細解析に失敗しました。再度お試しください。');
+    } else if (tries >= 20) {
       clearInterval(poll);
       statusP.textContent =
-        '解析が長引いています…数分後にマイページで結果をご確認ください。';
+        '解析が長引いています…数分後にマイページでご確認ください。';
     }
-    // running のあいだは何もしない
   }, 1500);
 });
