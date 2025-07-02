@@ -685,47 +685,50 @@ def upload():
         return jsonify({'error': '音声処理に失敗しました'}), 500
 
     # 1) 当日分の既存レコードを検索
-    already = ScoreLog.query \
+    existing = ScoreLog.query \
         .filter_by(user_id=current_user.id) \
-        .filter(
-            cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date)
-            == today_jst
-        ).first()
+        .filter(cast(ScoreLog.timestamp, Date) == today_jst) \
+        .first()
 
     # 2) overwrite フラグチェック
     overwrite = request.args.get('overwrite') == 'true'
-    if already and not overwrite:
-        # フロントに「既に今日記録済み → 上書きするか？」を伝える
-        return jsonify({
-            'success': False,
-            'already': True,
-            'message': '本日はすでにスコアを記録済みです。再録音して上書きする場合は?overwrite=true を付けてください。'
-        }), 200
+    if existing and not overwrite:
+        # フロントに「上書きですか？」を返す
+        return jsonify(
+            success=False,
+            already=True,
+            message='本日はすでにスコアを記録済みです。再録音して上書きする場合は OK を押してください。'
+        ), 200
 
-    # 3) 上書き指定があれば既存レコードを削除
-    if already and overwrite:
-        db.session.delete(already)
+    if existing and overwrite:
+        # 既存レコードを消す or 更新する
+        db.session.delete(existing)
         db.session.commit()
 
-    # 4) （新規／上書きともに）normalized ファイルを保存→S3→RQ enqueue
-    persistent_path = os.path.join(
-        os.path.dirname(__file__),
-        'uploads',
-        os.path.basename(normalized_path)
+    # 2) 新しい fallback ログを作成（上書き時も必ずここで再作成）
+    new_log = ScoreLog(
+        user_id=current_user.id,
+        timestamp=datetime.now(timezone(timedelta(hours=9))),
+        score=quick_score,
+        is_fallback=True,
+        filename=normalized_filename,
+        volume_std=raw_rms,
     )
-    os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
+    db.session.add(new_log)
+    db.session.commit()
+
+    # 3) ファイルを永続化→S3→RQへ
+    persistent_path = os.path.join(…)
     shutil.copy(normalized_path, persistent_path)
     upload_to_s3(normalized_path, os.path.basename(normalized_path))
 
-    job_id = enqueue_detailed_analysis(
-        os.path.basename(normalized_path), current_user.id
-    )
+    job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
     add_action_log(current_user.id, "録音アップロード（light）")
 
     return jsonify({
-        'quick_score': quick_score,
-        'job_id': job_id,
-        'success': True
+        success: True,
+        quick_score: quick_score,
+        job_id: job_id
     }), 200
 
 @app.route('/result')
