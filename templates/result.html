@@ -97,51 +97,60 @@
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
 
     <script>
-        const ctx = document.getElementById('stressChart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: {{ dates|tojson|safe }},
-                datasets: [
-                    {
-                        label: 'ストレススコア',
-                        data: {{ scores|tojson|safe }},
-                        fill: false,
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        tension: 0.2
-                    },
-                    {
-                        label: 'ベースライン（登録初期の5日間平均）',
-                        data: Array({{ scores|length }}).fill({{ baseline }}),
-                        fill: false,
-                        borderColor: 'rgba(255, 99, 132, 0.8)',
-                        borderDash: [5, 5],
-                        pointRadius: 0
-                    }
-                 ]
-             },
-             options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                scales: {
-                    y: {
-                        min: 0,
-                        max: 100,
-                        title: {
-                            display: true,
-                            text: 'スコア（0〜100）'
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            autoSkip: true,
-                            maxTicksLimit: 7
-                        }
-                    }
-                }
+      const ctx = document.getElementById('stressChart').getContext('2d');
+      const stressChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: {{ dates|tojson|safe }},
+          datasets: [
+            {
+              label: 'ストレススコア',
+              data: {{ scores|tojson|safe }},
+              fill: false,
+              borderColor: 'rgba(75, 192, 192, 1)',
+              tension: 0.2,
+              pointRadius: 5,         // ← タップしやすいようにポイントを大きめに
+              pointHoverRadius: 8
+            },
+            {
+              label: 'ベースライン（5日平均）',
+              data: Array({{ scores|length }}).fill({{ baseline }}),
+              fill: false,
+              borderColor: 'rgba(255, 99, 132, 0.8)',
+              borderDash: [5, 5],
+              pointRadius: 0
             }
-        });
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            y: { min: 0, max: 100, title: { display: true, text: 'スコア（0〜100）' } },
+            x: { ticks: { autoSkip: true, maxTicksLimit: 7 } }
+          },
+          plugins: {
+            tooltip: {
+              enabled: true,
+              mode: 'nearest',
+              intersect: true
+            }
+          },
+          onClick: (evt, active) => {
+            // タップ／クリックしたポイントのツールチップを表示
+            if (active.length) {
+              stressChart.setActiveElements(active);
+              stressChart.tooltip.setActiveElements(
+                active,
+                { x: evt.x, y: evt.y }
+              );
+              stressChart.update();
+            }
+          }
+        }
+      });
     </script>
+    
     <footer style="margin-top: 40px; padding: 20px; border-top: 2px solid #ccc; background-color: #f9f9f9;">
     <div style="max-width: 800px; margin: 0 auto; text-align: center;">
       <p style="font-size: 14px;">
