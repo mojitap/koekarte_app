@@ -563,23 +563,17 @@ def record_page():
 def record_api():  # ← こちらも別名にしておくと安心
     return jsonify({"status": "ok"})
 
+from flask import jsonify
+
 @app.route('/api/upload', methods=['POST'])
 @login_required
 def upload():
     if 'audio_data' not in request.files:
-        return Response(
-            json.dumps({'error': '音声データが見つかりません'}, ensure_ascii=False),
-            status=400,
-            content_type='application/json'
-        )
+        return jsonify({'error': '音声データが見つかりません'}), 400
 
     file = request.files['audio_data']
     if file.filename == '':
-        return Response(
-            json.dumps({'error': 'ファイルが選択されていません'}, ensure_ascii=False),
-            status=400,
-            content_type='application/json'
-        )
+        return jsonify({'error': 'ファイルが選択されていません'}), 400
 
     UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -587,7 +581,7 @@ def upload():
     jst = timezone(timedelta(hours=9))
     now_jst = datetime.now(jst)
     today_jst = now_jst.date()
-    now = now_jst  # UTCではなくJSTで統一
+    now = now_jst
 
     original_ext = file.filename.split('.')[-1]
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
@@ -614,14 +608,10 @@ def upload():
         elif original_ext.lower() == "webm":
             convert_success = convert_webm_to_wav(save_path, wav_path)
         else:
-            raise ValueError("対応していないファイル形式です")
+            return jsonify({'error': '対応していないファイル形式です'}), 400
 
         if not convert_success or not is_valid_wav(wav_path):
-            return Response(
-                json.dumps({'error': '録音が短すぎるか、変換に失敗しました。'}, ensure_ascii=False),
-                status=400,
-                content_type='application/json'
-            )
+            return jsonify({'error': '録音が短すぎるか、変換に失敗しました。'}), 400
 
         raw_debug_path = os.path.join(os.path.dirname(__file__), 'uploads/raw', os.path.basename(wav_path))
         os.makedirs(os.path.dirname(raw_debug_path), exist_ok=True)
@@ -666,13 +656,9 @@ def upload():
         print("❌ 音声処理エラー:", e)
         import traceback
         traceback.print_exc()
-        return Response(
-            json.dumps({'error': '音声処理に失敗しました'}, ensure_ascii=False),
-            status=500,
-            content_type='application/json'
-        )
+        return jsonify({'error': '音声処理に失敗しました'}), 500
 
-    # 重複アップロード防止（同日に複数回）
+    # 重複アップロード防止
     already_logged = ScoreLog.query.filter_by(user_id=current_user.id).filter(
         cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst
     ).first()
@@ -692,22 +678,17 @@ def upload():
             break
         time.sleep(0.1)
     else:
-        return Response(
-            json.dumps({'error': '内部エラー：ファイル保存失敗'}, ensure_ascii=False),
-            status=500,
-            content_type='application/json'
-        )
+        return jsonify({'error': '内部エラー：ファイル保存失敗'}), 500
 
     upload_to_s3(normalized_path, os.path.basename(normalized_path))
 
     job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
     add_action_log(current_user.id, "録音アップロード（light）")
 
-    return Response(
-        json.dumps({'quick_score': quick_score, 'job_id': job_id}, ensure_ascii=False),
-        status=200,
-        content_type='application/json'
-    )
+    return jsonify({
+        'quick_score': quick_score,
+        'job_id': job_id
+    }), 200
 
 @app.route('/result')
 @login_required
