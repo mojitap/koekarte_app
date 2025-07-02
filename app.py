@@ -447,29 +447,37 @@ def set_paid(user_id):
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # まず「詳細解析済み（is_fallback=False）」の最新レコードを探す
+    # ① detailed / fallback で latest を取るコードはそのまま…
     detailed = (
         ScoreLog.query
         .filter_by(user_id=current_user.id, is_fallback=False)
         .order_by(ScoreLog.timestamp.desc())
         .first()
     )
-    if detailed:
-        latest = detailed
-    else:
-        # なければ light（fallback）版を最新で取ってくる
-        latest = (
-            ScoreLog.query
-            .filter_by(user_id=current_user.id, is_fallback=True)
-            .order_by(ScoreLog.timestamp.desc())
-            .first()
+    latest = detailed or (
+        ScoreLog.query
+        .filter_by(user_id=current_user.id, is_fallback=True)
+        .order_by(ScoreLog.timestamp.desc())
+        .first()
+    )
+
+    # ② ログが一件もないときはダミー値を渡してエラーを防止
+    if not latest:
+        return render_template(
+            "dashboard.html",
+            user=current_user,
+            message="まだ記録がありません",
+            # テンプレートで必ず参照される変数を全部渡す
+            first_score=None,
+            latest_score=None,
+            diff=0,
+            first_score_date=None,
+            last_date=None,
+            baseline=0,
+            detailed_ready=False
         )
 
-    # ログがない場合
-    if not latest:
-        return render_template("dashboard.html", user=current_user, message="まだ記録がありません")
-
-    # ベースライン算出（過去5件のスコア平均など）
+    # ③ 本来の処理：過去5件でbaselineを計算
     past5 = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
@@ -478,7 +486,7 @@ def dashboard():
         .all()
     )
     scores5 = [l.score for l in past5]
-    baseline = sum(scores5) // len(scores5)
+    baseline = sum(scores5) // len(scores5) if scores5 else latest.score
     diff = latest.score - baseline
 
     return render_template('dashboard.html',
@@ -489,11 +497,7 @@ def dashboard():
         first_score_date=past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
         last_date=latest.timestamp.strftime('%Y-%m-%d'),
         baseline=baseline,
-        detailed_ready=(detailed is not None),
-
-        # ✅ 追加
-        dates=[l.timestamp.strftime('%Y-%m-%d') for l in past5],
-        scores=[l.score for l in past5]
+        detailed_ready=(detailed is not None)
     )
 
 @app.route('/api/dashboard')
@@ -519,8 +523,17 @@ def api_dashboard():
         )
         detailed_ready = False
 
+    # ログが一件もない場合にも、必ず同じキーを返す
     if not latest:
-        return jsonify({'message': 'ログがありません'}), 200
+        return jsonify({
+            'first_score': None,
+            'latest_score': None,
+            'first_score_date': None,
+            'last_date': None,
+            'baseline': 0,
+            'diff': 0,
+            'detailed_ready': False
+        }), 200
 
     # ベースラインは過去5件の平均などで
     past5 = (
@@ -532,6 +545,7 @@ def api_dashboard():
     )
     scores5 = [l.score for l in past5]
     baseline = sum(scores5) // len(scores5) if scores5 else latest.score
+    diff = latest.score - baseline
 
     return jsonify({
         'first_score': past5[0].score if past5 else latest.score,
@@ -539,7 +553,7 @@ def api_dashboard():
         'first_score_date': past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
         'last_date': latest.timestamp.strftime('%Y-%m-%d'),
         'baseline': baseline,
-        'diff': latest.score - baseline,
+        'diff': diff,
         'detailed_ready': detailed_ready
     }), 200
 
