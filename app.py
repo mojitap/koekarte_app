@@ -991,7 +991,7 @@ def music():
     # 無料期間 or 有料 or 拡張フラグ
     can_play_premium = check_can_use_premium(current_user)
 
-    filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
+    filenames = sorted(os.path.basename(f) for f in glob.glob("static/paid/*.mp3"))
     display_names = {
         "positive1.mp3": "サウンドトラック 01",
         "positive2.mp3": "サウンドトラック 02",
@@ -1024,7 +1024,7 @@ def api_music():
 
     # …以降はそのまま
 
-    filenames = [os.path.basename(f) for f in glob.glob("static/paid/*.mp3")]
+    filenames = sorted(os.path.basename(f) for f in glob.glob("static/paid/*.mp3"))
 
     display_names = {
         "positive1.mp3": "サウンドトラック 01",
