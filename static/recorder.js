@@ -1,11 +1,21 @@
 let mediaRecorder;
 let recordedChunks = [];
 
-const recordButton   = document.getElementById('recordButton');
-const stopButton     = document.getElementById('stopButton');
-const uploadButton   = document.getElementById('uploadButton');
-const audioPlayback  = document.getElementById('audioPlayback');
-const statusP        = document.getElementById('uploadStatus');
+// 一度だけ要素を取得
+const recordButton  = document.getElementById('recordButton');
+const stopButton    = document.getElementById('stopButton');
+const uploadButton  = document.getElementById('uploadButton');
+const audioPlayback = document.getElementById('audioPlayback');
+const statusP       = document.getElementById('uploadStatus');
+
+// デバッグ：要素がちゃんと取れているかチェック
+console.log('📣 recorder.js loaded:', {
+  recordButton,
+  stopButton,
+  uploadButton,
+  audioPlayback,
+  statusP
+});
 
 let timerInterval, autoStopTimer, seconds;
 
@@ -23,6 +33,7 @@ function stopTimer() {
 }
 
 recordButton.addEventListener('click', async () => {
+  console.log('▶️ recordButton clicked');
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream, {
@@ -31,7 +42,6 @@ recordButton.addEventListener('click', async () => {
     });
     recordedChunks = [];
 
-    // マイク切断検知
     stream.getAudioTracks()[0].onended = () => {
       alert("⚠️ マイクが途中で切断されました。");
       stopTimer();
@@ -45,7 +55,7 @@ recordButton.addEventListener('click', async () => {
 
     mediaRecorder.addEventListener('stop', () => {
       const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-      if (blob.size === 0) {
+      if (!blob.size) {
         alert("⚠️ 録音できていません。");
         return;
       }
@@ -70,11 +80,13 @@ recordButton.addEventListener('click', async () => {
     }, 60000);
 
   } catch (err) {
-    alert("マイクの取得に失敗しました。");
+    console.error("❌ マイク取得エラー", err);
+    alert("マイクの取得に失敗しました。ブラウザ設定を確認してください。");
   }
 });
 
 stopButton.addEventListener('click', () => {
+  console.log('▶️ stopButton clicked');
   if (mediaRecorder && mediaRecorder.state === "recording") {
     clearTimeout(autoStopTimer);
     mediaRecorder.stop();
@@ -85,17 +97,17 @@ stopButton.addEventListener('click', () => {
 });
 
 uploadButton.addEventListener('click', async () => {
+  console.log('▶️ uploadButton clicked');
   const blob = uploadButton.blob;
   if (!blob) {
     alert("録音データがありません");
     return;
   }
 
-  // 1) 処理中 UI
+  // UIフィードバック
   uploadButton.disabled = true;
   statusP.textContent   = 'ただいま解析してアップロード中…';
 
-  // 2) サーバーへ送信
   const formData = new FormData();
   formData.append('audio_data', blob, 'recording.webm');
 
@@ -103,31 +115,32 @@ uploadButton.addEventListener('click', async () => {
   try {
     res = await fetch('/api/upload', { method: 'POST', body: formData });
   } catch (err) {
+    console.error("❌ ネットワークエラー", err);
     statusP.textContent = '';
-    alert("ネットワークエラー: " + err);
+    alert("ネットワークエラーが発生しました。");
     uploadButton.disabled = false;
     return;
   }
+
   if (!res.ok) {
     const text = await res.text();
+    console.warn("❌ アップロード失敗", text);
     statusP.textContent = '';
-    alert("アップロード失敗: " + text);
+    alert("アップロードに失敗しました: " + text);
     uploadButton.disabled = false;
     return;
   }
 
   const { job_id } = await res.json();
-
-  // 3) アップロード成功 UI
   statusP.textContent = 'アップロード完了。詳細解析中…';
 
-  // 4) 詳細解析完了をポーリング
   const poll = setInterval(async () => {
     let statusJ;
     try {
       const statusRes = await fetch(`/api/job_status/${job_id}`);
       statusJ = await statusRes.json();
-    } catch {
+    } catch (err) {
+      console.error("❌ ポーリングエラー", err);
       return;
     }
 
