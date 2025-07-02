@@ -2,8 +2,8 @@
 {% block title %}ストレスチェック録音ページ{% endblock %}
 
 {% block content %}
-  <div class="record-container">
-    <h1>ストレスチェック録音ページ</h1>
+<div class="record-container">
+  <h1>ストレスチェック録音ページ</h1>
 
     <h2>📣 ストレスチェック録音のご案内</h2>
     <div style="text-align: left; font-size: 1.1em; line-height: 1.8; margin-top: 20px;">
@@ -27,10 +27,14 @@
     <button id="recordButton">🎙️ 録音開始</button>
     <button id="stopButton" disabled>⏹️ 録音停止</button>
     <button id="uploadButton" disabled>⬆️ アップロード</button>
-    <br><br>
-    <audio id="audioPlayback" controls></audio>
-    <br><br>
 
+    <p id="uploadStatus" style="margin-top:8px; color:#555;"></p>
+
+    <br><br>
+    <!-- ② 録音再生用は一度だけ -->
+    <audio id="audioPlayback" controls></audio>
+
+    <br><br>
     <div style="text-align: left; font-size: 0.95em; line-height: 1.7; margin-top: 30px;">
       <p>📘 <strong>※使い方（録音の流れ）</strong></p>
       <p>🔁 <strong>録音の流れ：</strong>「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
@@ -61,10 +65,10 @@
   {% endif %}
 {% endif %}
 
-    <a href="/dashboard" class="auth-links">
-      🏠 マイページに戻る
-    </a>
+  <div style="margin-top: 30px; text-align: center;">
+    <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
   </div>
+</div>
 
-  <script src="{{ url_for('static', filename='recorder.js') }}"></script>
+<script src="{{ url_for('static', filename='recorder.js') }}"></script>
 {% endblock %}
