@@ -256,7 +256,17 @@ def register():
         # すでに登録済みか確認
         if User.query.filter_by(email=email).first():
             flash('このメールアドレスは既に登録されています。')
-            return redirect(url_for('register'))
+            return render_template(
+                'register.html',
+                username=username,
+                email=email,
+                gender=gender,
+                occupation=occupation,
+                prefecture=prefecture,
+                birth_year=year,
+                birth_month=month,
+                birth_day=day
+            )
 
         # 新規ユーザー作成
         user = User(
