@@ -280,8 +280,8 @@ def register():
 
         login_user(user)
         session.permanent = True
-        print("✅ login_user実行済み：is_authenticated =", current_user.is_authenticated)
-        return redirect(url_for('dashboard'))
+        # 新規登録直後はまず一回録音してもらう
+        return redirect(url_for('record_page'))
 
     return render_template('register.html')
 
