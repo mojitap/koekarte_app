@@ -478,7 +478,10 @@ def dashboard():
         last_date=latest.timestamp.strftime('%Y-%m-%d'),
         baseline=baseline,
         detailed_ready=(detailed is not None),
-        dates=[]
+
+        # ✅ 追加
+        dates=[l.timestamp.strftime('%Y-%m-%d') for l in past5],
+        scores=[l.score for l in past5]
     )
 
 @app.route('/api/dashboard')
