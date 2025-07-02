@@ -43,6 +43,7 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_NAME'] = 'session'
 
 if IS_PRODUCTION:
     # 本番環境 (https://koekarte.com) 用
@@ -455,7 +456,7 @@ def dashboard():
 
     # ログがない場合
     if not latest:
-        return render_template('dashboard.html', message="まだ記録がありません")
+        return render_template("dashboard.html", user=current_user, message="まだ記録がありません")
 
     # ベースライン算出（過去5件のスコア平均など）
     past5 = (
