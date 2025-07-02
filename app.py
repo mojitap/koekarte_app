@@ -469,12 +469,6 @@ def dashboard():
     baseline = sum(scores5) // len(scores5)
     diff = latest.score - baseline
 
-    # ── グラフ用に全ログから日付とスコアを準備 ──
-    logs = ScoreLog.query.filter_by(user_id=current_user.id) \
-                         .order_by(ScoreLog.timestamp).all()
-    dates = [l.timestamp.strftime('%Y-%m-%d') for l in logs]
-    scores = [l.score for l in logs]
-
     return render_template('dashboard.html',
         user=current_user,
         first_score=past5[0].score if past5 else latest.score,
@@ -484,9 +478,6 @@ def dashboard():
         last_date=latest.timestamp.strftime('%Y-%m-%d'),
         baseline=baseline,
         detailed_ready=(detailed is not None),
-        # ← ここに追加
-        dates=dates,
-        scores=scores,
     )
 
 @app.route('/api/dashboard')
@@ -1061,6 +1052,11 @@ def api_music():
     return jsonify({
         "tracks": tracks
     })
+
+@app.route('/diary')
+@login_required
+def diary_redirect():
+    return render_template('diary.html')
 
 @app.route('/checkout')
 @login_required
