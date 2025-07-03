@@ -1,68 +1,67 @@
 {% extends "base.html" %}
 {% block title %}ストレスチェック録音ページ{% endblock %}
 {% block content %}
-  <div class="record-container">
-    <h1>ストレスチェック録音ページ</h1>
-  　
-  　<h2>📣 ストレスチェック録音のご案内</h2>
-  　
-  　<div style="text-align: left; font-size: 0.95em; line-height: 1.4; margin: 16px 0;">
-    <strong>以下の6つの文章を順番に自然な声のトーンで、全て読み上げてください。</strong>
-    <ol>
-      <li>「今日は落ち着いた気持ちで過ごしました」</li>
-      <li>「人との関わりに安心感を感じています」</li>
-      <li>「最近は夜によく眠れています」</li>
-      <li>「体の調子も比較的安定しています」</li>
-      <li>「一人の時間も心地よく過ごせています」</li>
-      <li>「今日は特に強い不安は感じていません」</li>
-    </ol>
-  　</div>
-
-  　<p style="color: #555; font-size: 14px;">
-    　※小声やささやき声での録音は、実際の気分に関係なく低スコアになる場合があります。<br>
-    　※録音後の解析には数秒ほどかかることがありますので、その間お待ちください。
-  　</p>
-
-  　<button id="recordButton">🎙️ 録音開始</button>
-  　<button id="stopButton" disabled>⏹️ 録音停止</button>
-  　<button id="uploadButton" disabled>⬆️ アップロード</button>
-  　<p id="uploadStatus" style="margin-top:8px; color:#555;"></p>
-  　<audio id="audioPlayback" controls></audio>
-　</div>
-
-    <div style="text-align:left; font-size:0.95em; line-height:1.4; margin:1.5em 0 0;">
-      <p>📘 <strong>※使い方（録音の流れ）</strong></p>
-      <p style="margin:0.5em 0;">🔁 録音の流れ：「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
-      <p style="margin:0.5em 0;">▶️ 再生ボタンで録音内容を確認できます</p>
-      <p style="margin:0.5em 0;">✅ 確認せずにアップロードしても構いません</p>
-      <p style="margin:0.5em 0;">🔁 アップロードしなければ、何度でもやり直し可能です</p>
-      <p style="margin:0.5em 0;">🎯 1回の録音が理想です</p>
+  <div class="record-container" style="max-width:460px;margin:0 auto;padding:24px 12px 18px 12px;">
+    <h1 style="font-size:1.4em; margin-bottom:8px;">ストレスチェック録音ページ</h1>
+    <h2 style="font-size:1.15em; margin-bottom:14px;">📣 ストレスチェック録音のご案内</h2>
+    <div style="text-align: left; font-size: 0.97em; line-height: 1.5; margin-bottom: 16px;">
+      <strong>以下の6つの文章を順番に自然な声のトーンで、全て読み上げてください。</strong>
+      <ol style="margin-left:1em; margin-top:10px;">
+        <li>「今日は落ち着いた気持ちで過ごしました」</li>
+        <li>「人との関わりに安心感を感じています」</li>
+        <li>「最近は夜によく眠れています」</li>
+        <li>「体の調子も比較的安定しています」</li>
+        <li>「一人の時間も心地よく過ごせています」</li>
+        <li>「今日は特に強い不安は感じていません」</li>
+      </ol>
     </div>
+    <p style="color: #555; font-size: 13px; margin-bottom:16px;">
+      ※小声やささやき声での録音は、実際の気分に関係なく低スコアになる場合があります。<br>
+      ※録音後の解析には数秒ほどかかることがありますので、その間お待ちください。
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px;">
+      <button id="recordButton">🎙️ 録音開始</button>
+      <button id="stopButton" disabled>⏹️ 録音停止</button>
+      <button id="uploadButton" disabled>⬆️ アップロード</button>
+    </div>
+    <p id="uploadStatus" style="margin:8px 0 0 0; color:#555;"></p>
+    <div style="text-align:center; margin-bottom:14px;">
+      <audio id="audioPlayback" controls style="width:100%;max-width:340px;"></audio>
+    </div>
+  </div>
 
-  　{% if not current_user.is_paid and current_user.created_at %}
-    　{% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
-    　{% if remaining_days > 0 %}
-      　<div style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 10px 0;">
-        　<p style="font-size: 14px; color: #444;">
-          　⏰ 無料期間中です（あと <strong>{{ remaining_days }}</strong> 日）。<br>
-          　終了後は録音や分析などに制限がかかります。
-        　</p>
-        　<a href="{{ url_for('checkout') }}" class="btn btn-info">🎟 有料プランの詳細を見る</a>
-      　</div>
-    　{% else %}
-　　　　　<div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
-        　<p style="font-size: 14px; color: #a00;">
-          　⚠️ 無料期間は終了しました。録音はご利用いただけません。<br>
-          　続けて使うには有料登録（月額300円）が必要です。
-        　</p>
-        　<a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
-　　　　　</div>
-    　{% endif %}
-  　{% endif %}
+  <div style="text-align:left; font-size:0.97em; line-height:1.5; margin:12px auto 0; max-width:460px;">
+    <p style="margin-bottom:0.3em;">📘 <strong>※使い方（録音の流れ）</strong></p>
+    <p style="margin:0.3em 0;">🔁 「録音開始」→「録音停止」→「再生で確認」→「アップロード」</p>
+    <p style="margin:0.3em 0;">▶️ 再生ボタンで録音内容を確認できます</p>
+    <p style="margin:0.3em 0;">✅ 確認せずにアップロードしても構いません</p>
+    <p style="margin:0.3em 0;">🔁 アップロードしなければ、何度でもやり直し可能です</p>
+    <p style="margin:0.3em 0;">🎯 1回の録音が理想です</p>
+  </div>
 
-  　<div style="margin-top: 30px; text-align: center;">
-    　<a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
-  　</div>
-　
-　　<script src="{{ url_for('static', filename='recorder.js') }}"></script>
-　{% endblock %}
+  {% if not current_user.is_paid and current_user.created_at %}
+    {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
+    {% if remaining_days > 0 %}
+      <div style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 12px auto 8px; max-width:440px;">
+        <p style="font-size: 13px; color: #444; margin:0;">
+          ⏰ 無料期間中です（あと <strong>{{ remaining_days }}</strong> 日）。<br>
+          終了後は録音や分析などに制限がかかります。
+        </p>
+        <a href="{{ url_for('checkout') }}" class="btn btn-info" style="margin-top:6px;">🎟 有料プランの詳細を見る</a>
+      </div>
+    {% else %}
+      <div style="padding: 8px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 12px auto 8px; max-width:440px;">
+        <p style="font-size: 13px; color: #a00; margin:0;">
+          ⚠️ 無料期間は終了しました。録音はご利用いただけません。<br>
+          続けて使うには有料登録（月額300円）が必要です。
+        </p>
+        <a href="{{ url_for('checkout') }}" class="btn btn-warning" style="margin-top:6px;">🎟 今すぐ有料登録する</a>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <div style="margin:22px 0 0 0; text-align: center;">
+    <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
+  </div>
+  <script src="{{ url_for('static', filename='recorder.js') }}"></script>
+{% endblock %}
