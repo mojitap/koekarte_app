@@ -5,7 +5,9 @@ import stripe
 import python_speech_features
 import librosa
 import redis as real_redis
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone as _tz
+UTC = _tz.utc
+JST = _tz(timedelta(hours=9))
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_cors import CORS
 from redis import Redis
@@ -491,7 +493,7 @@ def dashboard():
 
     # JST に変換してからフォーマット
     def to_jst(dt):
-        # DB には UTC で入っている想定。naive なら utc とみなす
+        # DB には UTC で保存されている想定。naive（tzinfo=None）なら UTC 扱いにしてから変換
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         return dt.astimezone(JST).strftime('%Y-%m-%d')
