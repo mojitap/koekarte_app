@@ -621,9 +621,7 @@ def upload():
     UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    UTC = dt_timezone.utc
-    JST = timezone(timedelta(hours=9))
-    now_jst = datetime.now(jst)
+    now_jst = datetime.now(JST)
     today_jst = now_jst.date()
     now = now_jst
 
