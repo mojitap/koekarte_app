@@ -1102,11 +1102,14 @@ def checkout():
 def create_checkout_session():
     try:
         stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-        
+        price_id = os.getenv("STRIPE_PRICE_ID")
+        print(f"STRIPE_SECRET_KEY={stripe.api_key[:10]}..., PRICE_ID={price_id}")
+        print(f"current_user.email={current_user.email}")
+
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
-                'price': os.getenv("STRIPE_PRICE_ID"),  # ← 本番用PriceID
+                'price': price_id,
                 'quantity': 1,
             }],
             mode='subscription',
@@ -1116,6 +1119,7 @@ def create_checkout_session():
         )
         return redirect(checkout_session.url, code=303)
     except Exception as e:
+        print(f"[CHECKOUT ERROR]: {e}")
         return str(e), 400
 
 @app.route("/webhook", methods=["POST"])
