@@ -1128,7 +1128,8 @@ def stripe_webhook():
     print(f"Content-Type: {request.headers.get('Content-Type')}")
     print(f"Stripe-Signature: {request.headers.get('Stripe-Signature')}")
 
-    if request.headers.get("Content-Type") != "application/json":
+    content_type = request.headers.get("Content-Type", "")
+    if not content_type.startswith("application/json"):
         return "Unsupported Media Type", 415
 
     payload = request.data
