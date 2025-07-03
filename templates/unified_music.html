@@ -95,10 +95,24 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // カテゴリ開閉（今あるやつ）
   document.querySelectorAll('.toggle-header').forEach(header => {
     header.addEventListener('click', () => {
       const next = header.nextElementSibling;
       next.style.display = next.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  // ⬇️「再生開始時に他を止める」部分（新規追加！）
+  const audios = document.querySelectorAll('audio');
+  audios.forEach(audio => {
+    audio.addEventListener('play', () => {
+      audios.forEach(other => {
+        if (other !== audio) {
+          other.pause();
+          other.currentTime = 0; // （任意：再生位置リセットしたい時）
+        }
+      });
     });
   });
 });
