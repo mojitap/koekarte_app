@@ -489,13 +489,23 @@ def dashboard():
     baseline = sum(scores5) // len(scores5) if scores5 else latest.score
     diff = latest.score - baseline
 
+    # JST に変換してからフォーマット
+    def to_jst(dt):
+        # DB には UTC で入っている想定。naive なら utc とみなす
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(JST).strftime('%Y-%m-%d')
+
+    first_date = to_jst(past5[0].timestamp) if past5 else to_jst(latest.timestamp)
+    last_date  = to_jst(latest.timestamp)
+
     return render_template('dashboard.html',
         user=current_user,
         first_score=past5[0].score if past5 else latest.score,
         latest_score=latest.score,
         diff=diff,
-        first_score_date=past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
-        last_date=latest.timestamp.strftime('%Y-%m-%d'),
+        first_score_date=first_date,
+        last_date=last_date,
         baseline=baseline,
         detailed_ready=(detailed is not None)
     )
@@ -547,11 +557,16 @@ def api_dashboard():
     baseline = sum(scores5) // len(scores5) if scores5 else latest.score
     diff = latest.score - baseline
 
+    def to_jst(dt):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(JST).strftime('%Y-%m-%d')
+
     return jsonify({
         'first_score': past5[0].score if past5 else latest.score,
         'latest_score': latest.score,
-        'first_score_date': past5[0].timestamp.strftime('%Y-%m-%d') if past5 else latest.timestamp.strftime('%Y-%m-%d'),
-        'last_date': latest.timestamp.strftime('%Y-%m-%d'),
+        'first_score_date': to_jst(past5[0].timestamp) if past5 else to_jst(latest.timestamp),
+        'last_date': to_jst(latest.timestamp),
         'baseline': baseline,
         'diff': diff,
         'detailed_ready': detailed_ready
@@ -604,7 +619,8 @@ def upload():
     UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    jst = timezone(timedelta(hours=9))
+    UTC = dt_timezone.utc
+    JST = timezone(timedelta(hours=9))
     now_jst = datetime.now(jst)
     today_jst = now_jst.date()
     now = now_jst
