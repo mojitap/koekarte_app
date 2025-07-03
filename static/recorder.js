@@ -149,7 +149,7 @@ uploadButton.addEventListener('click', async () => {
   if (json.success === false) {
     statusP.textContent = '';
     uploadButton.disabled = false;
-    return alert(json.message);
+    return alert(json.message || json.error || '上書き時にエラーが発生しました。');
   }
   const jobId = json.job_id;
   if (!jobId) {
