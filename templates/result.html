@@ -77,19 +77,19 @@
 {% if not current_user.is_paid and current_user.created_at %}
   {% set remaining_days = 5 - (date.today() - current_user.created_at.date()).days %}
   {% if remaining_days > 0 %}
-    <div style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 10px 0;">
-      <p style="font-size: 14px; color: #444;">
+    <div style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; background-color: #fefefe; margin: 12px auto 8px; max-width:440px;">
+      <p style="font-size: 13px; color: #444; margin:0;">
         ⏰ 無料期間中です（あと <strong>{{ remaining_days }}</strong> 日）。<br>
         終了後はスコアグラフなど一部機能が使えなくなります。
       </p>
-      <a href="{{ url_for('checkout') }}" class="btn btn-info">🎟 有料プランの詳細を見る</a>
+      <a href="{{ url_for('checkout') }}" class="btn btn-info" style="margin-top:6px;">🎟 有料プランの詳細を見る</a>
     </div>
   {% else %}
-    <div style="padding: 10px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 10px 0;">
-      <p style="font-size: 14px; color: #a00;">
+    <div style="padding: 8px; border: 1px solid #faa; border-radius: 6px; background-color: #fff0f0; margin: 12px auto 8px; max-width:440px;">
+      <p style="font-size: 13px; color: #a00; margin:0;">
         ⚠️ 無料期間は終了しました。スコアグラフを表示するには有料登録が必要です。
       </p>
-      <a href="{{ url_for('checkout') }}" class="btn btn-warning">🎟 今すぐ有料登録する</a>
+      <a href="{{ url_for('checkout') }}" class="btn btn-warning" style="margin-top:6px;">🎟 今すぐ有料登録する</a>
     </div>
   {% endif %}
 {% endif %}
