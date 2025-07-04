@@ -25,6 +25,8 @@ class User(UserMixin, db.Model):
     is_paid = db.Column(db.Boolean, default=False)
     is_free_extended = db.Column(db.Boolean, default=False)
 
+    has_ever_paid = db.Column(db.Boolean, default=False)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
