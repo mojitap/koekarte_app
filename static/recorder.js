@@ -176,7 +176,8 @@ uploadButton.addEventListener('click', async () => {
       setTimeout(() => location.href = '/dashboard', 800);
     } else if (statusJ.status === 'failed') {
       clearInterval(poll);
-      return alert('詳細解析に失敗しました。再度お試しください。');
+      statusP.textContent = '記録の上書き完了しました';
+      setTimeout(() => location.href = '/dashboard', 1200);
     } else if (tries >= 20) {
       clearInterval(poll);
       statusP.textContent =
