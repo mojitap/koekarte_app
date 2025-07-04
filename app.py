@@ -1172,6 +1172,7 @@ def stripe_webhook():
             if user:
                 print(f"✅ ユーザー {email} が見つかりました。is_paidを更新します")
                 user.is_paid = True
+                user.has_ever_paid = True
                 db.session.commit()
                 print(f"💰 {email} の支払いステータスを更新しました")
             else:
