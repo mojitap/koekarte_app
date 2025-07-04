@@ -1181,6 +1181,40 @@ def stripe_webhook():
 
         return jsonify(success=True)
 
+    # ---------------------------
+    # 2. サブスク解約（is_paid=False）
+    elif event["type"] == "customer.subscription.deleted":
+        subscription = event["data"]["object"]
+        customer_id = subscription.get("customer")
+        print(f"🗑 サブスク削除検知 customer_id={customer_id}")
+
+        # Stripe顧客IDからユーザー特定
+        try:
+            customer = stripe.Customer.retrieve(customer_id)
+            email = customer.get("email")
+            print(f"📧 顧客メール: {email}")
+        except Exception as e:
+            print(f"❌ 顧客情報取得失敗: {e}")
+            email = None
+
+        if email:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                user.is_paid = False
+                db.session.commit()
+                print(f"✅ ユーザー {email} のis_paidをFalseにしました")
+            else:
+                print("❌ DBに該当ユーザーがいません")
+        else:
+            print("❌ 顧客メール取得できず")
+
+        return jsonify(success=True)
+
+    # ---------------------------
+    # その他イベント
+    else:
+        return jsonify(success=True)
+
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
