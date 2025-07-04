@@ -1124,6 +1124,7 @@ def create_checkout_session():
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
     print("📩 Webhook受信しました")
     print(f"Content-Type: {request.headers.get('Content-Type')}")
     print(f"Stripe-Signature: {request.headers.get('Stripe-Signature')}")
