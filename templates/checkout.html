@@ -3,13 +3,29 @@
 {% block content %}
 <div style="max-width: 700px; margin: 0 auto; padding: 20px; text-align: left; font-size: 18px;">
 
+  {# ---- 追加ここから ---- #}
+  {% if not current_user.is_authenticated %}
+    <div style="background: #fff8e1; border-left: 6px solid #ffd600; padding: 14px; margin-bottom: 22px; font-size: 17px;">
+      <b>※ ご案内</b><br>
+      このページは「プレミアム登録」専用ページです。ご利用にはアカウントへのログインが必要です。<br>
+      すでにアカウントをお持ちの方は、下記の「ログインする」ボタンからログイン後、<b>再度このページにお戻りください。</b>
+    </div>
+  {% else %}
+    <div style="background: #e1f5fe; border-left: 6px solid #0288d1; padding: 14px; margin-bottom: 22px; font-size: 17px;">
+      <b>※ ご案内</b><br>
+      現在ログイン中です。下記ボタンからプレミアム登録に進めます。
+    </div>
+  {% endif %}
+  {# ---- 追加ここまで ---- #}
+
   <h1 style="margin-bottom: 1em;">🎧 プレミアム登録のご案内</h1>
 
   <p><strong>このような方におすすめ：</strong></p>
   <ul style="list-style: none; padding-left: 0;">
     <li>✅ 録音機能を続けて使いたい</li>
     <li>✅ スコア記録・グラフを残したい</li>
-    <li>✅ メンタルケア音源をすべて聴きたい</li>
+    <li>✅ 音源ライブラリをすべて聴きたい</li>
+    <li>✅ 音声に日記（アプリ限定）</li>
   </ul>
 
   <p style="margin: 1.5em 0;"><strong>月額300円ですべての機能が使い放題</strong></p>
@@ -32,6 +48,10 @@
 
   <p style="margin-top: 40px;">
     ❓ <a href="/faq" style="font-size: 16px; color: #007bff;">よくある質問を見る</a>
+  </p>
+
+  <p style="margin-top: 36px; color: #666; font-size: 15px;">
+    ※ 当サービスはアプリ・Webのどちらからでもご利用いただけます。アプリ経由の場合は、ログイン情報は自動で引き継がれます。
   </p>
 
 </div>
