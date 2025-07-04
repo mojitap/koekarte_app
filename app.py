@@ -1202,6 +1202,7 @@ def stripe_webhook():
             user = User.query.filter_by(email=email).first()
             if user:
                 user.is_paid = False
+                user.has_ever_paid = True
                 db.session.commit()
                 print(f"✅ ユーザー {email} のis_paidをFalseにしました")
             else:
