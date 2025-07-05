@@ -42,16 +42,16 @@ load_dotenv()
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
 
 # ───── セッション／クッキー設定 ─────
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
+app.config['REMEMBER_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_NAME'] = 'session'
 
 if IS_PRODUCTION:
     # 本番環境 (https://koekarte.com) 用
     app.config['SESSION_COOKIE_SECURE']   = True
     app.config['REMEMBER_COOKIE_SECURE']  = True
-    app.config['SESSION_COOKIE_DOMAIN'] = None
+    app.config['SESSION_COOKIE_DOMAIN'] = '.koekarte.com'
 else:
     # ローカル開発環境 (http://localhost:5000 など) 用
     app.config['SESSION_COOKIE_SECURE']   = False
