@@ -2,15 +2,15 @@
 {% block title %}ストレスチェック録音ページ{% endblock %}
 {% block content %}
   <div class="record-container" style="max-width:460px;margin:0 auto;padding:24px 12px 18px 12px;">
-    <h1 style="font-size:1.38em; font-weight:bold; margin-bottom:10px; text-align:center;">
+    <h1 style="font-size:1.32em; font-weight:bold; margin-bottom:10px; text-align:center;">
       ストレスチェック録音ページ
     </h1>
-    <!-- ↓↓↓ここを左寄せ＋やや小さめに -->
-    <p style="font-size:1.02em; font-weight:normal; margin-bottom:15px; text-align:left;">
+    <p style="font-size:1.04em; margin-bottom:15px; text-align:left;">
       下記の6つの文章を読み上げてください。
     </p>
-    <div style="text-align: left; font-size: 17.2px; font-weight: bold; line-height: 1.65; margin-bottom: 16px; margin-left: 0.5em;">
-      <ol style="margin-left:1em; margin-top:10px;">
+    <div style="text-align: left; font-size: 17px; font-weight: bold; line-height: 1.65; margin-bottom: 16px; margin-left: 0.5em;">
+      <!-- ↓↓↓ olをblock-level&左寄せに強制 -->
+      <ol style="margin-left:1.1em; margin-top:10px; text-align:left; list-style-position:outside;">
         <li>今日は落ち着いた気持ちで過ごしました</li>
         <li>人との関わりに安心感を感じています</li>
         <li>最近は夜によく眠れています</li>
@@ -19,17 +19,22 @@
         <li>今日は特に強い不安は感じていません</li>
       </ol>
     </div>
-    <!-- ↓↓↓注意書きも左寄せで -->
     <p style="color: #555; font-size: 14px; margin-bottom:15px; text-align:left;">
       ※小声やささやき声での録音は、実際の気分に関係なく低スコアになる場合があります。<br>
       ※録音後の解析には数秒ほどかかることがありますので、その間お待ちください。
     </p>
 
-    <!-- ↓↓↓ボタンサイズ調整 -->
+    <!-- ↓↓↓2段ラベルのボタン -->
     <div style="display:flex;gap:10px;justify-content:center;margin-bottom:12px;">
-      <button id="recordButton" style="font-size:1em; padding:9px 16px;">🎙️ 録音開始</button>
-      <button id="stopButton" disabled style="font-size:1em; padding:9px 16px;">⏹️ 録音停止</button>
-      <button id="uploadButton" disabled style="font-size:1em; padding:9px 16px;">⬆️ アップロード</button>
+      <button id="recordButton" style="font-size:1em; padding:8px 12px; display:flex; flex-direction:column; align-items:center;">
+        🎙️<span>録音</span><span>開始</span>
+      </button>
+      <button id="stopButton" disabled style="font-size:1em; padding:8px 12px; display:flex; flex-direction:column; align-items:center;">
+        ⏹️<span>録音</span><span>停止</span>
+      </button>
+      <button id="uploadButton" disabled style="font-size:1em; padding:8px 12px; display:flex; flex-direction:column; align-items:center;">
+        ⬆️<span>アップ</span><span>ロード</span>
+      </button>
     </div>
     <p id="uploadStatus" style="margin:10px 0 0 0; color:#555;"></p>
     <div style="text-align:center; margin-bottom:14px;">
@@ -83,7 +88,7 @@
     {% endif %}
   {% endif %}
 
-  <div style="margin:24px 0 0 0; text-align: center;">
+  <div style="margin:22px 0 0 0; text-align: center;">
     <a href="/dashboard" class="auth-links" style="font-size:17px;">🏠 マイページに戻る</a>
   </div>
   <script src="{{ url_for('static', filename='recorder.js') }}"></script>
