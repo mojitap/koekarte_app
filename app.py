@@ -98,8 +98,6 @@ mail = Mail(app)
 CORS(app, origins=[
     "https://koekarte.com",
     "https://koekarte-app.mobile.app",
-    "http://localhost:5000",    # ← 追加
-    "http://127.0.0.1:5000"     # ← 追加
 ], supports_credentials=True)
 
 login_manager.init_app(app)
