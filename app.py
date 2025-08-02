@@ -1264,7 +1264,7 @@ def api_profile():
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
-        'birthdate': current_user.birthdate,
+        'birthdate': current_user.birthdate.isoformat() if current_user.birthdate else None,
         'gender': current_user.gender,
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
