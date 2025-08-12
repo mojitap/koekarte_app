@@ -34,6 +34,7 @@ from s3_utils import upload_to_s3
 from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
+from routes.iap import iap_bp
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -91,6 +92,9 @@ app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS") == "True"
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
+app.config['CONTACT_RECIPIENT'] = os.getenv("CONTACT_RECIPIENT", app.config['MAIL_DEFAULT_SENDER'])
+app.config['MAIL_TIMEOUT'] = int(os.getenv("MAIL_TIMEOUT", "20"))
+app.config['MAIL_SUPPRESS_SEND'] = os.getenv("MAIL_SUPPRESS_SEND", "False") == "True"
 
 mail = Mail(app)
 
@@ -106,6 +110,8 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
 # ======== 音声処理 =========
 def extract_advanced_features(signal, sr):
@@ -184,36 +190,48 @@ def contact():
 
 @app.route('/api/contact', methods=['POST'])
 def api_contact():
-    data = request.get_json()
-    print("📩 API受信データ:", data)
+    # JSON を強制。うまく来ない場合は None になるので安全側で扱う
+    data = request.get_json(silent=True) or {}
+    print("📩 /api/contact 受信:", data)
 
-    name = data.get('name')
-    email = data.get('email')
-    message = data.get('message')
+    name = (data.get('name') or '').strip()
+    email = (data.get('email') or '').strip()
+    message = (data.get('message') or '').strip()
 
-    if not all([name, email, message]):
-        print("⚠️ 不完全なデータ:", data)
+    if not name or not email or not message:
+        print("⚠️ バリデーションNG:", {"name": name, "email": email, "message_len": len(message)})
         return jsonify({'error': 'すべての項目を入力してください'}), 400
 
     try:
-        email_msg = EmailMessage(
-            subject="【koekarte】お問い合わせ",
-            body=f"""【お問い合わせ】
-名前: {name}
-メール: {email}
+        # 宛先は .env / Render の CONTACT_RECIPIENT を使用
+        to_addr = app.config['CONTACT_RECIPIENT']
+        from_addr = app.config['MAIL_DEFAULT_SENDER']
 
-内容:
-{message}
-""",
-            to=["koekarte.info@gmail.com"],
-            from_email=app.config['MAIL_DEFAULT_SENDER']
+        # 返信先をユーザーへ（運用が楽になる）
+        msg = EmailMessage(
+            subject="【koekarte】お問い合わせ",
+            body=(
+                "【お問い合わせ】\n"
+                f"名前: {name}\n"
+                f"メール: {email}\n\n"
+                "内容:\n"
+                f"{message}\n"
+            ),
+            from_email=from_addr,
+            to=[to_addr],
+            reply_to=[email],                 # ✅ 追加：返信先
+            headers={'X-Mailer': 'koekarte'}  # 任意
         )
-        print("📤 メール送信準備完了:", email_msg)
-        email_msg.send()
-        print("✅ メール送信成功")
-        return jsonify({'message': '送信成功'})
+
+        print("📤 送信開始 to:", to_addr, "from:", from_addr)
+        msg.send()
+        print("✅ 送信成功")
+
+        return jsonify({'message': '送信成功'}), 201
+
     except Exception as e:
-        print("❌ メール送信失敗:", e)
+        # ここに来たら SMTP / 認証 / ネットワーク等の例外
+        print("❌ 送信失敗:", repr(e))
         return jsonify({'error': '送信に失敗しました'}), 500
       
 @app.route('/')
