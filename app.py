@@ -190,47 +190,28 @@ def contact():
 
 @app.route('/api/contact', methods=['POST'])
 def api_contact():
-    # JSON を強制。うまく来ない場合は None になるので安全側で扱う
     data = request.get_json(silent=True) or {}
-    print("📩 /api/contact 受信:", data)
-
-    name = (data.get('name') or '').strip()
-    email = (data.get('email') or '').strip()
+    name    = (data.get('name') or '').strip()
+    email   = (data.get('email') or '').strip()
     message = (data.get('message') or '').strip()
-
     if not name or not email or not message:
-        print("⚠️ バリデーションNG:", {"name": name, "email": email, "message_len": len(message)})
         return jsonify({'error': 'すべての項目を入力してください'}), 400
 
     try:
-        # 宛先は .env / Render の CONTACT_RECIPIENT を使用
-        to_addr = app.config['CONTACT_RECIPIENT']
-        from_addr = app.config['MAIL_DEFAULT_SENDER']
+        to_addr   = app.config.get('CONTACT_RECIPIENT', 'support@koekarte.jp')
+        from_addr = app.config.get('MAIL_DEFAULT_SENDER', 'support@koekarte.jp')  # ★認証済み
 
-        # 返信先をユーザーへ（運用が楽になる）
         msg = EmailMessage(
             subject="【koekarte】お問い合わせ",
-            body=(
-                "【お問い合わせ】\n"
-                f"名前: {name}\n"
-                f"メール: {email}\n\n"
-                "内容:\n"
-                f"{message}\n"
-            ),
-            from_email=from_addr,
+            body=f"【お問い合わせ】\n名前: {name}\nメール: {email}\n\n内容:\n{message}\n",
             to=[to_addr],
-            reply_to=[email],                 # ✅ 追加：返信先
-            headers={'X-Mailer': 'koekarte'}  # 任意
+            from_email=from_addr,
+            headers={'Reply-To': email}  # ★ユーザーに返信できるように
         )
-
-        print("📤 送信開始 to:", to_addr, "from:", from_addr)
         msg.send()
-        print("✅ 送信成功")
-
         return jsonify({'message': '送信成功'}), 201
 
     except Exception as e:
-        # ここに来たら SMTP / 認証 / ネットワーク等の例外
         print("❌ 送信失敗:", repr(e))
         return jsonify({'error': '送信に失敗しました'}), 500
       
