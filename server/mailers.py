@@ -16,14 +16,14 @@ def _send_via_smtp(name: str, email: str, message: str) -> None:
     msg.send()
 
 def send_contact_via_sendgrid(name: str, email: str, message: str) -> None:
-    """SendGrid が使えれば SendGrid で送信。使えなければ SMTP にフォールバック。"""
+    """SendGrid が使えれば SendGrid で送信。無ければ SMTP にフォールバック。"""
     api_key = os.getenv('SENDGRID_API_KEY')
     if not api_key:
         app.logger.info("SENDGRID_API_KEY 未設定のため SMTP 送信にフォールバックします。")
         return _send_via_smtp(name, email, message)
 
     try:
-        # ← ここで遅延インポート（SDKが無い環境でもアプリ起動は成功する）
+        # 起動時に SDK が無くても落ちないように遅延 import
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import Mail, Email, To, ReplyTo
     except Exception as e:
@@ -50,3 +50,6 @@ def send_contact_via_sendgrid(name: str, email: str, message: str) -> None:
     except Exception:
         app.logger.exception("SendGrid 送信に失敗。SMTP にフォールバックします。")
         _send_via_smtp(name, email, message)
+
+# 互換エイリアス（app.py を直さない場合の保険）
+send_contact = send_contact_via_sendgrid
