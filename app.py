@@ -35,8 +35,8 @@ from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
 from routes.iap import iap_bp
-from server.mailers import send_contact_via_sendgrid
 from datetime import datetime, timezone, timedelta
+from server.mailers import send_contact_via_sendgrid as send_contact
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
