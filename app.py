@@ -35,6 +35,8 @@ from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
 from routes.iap import iap_bp
+from server.mailers import send_contact_via_sendgrid
+from datetime import datetime, timezone, timedelta
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -113,6 +115,27 @@ def load_user(user_id):
 
 app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
+FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
+
+def check_can_use_premium(user):
+    now = datetime.now(timezone.utc)
+
+    if user.paid_until and user.paid_until >= now:
+        return True, "paid"
+
+    if getattr(user, "is_free_extended", False):
+        return True, "extended"
+
+    if user.created_at:
+        ca = user.created_at
+        if ca.tzinfo is None:
+            ca = ca.replace(tzinfo=timezone.utc)
+        if ca + timedelta(days=FREE_DAYS) >= now:
+            return True, "trial"
+
+    return False, "free"
+
+
 # ======== 音声処理 =========
 def extract_advanced_features(signal, sr):
     features = {}
@@ -163,30 +186,7 @@ def send_test_mail():
     email.send()
     return "メールを送信しました！"
 
-@app.route('/contact', methods=['GET', 'POST'])
-def contact():
-    if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        message = request.form['message']
-
-        email_msg = EmailMessage(
-            subject="【koekarte】お問い合わせ",
-            body=f"""【お問い合わせ】
-名前: {name}
-メール: {email}
-
-内容:
-{message}
-""",
-            to=['koekarte.info@gmail.com'],
-            from_email='noreply@koekarte.com'  # 明示的に指定
-        )
-        email_msg.send()
-        flash("お問い合わせを送信しました。ありがとうございます。")
-        return redirect(url_for('contact'))
-
-    return render_template('contact.html')
+from server.mailers import send_contact  # または app.py 内の関数
 
 @app.route('/api/contact', methods=['POST'])
 def api_contact():
@@ -194,26 +194,32 @@ def api_contact():
     name    = (data.get('name') or '').strip()
     email   = (data.get('email') or '').strip()
     message = (data.get('message') or '').strip()
-    if not name or not email or not message:
+    if not (name and email and message):
         return jsonify({'error': 'すべての項目を入力してください'}), 400
-
     try:
-        to_addr   = app.config.get('CONTACT_RECIPIENT', 'support@koekarte.jp')
-        from_addr = app.config.get('MAIL_DEFAULT_SENDER', 'support@koekarte.jp')  # ★認証済み
-
-        msg = EmailMessage(
-            subject="【koekarte】お問い合わせ",
-            body=f"【お問い合わせ】\n名前: {name}\nメール: {email}\n\n内容:\n{message}\n",
-            to=[to_addr],
-            from_email=from_addr,
-            headers={'Reply-To': email}  # ★ユーザーに返信できるように
-        )
-        msg.send()
+        send_contact(name, email, message)
         return jsonify({'message': '送信成功'}), 201
+    except Exception:
+        app.logger.exception("contact send failed")
+        return jsonify({'error': '送信に失敗しました'}), 502
 
-    except Exception as e:
-        print("❌ 送信失敗:", repr(e))
-        return jsonify({'error': '送信に失敗しました'}), 500
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name    = (request.form.get('name') or '').strip()
+        email   = (request.form.get('email') or '').strip()
+        message = (request.form.get('message') or '').strip()
+        if not (name and email and message):
+            flash("すべての項目を入力してください。", "error")
+            return redirect(url_for('contact'))
+        try:
+            send_contact(name, email, message)
+            flash("お問い合わせを送信しました。ありがとうございます。", "success")
+        except Exception:
+            app.logger.exception("contact send failed")
+            flash("送信に失敗しました。時間を置いてお試しください。", "error")
+        return redirect(url_for('contact'))
+    return render_template('contact.html')
       
 @app.route('/')
 def home():
@@ -901,8 +907,8 @@ def api_register():
         return jsonify({
             "message": "登録成功",
             "email": user.email,
-            "created_at": user.created_at.isoformat(),
-            "is_paid": user.is_paid,
+            "created_at": (user.created_at.replace(tzinfo=timezone.utc) if user.created_at.tzinfo is None else user.created_at).isoformat(),
+            "is_paid": bool(user.is_paid),
             "is_free_extended": bool(user.is_free_extended),
         }), 200
 
@@ -1218,6 +1224,8 @@ def stripe_webhook():
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
+from datetime import date
+
 @app.route('/api/profile')
 def api_profile():
     if not current_user.is_authenticated:
@@ -1229,7 +1237,7 @@ def api_profile():
             'created_at': None
         }), 401
 
-    can_use_premium = check_can_use_premium(current_user)
+    can_use, reason = check_can_use_premium(current_user)
 
     today = date.today()
     today_score = (
@@ -1249,16 +1257,16 @@ def api_profile():
     )
     last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
 
-    last_5_logs = (
+    last_5 = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
         .order_by(ScoreLog.timestamp.asc())
-        .limit(5)
-        .all()
+        .limit(5).all()
     )
-    baseline = round(sum(log.score for log in last_5_logs) / len(last_5_logs), 1) if last_5_logs else None
-
-    score_deviation = round(today_score_value - baseline, 1) if today_score_value and baseline else None
+    baseline = round(sum(x.score for x in last_5)/len(last_5), 1) if last_5 else None
+    score_dev = (round(today_score_value - baseline, 1)
+                 if (today_score_value is not None and baseline is not None)
+                 else None)
 
     return jsonify({
         'email': current_user.email,
@@ -1268,13 +1276,23 @@ def api_profile():
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
         'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
+
         'last_score': today_score_value,
         'last_recorded': last_recorded,
         'baseline': baseline,
-        'score_deviation': score_deviation,
+        'score_deviation': score_dev,
+
+        # 既存互換フィールド
         'is_paid': current_user.is_paid,
         'is_free_extended': current_user.is_free_extended,
-        'can_use_premium': can_use_premium
+
+        # クライアントはここを最優先で見る
+        'paid_until': current_user.paid_until.isoformat() if current_user.paid_until else None,
+        'paid_platform': current_user.paid_platform,
+        'can_use_premium': can_use,
+        'premium_reason': reason,
+        'next_renewal_at': (current_user.paid_until.isoformat()
+                            if current_user.paid_until else None),
     })
     
 try:
