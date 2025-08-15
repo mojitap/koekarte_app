@@ -30,7 +30,10 @@ class User(UserMixin, db.Model):
 
     has_ever_paid = db.Column(db.Boolean, default=False)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
     # ★ここを追加★  ------------------------------------
