@@ -1,11 +1,12 @@
 # server/mailers.py
 import os
 from flask import current_app as app
-from flask_mailman import EmailMessage  # 既存SMTPフォールバックで使用
+from flask_mailman import EmailMessage
 
 def _send_via_smtp(name: str, email: str, message: str) -> None:
-    to_addr   = app.config.get('CONTACT_RECIPIENT', 'support@koekarte.com')
-    from_addr = app.config.get('MAIL_DEFAULT_SENDER', 'noreply@koekarte.com')
+    to_addr   = app.config.get('CONTACT_RECIPIENT', app.config.get('MAIL_DEFAULT_SENDER'))
+    from_addr = app.config.get('MAIL_DEFAULT_SENDER')
+    app.logger.info(f"[SMTP] from={from_addr} to={to_addr} reply_to={email}")
     msg = EmailMessage(
         subject="【koekarte】お問い合わせ",
         body=f"【お問い合わせ】\n名前: {name}\nメール: {email}\n\n内容:\n{message}\n",
@@ -16,22 +17,23 @@ def _send_via_smtp(name: str, email: str, message: str) -> None:
     msg.send()
 
 def send_contact_via_sendgrid(name: str, email: str, message: str) -> None:
-    """SendGrid が使えれば SendGrid で送信。無ければ SMTP にフォールバック。"""
     api_key = os.getenv('SENDGRID_API_KEY')
-    if not api_key:
-        app.logger.info("SENDGRID_API_KEY 未設定のため SMTP 送信にフォールバックします。")
+    force_smtp = os.getenv('SENDGRID_FORCE_SMTP', '0') == '1'
+
+    if not api_key or force_smtp:
+        app.logger.info("[Mailer] Using SMTP (no API key or forced).")
         return _send_via_smtp(name, email, message)
 
     try:
-        # 起動時に SDK が無くても落ちないように遅延 import
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import Mail, Email, To, ReplyTo
     except Exception as e:
-        app.logger.warning("SendGrid SDK の import に失敗。SMTP にフォールバック: %r", e)
+        app.logger.warning(f"[Mailer] SendGrid import failed: {e} -> fallback SMTP")
         return _send_via_smtp(name, email, message)
 
-    to_addr   = app.config.get('CONTACT_RECIPIENT', 'support@koekarte.com')
-    from_addr = app.config.get('MAIL_DEFAULT_SENDER', 'noreply@koekarte.com')
+    to_addr   = app.config.get('CONTACT_RECIPIENT', app.config.get('MAIL_DEFAULT_SENDER'))
+    from_addr = app.config.get('MAIL_DEFAULT_SENDER')
+    app.logger.info(f"[SendGrid] from={from_addr} to={to_addr} reply_to={email}")
 
     mail = Mail(
         from_email=Email(from_addr, name="koekarte"),
@@ -46,10 +48,15 @@ def send_contact_via_sendgrid(name: str, email: str, message: str) -> None:
     mail.reply_to = ReplyTo(email, name=name or email)
 
     try:
-        SendGridAPIClient(api_key).send(mail)
+        resp = SendGridAPIClient(api_key).send(mail)
+        app.logger.info(f"[SendGrid] status={resp.status_code}")
+        # 配信に失敗したら SMTP にフォールバック（保険）
+        if resp.status_code >= 400:
+            app.logger.error(f"[SendGrid] failed with {resp.status_code}, fallback SMTP")
+            _send_via_smtp(name, email, message)
     except Exception:
-        app.logger.exception("SendGrid 送信に失敗。SMTP にフォールバックします。")
+        app.logger.exception("[SendGrid] send failed -> fallback SMTP")
         _send_via_smtp(name, email, message)
 
-# 互換エイリアス（app.py を直さない場合の保険）
+# 互換
 send_contact = send_contact_via_sendgrid
