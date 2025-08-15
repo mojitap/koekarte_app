@@ -132,7 +132,6 @@ FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
 def check_can_use_premium(user):
     now = datetime.now(UTC)
 
-    # paid_until は tz 付き前提、無ければ UTC を付与
     if getattr(user, "paid_until", None):
         pu = user.paid_until
         if pu.tzinfo is None:
@@ -152,6 +151,9 @@ def check_can_use_premium(user):
 
     return False, "free"
 
+def can_use_premium(user):
+    ok, _ = check_can_use_premium(user)
+    return ok
 
 # ======== 音声処理 =========
 def extract_advanced_features(signal, sr):
