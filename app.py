@@ -8,6 +8,20 @@ import redis as real_redis
 from datetime import datetime, date, timedelta, timezone as _tz
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
+
+def _ensure_aware_utc(dt):
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+def to_jst(dt):
+    dt = _ensure_aware_utc(dt)
+    return dt.astimezone(JST) if dt else None
+
+def fmt_jst(dt, fmt='%Y-%m-%d'):
+    x = to_jst(dt)
+    return x.strftime(fmt) if x else None
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
 from flask_cors import CORS
 from redis import Redis
@@ -26,7 +40,6 @@ from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
 from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize_volume, is_valid_wav, light_analyze
-from utils.auth_utils import check_can_use_premium
 from sqlalchemy.sql import cast, func, text
 from sqlalchemy import Date
 import json
@@ -117,18 +130,23 @@ app.register_blueprint(iap_bp, url_prefix="/api/iap")
 FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
 
 def check_can_use_premium(user):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
-    if user.paid_until and user.paid_until >= now:
-        return True, "paid"
+    # paid_until は tz 付き前提、無ければ UTC を付与
+    if getattr(user, "paid_until", None):
+        pu = user.paid_until
+        if pu.tzinfo is None:
+            pu = pu.replace(tzinfo=UTC)
+        if pu >= now:
+            return True, "paid"
 
     if getattr(user, "is_free_extended", False):
         return True, "extended"
 
-    if user.created_at:
+    if getattr(user, "created_at", None):
         ca = user.created_at
         if ca.tzinfo is None:
-            ca = ca.replace(tzinfo=timezone.utc)
+            ca = ca.replace(tzinfo=UTC)
         if ca + timedelta(days=FREE_DAYS) >= now:
             return True, "trial"
 
@@ -185,8 +203,6 @@ def send_test_mail():
     email.send()
     return "メールを送信しました！"
 
-from server.mailers import send_contact  # または app.py 内の関数
-
 @app.route('/api/contact', methods=['POST'])
 def api_contact():
     data = request.get_json(silent=True) or {}
@@ -235,8 +251,6 @@ def confirm_email(token):
         user.is_verified = True
         db.session.commit()
     return redirect(url_for('login'))
-
-from datetime import datetime
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -319,7 +333,7 @@ def login():
 @app.route('/export_csv')
 @login_required
 def export_csv():
-    if not check_can_use_premium(current_user):
+    if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'))
     logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
@@ -494,14 +508,8 @@ def dashboard():
     diff = latest.score - baseline
 
     # JST に変換してからフォーマット
-    def to_jst(dt):
-        # DB には UTC で保存されている想定。naive（tzinfo=None）なら UTC 扱いにしてから変換
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        return dt.astimezone(JST).strftime('%Y-%m-%d')
-
-    first_date = to_jst(past5[0].timestamp) if past5 else to_jst(latest.timestamp)
-    last_date  = to_jst(latest.timestamp)
+    first_date = fmt_jst(past5[0].timestamp, '%Y-%m-%d') if past5 else fmt_jst(latest.timestamp, '%Y-%m-%d')
+    last_date  = fmt_jst(latest.timestamp, '%Y-%m-%d')
 
     return render_template('dashboard.html',
         user=current_user,
@@ -598,7 +606,7 @@ def api_forgot_password():
 @app.route('/record')
 @login_required
 def record_page():
-    if not check_can_use_premium(current_user):
+    if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'))
     return render_template('record.html')
@@ -750,7 +758,7 @@ def upload():
 @app.route('/result')
 @login_required
 def result():
-    if not check_can_use_premium(current_user):
+    if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'))
     range_type = request.args.get('range', 'all')
@@ -906,7 +914,7 @@ def api_register():
         return jsonify({
             "message": "登録成功",
             "email": user.email,
-            "created_at": (user.created_at.replace(tzinfo=timezone.utc) if user.created_at.tzinfo is None else user.created_at).isoformat(),
+            "created_at": (user.created_at.replace(tzinfo=UTC) if user.created_at.tzinfo is None else user.created_at).isoformat(),
             "is_paid": bool(user.is_paid),
             "is_free_extended": bool(user.is_free_extended),
         }), 200
@@ -941,7 +949,7 @@ def api_login():
             'user': {
                 'email': user.email,
                 'username': user.username,
-                'created_at': user.created_at,
+                'created_at': (_ensure_aware_utc(user.created_at).isoformat() if user.created_at else None),
                 'is_paid': user.is_paid,
                 'is_free_extended': user.is_free_extended
             }
@@ -1016,12 +1024,12 @@ def update_profile():
 @app.route('/music')
 @login_required
 def music():
-    if not check_can_use_premium(current_user):
+    if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'))
     
     # 無料期間 or 有料 or 拡張フラグ
-    can_play_premium = check_can_use_premium(current_user)
+    can_play_premium = can_use_premium(current_user)
 
     filenames = sorted(os.path.basename(f) for f in glob.glob("static/paid/*.mp3"))
     display_names = {
@@ -1049,7 +1057,7 @@ def music():
 @app.route('/api/music')
 @login_required
 def api_music():
-    if not check_can_use_premium(current_user):
+    if not can_use_premium(current_user):
         return jsonify({
             'error': '無料期間が終了しています。有料登録が必要です。'
         }), 403
@@ -1223,8 +1231,6 @@ def stripe_webhook():
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
-from datetime import date
-
 @app.route('/api/profile')
 def api_profile():
     if not current_user.is_authenticated:
@@ -1238,11 +1244,17 @@ def api_profile():
 
     can_use, reason = check_can_use_premium(current_user)
 
-    today = date.today()
+    # ← JSTの「きょう」
+    today_jst = datetime.now(JST).date()
+
+    # ← DB上で timestamp を JST にしてから日付化して比較
     today_score = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
-        .filter(db.func.date(ScoreLog.timestamp) == today)
+        .filter(
+            func.date(func.timezone('Asia/Tokyo', ScoreLog.timestamp)) == today_jst
+            # あるいは cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst
+        )
         .order_by(ScoreLog.timestamp.desc())
         .first()
     )
@@ -1254,7 +1266,8 @@ def api_profile():
         .order_by(ScoreLog.timestamp.desc())
         .first()
     )
-    last_recorded = last_log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_log else None
+    # ← JSTで見やすく
+    last_recorded = fmt_jst(last_log.timestamp, '%Y-%m-%d %H:%M:%S') if last_log else None
 
     last_5 = (
         ScoreLog.query
@@ -1274,7 +1287,7 @@ def api_profile():
         'gender': current_user.gender,
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
-        'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
+        'created_at': _ensure_aware_utc(current_user.created_at).isoformat() if current_user.created_at else None,
 
         'last_score': today_score_value,
         'last_recorded': last_recorded,
@@ -1285,13 +1298,12 @@ def api_profile():
         'is_paid': current_user.is_paid,
         'is_free_extended': current_user.is_free_extended,
 
-        # クライアントはここを最優先で見る
-        'paid_until': current_user.paid_until.isoformat() if current_user.paid_until else None,
+        # サーバ優先フィールド
+        'paid_until': _ensure_aware_utc(current_user.paid_until).isoformat() if current_user.paid_until else None,
         'paid_platform': current_user.paid_platform,
         'can_use_premium': can_use,
         'premium_reason': reason,
-        'next_renewal_at': (current_user.paid_until.isoformat()
-                            if current_user.paid_until else None),
+        'next_renewal_at': _ensure_aware_utc(current_user.paid_until).isoformat() if current_user.paid_until else None,
     })
     
 try:
