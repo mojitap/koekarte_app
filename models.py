@@ -15,6 +15,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
+    paid_until    = db.Column(db.DateTime(timezone=True), index=True)  # 有効期限(UTC)
+    paid_platform = db.Column(db.String(16))  # 'web' | 'ios' など 
+
     # ✅ 新規に追加するカラム
     birthdate = db.Column(db.Date)
     gender = db.Column(db.String(50))
@@ -84,7 +87,7 @@ class ScoreFeedback(db.Model):
     internal    = db.Column(db.Float, nullable=False)
     user_score  = db.Column(db.Integer, nullable=False)
     # created_at も合わせて
-    created_at  = db.Column(
+    created_at = db.Column(
         db.DateTime(timezone=True),
-        default=lambda: datetime.now(JST)
+        default=lambda: datetime.now(timezone.utc)
     )
