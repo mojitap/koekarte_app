@@ -5,6 +5,10 @@ import stripe
 import python_speech_features
 import librosa
 import redis as real_redis
+from pydub import AudioSegment
+import imageio_ffmpeg
+AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
+
 from datetime import datetime, date, timedelta, timezone as _tz
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
@@ -35,7 +39,6 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from dotenv import load_dotenv
 from io import StringIO
 from scipy.signal import butter, lfilter
-from pydub import AudioSegment
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
 from models import User, ScoreLog, ScoreFeedback
 from flask_migrate import Migrate
@@ -642,19 +645,25 @@ def upload():
     UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    now_jst = datetime.now(JST)     # DB は JST/UTC どちらでも OK（本実装は JST を保存）
+    now_jst = datetime.now(JST)
     today_jst = now_jst.date()
     now = now_jst
 
     original_ext = file.filename.rsplit('.', 1)[-1].lower()
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
     save_path = os.path.join(UPLOAD_FOLDER, filename)
-
     file.save(save_path)
 
-    # 元ファイルも一応 S3 に保存（戻り値は未使用）
+    # 元ファイルも S3（任意）
     try:
-        upload_to_s3(save_path, f"raw/{filename}", content_type=("audio/"+original_ext if original_ext in ("m4a","webm","wav","mp3") else None))
+        # 拡張子→MIME の最低限マップ
+        mime_map = {
+            'm4a': 'audio/mp4',
+            'webm': 'audio/webm',
+            'wav': 'audio/wav',
+            'mp3': 'audio/mpeg',
+        }
+        upload_to_s3(save_path, f"raw/{filename}", content_type=mime_map.get(original_ext))
     except Exception:
         app.logger.exception("upload original to s3 failed")
 
@@ -667,7 +676,7 @@ def upload():
     except Exception:
         app.logger.exception("stat failed")
 
-    # ---------- m4a/webm → wav 変換 & 正規化 ----------
+    # ---------- 変換＆正規化 ----------
     try:
         wav_path = save_path.rsplit('.', 1)[0] + ".wav"
         convert_success = False
@@ -676,7 +685,6 @@ def upload():
         elif original_ext == "webm":
             convert_success = convert_webm_to_wav(save_path, wav_path)
         elif original_ext == "wav":
-            # そのまま採用
             shutil.copy(save_path, wav_path)
             convert_success = True
         else:
@@ -685,12 +693,12 @@ def upload():
         if not convert_success or not is_valid_wav(wav_path):
             return jsonify({'error': '録音が短すぎるか、変換に失敗しました。'}), 400
 
-        # デバッグ用に控え
+        # デバッグ保存
         raw_debug_path = os.path.join(os.path.dirname(__file__), 'uploads/raw', os.path.basename(wav_path))
         os.makedirs(os.path.dirname(raw_debug_path), exist_ok=True)
         shutil.copy(wav_path, raw_debug_path)
 
-        # 音量正規化
+        # 正規化
         normalized_filename = os.path.basename(wav_path).replace(".wav", "_normalized.wav")
         normalized_path = os.path.join("/tmp", normalized_filename)
         normalize_volume(wav_path, normalized_path)
@@ -744,7 +752,7 @@ def upload():
         os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
         shutil.copy(normalized_path, persistent_path)
 
-        # 正規化WAVも S3 に（必要なら）
+        # 正規化WAVも S3（必要なら）
         upload_to_s3(normalized_path, f"normalized/{os.path.basename(normalized_path)}", content_type="audio/wav")
 
         job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
@@ -753,34 +761,25 @@ def upload():
         app.logger.exception("enqueue failed")
         job_id = None
 
-    # ---------- ★再生用 MP3 の作成 & S3 ----------
+    # ---------- ★MP3 作成 & S3 ----------
     playback_url = None
     try:
         mp3_path = normalized_path.replace("_normalized.wav", ".mp3")
-
-        # まず ffmpeg（高速・高品質）
-        try:
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", normalized_path, "-codec:a", "libmp3lame", "-b:a", "192k", mp3_path],
-                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-        except Exception:
-            # ffmpeg がなければ pydub でフォールバック
-            from pydub import AudioSegment
-            AudioSegment.from_wav(normalized_path).export(mp3_path, format="mp3", bitrate="192k")
+        # pydub（内部で imageio-ffmpeg が ffmpeg 実行）
+        AudioSegment.from_wav(normalized_path).export(mp3_path, format="mp3", bitrate="192k")
 
         s3_key = f"diary/{current_user.id}/{os.path.basename(mp3_path)}"
         playback_url = upload_to_s3(mp3_path, s3_key, content_type="audio/mpeg")
     except Exception:
         app.logger.exception("make/upload mp3 failed")
 
-    # ---------- ログ保存 ----------
+    # ---------- DB 保存 ----------
     log = ScoreLog(
         user_id=current_user.id,
         timestamp=now,
         score=quick_score,
         is_fallback=True,
-        filename=os.path.basename(normalized_path),  # 既存互換
+        filename=os.path.basename(normalized_path),
         volume_std=raw_rms,
     )
     db.session.add(log)
@@ -790,7 +789,7 @@ def upload():
         'success': True,
         'quick_score': quick_score,
         'job_id': job_id,
-        'playback_url': playback_url  # ← フロントはこれを再生
+        'playback_url': playback_url  # ← クライアントはこれを再生
     }), 200
 
 @app.route('/result')
