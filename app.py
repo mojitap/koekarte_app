@@ -46,7 +46,7 @@ from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize
 from sqlalchemy.sql import cast, func, text
 from sqlalchemy import Date
 import json
-from s3_utils import upload_to_s3
+from s3_utils import upload_to_s3, S3_BUCKET, S3_REGION
 from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
@@ -385,24 +385,33 @@ def api_score_history():
     ]
     return jsonify({ "scores": result }), 200
 
-# --- パスワード再設定メール送信 ---
+# --- パスワード再設定メール送信（SendGrid版） ---
 def send_reset_email(user):
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail
+
     token = serializer.dumps(user.email, salt='reset-password')
     reset_url = url_for('reset_password', token=token, _external=True, _scheme='https')
 
     subject = '【コエカルテ】パスワード再設定リンク'
-    message = f"""{user.username} 様
+    html = f"""
+    <p>{user.username} 様</p>
+    <p>以下のリンクよりパスワードの再設定を行ってください（1時間有効）：</p>
+    <p><a href="{reset_url}">{reset_url}</a></p>
+    <p>※このメールに覚えがない場合は破棄してください。</p>
+    """
 
-以下のリンクよりパスワードの再設定を行ってください：
-{reset_url}
-
-このリンクは1時間で無効になります。
-
-※このメールに覚えがない場合は無視してください。
-"""
-
-    msg = EmailMessage(subject, message, to=[user.email])
-    msg.send()
+    msg = Mail(
+        from_email=os.getenv("MAIL_DEFAULT_SENDER"),  # 例: noreply@koekarte.com
+        to_emails=user.email,
+        subject=subject,
+        html_content=html,
+    )
+    try:
+        SendGridAPIClient(os.getenv("SENDGRID_API_KEY")).send(msg)
+    except Exception:
+        app.logger.exception("reset mail send failed")
+        # ここで失敗してもユーザー体験的には同じメッセージでOK
 
 # --- パスワードリセット申請ページ ---
 @app.route('/forgot', methods=['GET', 'POST'])
@@ -789,8 +798,81 @@ def upload():
         'success': True,
         'quick_score': quick_score,
         'job_id': job_id,
-        'playback_url': playback_url  # ← クライアントはこれを再生
+        'playback_url': playback_url,
+        # 互換キー（古いクライアントが使っている可能性に備える）
+        'audio_url': playback_url,
+        'url': playback_url
     }), 200
+
+# ===== Diary API =====
+
+@app.route('/api/diary/by-date')
+@login_required
+def diary_by_date():
+    q = request.args.get('date')  # 'YYYY-MM-DD'
+    if not q:
+        return jsonify({'error': 'date required'}), 400
+    try:
+        target = datetime.strptime(q, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({'error': 'bad date'}), 400
+
+    log = (ScoreLog.query
+           .filter_by(user_id=current_user.id)
+           .filter(cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == target)
+           .order_by(ScoreLog.timestamp.desc())
+           .first())
+
+    if not log:
+        return jsonify({'item': None}), 200
+
+    playback_url = None
+    if log.filename and log.filename.endswith('_normalized.wav'):
+        mp3 = os.path.basename(log.filename).replace('_normalized.wav', '.mp3')
+        key = f"diary/{current_user.id}/{mp3}"
+        playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+
+    return jsonify({
+        'item': {
+            'id': log.id,
+            'timestamp': fmt_jst(log.timestamp, '%Y-%m-%d %H:%M:%S'),
+            'date': fmt_jst(log.timestamp, '%Y-%m-%d'),
+            'score': log.score,
+            'playback_url': playback_url,
+        }
+    }), 200
+
+
+@app.route('/api/diary/list')
+@login_required
+def diary_list():
+    # UI に返す件数の上限（保存上限ではない）
+    limit = int(request.args.get('limit', 30))
+    limit = max(1, min(limit, 500))  # 暴れ防止
+
+    logs = (ScoreLog.query
+            .filter_by(user_id=current_user.id)
+            .order_by(ScoreLog.timestamp.desc())
+            .limit(limit)
+            .all())
+
+    items = []
+    for l in logs:
+        playback_url = None
+        if l.filename and l.filename.endswith('_normalized.wav'):
+            mp3_name = os.path.basename(l.filename).replace('_normalized.wav', '.mp3')
+            key = f"diary/{current_user.id}/{mp3_name}"
+            playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+
+        items.append({
+            "id": l.id,
+            "timestamp": fmt_jst(l.timestamp, '%Y-%m-%d %H:%M:%S'),
+            "date": fmt_jst(l.timestamp, '%Y-%m-%d'),
+            "score": l.score,
+            "playback_url": playback_url,
+        })
+
+    return jsonify({"items": items}), 200
 
 @app.route('/result')
 @login_required
@@ -1486,6 +1568,15 @@ def job_status(job_id):
     if job.is_failed:
         return jsonify({'status': 'failed'}), 200
     return jsonify({'status': 'running'}), 200
+
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('error.html', code=404, message='ページが見つかりません'), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    app.logger.exception("500 error")
+    return render_template('error.html', code=500, message='サーバーエラーが発生しました'), 500
 
 # ✅ ローカル起動用（Renderでは無視される）
 if __name__ == '__main__':
