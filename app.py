@@ -49,6 +49,11 @@ from utils.log_utils import add_action_log
 from rq.job import Job
 from routes.iap import iap_bp
 from server.mailers import send_contact_via_sendgrid as send_contact
+from flask import get_flashed_messages
+
+from flask_babel import Babel, gettext as _
+app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
+babel = Babel(app)
 
 # .env 読み込み（FLASK_ENV の取得より先）
 load_dotenv()
@@ -236,6 +241,8 @@ def contact():
             app.logger.exception("contact send failed")
             flash("送信に失敗しました。時間を置いてお試しください。", "error")
         return redirect(url_for('contact'))
+
+    # ← GET はフォームを出すだけ。get_flashed_messages() も不要
     return render_template('contact.html')
       
 @app.route('/')
@@ -623,59 +630,72 @@ from flask import jsonify
 @app.route('/api/upload', methods=['POST'])
 @login_required
 def upload():
+    # ---------- 入力チェック ----------
     if 'audio_data' not in request.files:
         return jsonify({'error': '音声データが見つかりません'}), 400
 
     file = request.files['audio_data']
-    if file.filename == '':
+    if not file.filename:
         return jsonify({'error': 'ファイルが選択されていません'}), 400
 
+    # ---------- 保存先・ファイル名 ----------
     UPLOAD_FOLDER = '/tmp/uploads'
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    now_jst = datetime.now(JST)
+    now_jst = datetime.now(JST)     # DB は JST/UTC どちらでも OK（本実装は JST を保存）
     today_jst = now_jst.date()
     now = now_jst
 
-    original_ext = file.filename.split('.')[-1]
+    original_ext = file.filename.rsplit('.', 1)[-1].lower()
     filename = f"user{current_user.id}_{now.strftime('%Y%m%d_%H%M%S')}.{original_ext}"
     save_path = os.path.join(UPLOAD_FOLDER, filename)
+
     file.save(save_path)
 
-    upload_to_s3(save_path, filename)
-
+    # 元ファイルも一応 S3 に保存（戻り値は未使用）
     try:
-        file_size = os.path.getsize(save_path)
-        print(f"📥 アップロードされたファイル: {save_path}")
-        print(f"📏 ファイルサイズ: {file_size} バイト")
-        if file_size < 5000:
-            print("⚠️ ファイルサイズが小さすぎます（録音失敗の可能性）")
-    except Exception as e:
-        print("❌ ファイルサイズ確認エラー:", e)
+        upload_to_s3(save_path, f"raw/{filename}", content_type=("audio/"+original_ext if original_ext in ("m4a","webm","wav","mp3") else None))
+    except Exception:
+        app.logger.exception("upload original to s3 failed")
 
+    # ---------- サイズログ ----------
     try:
-        # 音声変換
-        wav_path = save_path.replace(f".{original_ext}", ".wav")
+        size = os.path.getsize(save_path)
+        app.logger.info(f"[upload] saved={save_path} size={size}")
+        if size < 5000:
+            app.logger.warning("[upload] file too small (<5KB) maybe failed recording")
+    except Exception:
+        app.logger.exception("stat failed")
+
+    # ---------- m4a/webm → wav 変換 & 正規化 ----------
+    try:
+        wav_path = save_path.rsplit('.', 1)[0] + ".wav"
         convert_success = False
-        if original_ext.lower() == "m4a":
+        if original_ext == "m4a":
             convert_success = convert_m4a_to_wav(save_path, wav_path)
-        elif original_ext.lower() == "webm":
+        elif original_ext == "webm":
             convert_success = convert_webm_to_wav(save_path, wav_path)
+        elif original_ext == "wav":
+            # そのまま採用
+            shutil.copy(save_path, wav_path)
+            convert_success = True
         else:
-            return jsonify({'error': '対応していないファイル形式です'}), 400
+            return jsonify({'error': '対応していないファイル形式です（m4a/webm/wav）'}), 400
 
         if not convert_success or not is_valid_wav(wav_path):
             return jsonify({'error': '録音が短すぎるか、変換に失敗しました。'}), 400
 
+        # デバッグ用に控え
         raw_debug_path = os.path.join(os.path.dirname(__file__), 'uploads/raw', os.path.basename(wav_path))
         os.makedirs(os.path.dirname(raw_debug_path), exist_ok=True)
         shutil.copy(wav_path, raw_debug_path)
 
+        # 音量正規化
         normalized_filename = os.path.basename(wav_path).replace(".wav", "_normalized.wav")
         normalized_path = os.path.join("/tmp", normalized_filename)
         normalize_volume(wav_path, normalized_path)
 
-        # light_analyze処理
+        # 軽量スコア
         from utils.audio_utils import compute_rms, light_analyze
         raw_rms = compute_rms(wav_path)
 
@@ -687,32 +707,25 @@ def upload():
             .limit(5)
             .all()
         )
-        baseline_rms = (sum(log.volume_std for log in recent) / len(recent)) if recent else raw_rms
+        baseline_rms = (sum(x.volume_std for x in recent) / len(recent)) if recent else raw_rms
 
         quick_score, is_fallback = light_analyze(
             wav_path,
             raw_rms=raw_rms,
             rms_baseline=baseline_rms
         )
-
-    except Exception as e:
-        print("❌ 音声処理エラー:", e)
-        import traceback
-        traceback.print_exc()
+    except Exception:
+        app.logger.exception("audio pipeline failed")
         return jsonify({'error': '音声処理に失敗しました'}), 500
 
-    # 1) 当日分の既存レコードを検索（JSTに変換してから日付比較）
+    # ---------- きょう既存チェック（JST） ----------
     existing = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
-        .filter(
-            cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date)
-            == today_jst
-        )
+        .filter(cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst)
         .first()
     )
 
-    # 2) overwrite フラグチェック
     overwrite = request.args.get('overwrite') == 'true'
     if existing and not overwrite:
         return jsonify({
@@ -721,40 +734,63 @@ def upload():
             'message': '本日はすでにスコアを記録済みです。再録音して上書きする場合は OK を押してください。'
         }), 200
 
-    # 3) 上書きなら既存レコードを削除
     if existing and overwrite:
         db.session.delete(existing)
         db.session.commit()
 
-    # 4) （新規／上書きともに）1回だけログを作成
+    # ---------- 永続化（詳細解析用） & RQ ----------
+    try:
+        persistent_path = os.path.join(os.path.dirname(__file__), 'uploads', os.path.basename(normalized_path))
+        os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
+        shutil.copy(normalized_path, persistent_path)
+
+        # 正規化WAVも S3 に（必要なら）
+        upload_to_s3(normalized_path, f"normalized/{os.path.basename(normalized_path)}", content_type="audio/wav")
+
+        job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
+        add_action_log(current_user.id, "録音アップロード（light）")
+    except Exception:
+        app.logger.exception("enqueue failed")
+        job_id = None
+
+    # ---------- ★再生用 MP3 の作成 & S3 ----------
+    playback_url = None
+    try:
+        mp3_path = normalized_path.replace("_normalized.wav", ".mp3")
+
+        # まず ffmpeg（高速・高品質）
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", normalized_path, "-codec:a", "libmp3lame", "-b:a", "192k", mp3_path],
+                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+        except Exception:
+            # ffmpeg がなければ pydub でフォールバック
+            from pydub import AudioSegment
+            AudioSegment.from_wav(normalized_path).export(mp3_path, format="mp3", bitrate="192k")
+
+        s3_key = f"diary/{current_user.id}/{os.path.basename(mp3_path)}"
+        playback_url = upload_to_s3(mp3_path, s3_key, content_type="audio/mpeg")
+    except Exception:
+        app.logger.exception("make/upload mp3 failed")
+
+    # ---------- ログ保存 ----------
     log = ScoreLog(
         user_id=current_user.id,
-        timestamp=now,               # 先に作った now_jst
+        timestamp=now,
         score=quick_score,
         is_fallback=True,
-        filename=normalized_filename,
+        filename=os.path.basename(normalized_path),  # 既存互換
         volume_std=raw_rms,
     )
     db.session.add(log)
     db.session.commit()
 
-    # 5) 永続化→S3→RQ enqueue
-    persistent_path = os.path.join(
-        os.path.dirname(__file__),
-        'uploads',
-        os.path.basename(normalized_path)
-    )
-    os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
-    shutil.copy(normalized_path, persistent_path)
-    upload_to_s3(normalized_path, os.path.basename(normalized_path))
-
-    job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
-    add_action_log(current_user.id, "録音アップロード（light）")
-
     return jsonify({
+        'success': True,
         'quick_score': quick_score,
         'job_id': job_id,
-        'success': True
+        'playback_url': playback_url  # ← フロントはこれを再生
     }), 200
 
 @app.route('/result')
@@ -1318,45 +1354,53 @@ except Exception as e:
 @app.route('/api/scores')
 @login_required
 def api_scores():
-    range_type = request.args.get('range', 'all')
-    today = date.today()
+    rng = (request.args.get('range') or 'all').lower()
+    # JST で日付境界を切る
+    today_jst = datetime.now(JST).date()
+    start = None
+    if rng in ('last_7d', 'last7', 'week', '7d', '直近1週間'):
+        start = today_jst - timedelta(days=7)
+    elif rng in ('this_month', '今月'):
+        start = today_jst.replace(day=1)
+    elif rng in ('last_month', '先月'):
+        first_this = today_jst.replace(day=1)
+        start = (first_this - timedelta(days=1)).replace(day=1)
+        end   = first_this  # 先月末まで
+    # クエリ組み立て
+    q = ScoreLog.query.filter(ScoreLog.user_id == current_user.id)
+    if start:
+        # JSTで比較（DBはUTC想定）
+        q = q.filter(cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) >= start)
+    if rng in ('last_month', '先月'):
+        q = q.filter(cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) < end)
+    logs = q.order_by(ScoreLog.timestamp).all()
 
-    if range_type == 'week':
-        start_date = today - timedelta(days=7)
-        logs = ScoreLog.query.filter(
-            ScoreLog.user_id == current_user.id,
-            ScoreLog.timestamp >= start_date
-        ).order_by(ScoreLog.timestamp).all()
-    elif range_type == 'month':
-        start_date = today.replace(day=1)
-        logs = ScoreLog.query.filter(
-            ScoreLog.user_id == current_user.id,
-            ScoreLog.timestamp >= start_date
-        ).order_by(ScoreLog.timestamp).all()
-    else:
-        logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
-
+    # 表示用配列
     scores = [{
-        'date': log.timestamp.strftime('%Y-%m-%d'),
+        'date': fmt_jst(log.timestamp, '%Y-%m-%d'),
         'score': log.score,
         'is_fallback': log.is_fallback
     } for log in logs]
 
-    valid_logs = [log for log in logs if not log.is_fallback]
-    if valid_logs:
-        baseline = sum(log.score for log in valid_logs[:5]) / min(len(valid_logs), 5)
-        latest_score = valid_logs[-1].score
-        diff = round(latest_score - baseline, 1)
-    else:
-        baseline = 0
-        latest_score = 0
-        diff = 0
+    # ★ グローバル（全期間）の“最初の5件”平均：常に同じ
+    first5_all = (
+        ScoreLog.query
+        .filter(ScoreLog.user_id == current_user.id)
+        .order_by(ScoreLog.timestamp.asc())
+        .limit(5).all()
+    )
+    global_baseline = round(sum(x.score for x in first5_all)/len(first5_all), 1) if first5_all else 0
+
+    # ★ 表示期間内の最新と、その差（常に global_baseline と比較）
+    latest_score = scores[-1]['score'] if scores else 0
+    diff_global  = round(latest_score - global_baseline, 1)
 
     return jsonify({
+        'range': rng,
         'scores': scores,
-        'baseline': round(baseline, 1),
+        'global_baseline': global_baseline,
         'latest': latest_score,
-        'diff': diff
+        'diff_against_global': diff_global
     }), 200
 
 @app.route('/create-admin')
