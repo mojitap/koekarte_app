@@ -19,7 +19,7 @@ scipy==1.10.1
 tqdm==4.66.2
 psycopg2-binary==2.9.9
 itsdangerous==2.1.2
-imageio-ffmpeg==0.4.8
+imageio-ffmpeg>=0.4.9
 Jinja2==3.1.2
 Werkzeug==2.3.7
 stripe==8.6.0
