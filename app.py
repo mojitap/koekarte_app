@@ -31,9 +31,11 @@ def s3_exists(key: str) -> bool:
     except Exception:
         return False
 
-def diary_key(user_id: int, date_str: str) -> str:
-    # 例: diary/123/2025-08-19.m4a
+def diary_key_m4a(user_id:int, date_str:str)->str:
     return f"diary/{user_id}/{date_str}.m4a"
+
+def diary_key_mp3(user_id:int, date_str:str)->str:
+    return f"diary/{user_id}/{date_str}.mp3"
 
 def _ensure_aware_utc(dt):
     if dt is None:
@@ -824,45 +826,69 @@ def upload():
         'url': playback_url
     }), 200
 
-# ===== Diary API =====
-
+# ===== Diary Upload API =====
 @app.route('/api/diary/upload', methods=['POST'])
 @login_required
 def diary_upload():
-    # 1) 入力
-    date_str = request.form.get('date')
-    if not date_str:
-        return jsonify({'success': False, 'error': 'date required'}), 400
     try:
-        datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        return jsonify({'success': False, 'error': 'bad date'}), 400
+        # 1) 日付（未指定ならJST今日）
+        date_str = request.form.get('date') or datetime.now(JST).strftime('%Y-%m-%d')
+        try:
+            datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'success': False, 'error': 'bad date'}), 400
 
-    # フィールド名はクライアントの互換用に3つ見ます
-    f = request.files.get('audio') or request.files.get('audio_data') or request.files.get('file')
-    if not f:
-        return jsonify({'success': False, 'error': 'file required'}), 400
+        # 2) ファイルを拾う（クライアントが複数キーで送る想定）
+        f = (request.files.get('audio_data')
+             or request.files.get('file')
+             or request.files.get('audio'))
+        if not f:
+            return jsonify({
+                'success': False,
+                'error': 'no file',
+                'message': 'audio_data / file / audio のいずれかのキーで送ってください'
+            }), 400
 
-    overwrite = (request.args.get('overwrite') == 'true') or (request.form.get('overwrite') == 'true')
-    key = diary_key(current_user.id, date_str)
+        overwrite = (request.args.get('overwrite') == 'true')
+        key_m4a = diary_key_m4a(current_user.id, date_str)
+        key_mp3 = diary_key_mp3(current_user.id, date_str)
 
-    # 2) 既存判定
-    if s3_exists(key) and not overwrite:
-        return jsonify({
-            'success': False,
-            'already': True,
-            'message': '本日はすでに日記を保存済みです。上書きする場合は OK を押してください。'
-        }), 200
+        # 3) 既存チェック（上書き要求が無ければ already を返す）
+        if not overwrite and (s3_exists(key_m4a) or s3_exists(key_mp3)):
+            return jsonify({
+                'success': False,
+                'already': True,
+                'message': '本日はすでに日記を保存済みです。上書きする場合は OK を押してください。'
+            }), 200
 
-    # 3) アップロード（公開URLで再生する想定）
-    s3().upload_fileobj(
-        f, S3_BUCKET, key,
-        ExtraArgs={'ACL': 'public-read', 'ContentType': 'audio/m4a'}
-    )
+        # 4) 一旦 /tmp に保存
+        tmp_dir = '/tmp/diary'
+        os.makedirs(tmp_dir, exist_ok=True)
+        ext = os.path.splitext(f.filename or '')[1].lower() or '.m4a'
+        tmp_in = os.path.join(tmp_dir, f'{current_user.id}-{date_str}{ext}')
+        f.save(tmp_in)
 
-    url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
-    return jsonify({'success': True, 'playback_url': url}), 200
+        # 5) 元ファイル（m4a）をS3へ
+        upload_to_s3(tmp_in, key_m4a, content_type='audio/m4a')
 
+        # 6) 再生用mp3も“できれば”作って上げる（失敗しても処理は継続）
+        playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_m4a}"
+        try:
+            tmp_mp3 = os.path.join(tmp_dir, f'{current_user.id}-{date_str}.mp3')
+            AudioSegment.from_file(tmp_in).export(tmp_mp3, format='mp3', bitrate='128k')
+            upload_to_s3(tmp_mp3, key_mp3, content_type='audio/mpeg')
+            playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_mp3}"
+        except Exception as e:
+            app.logger.warning(f'[diary_upload] mp3 conversion failed: {e}')
+
+        return jsonify({'success': True, 'playback_url': playback_url}), 200
+
+    except Exception as e:
+        app.logger.exception('diary_upload failed')
+        # ← ここで必ず JSON を返す（HTMLエラーページを防ぐ）
+        return jsonify({'success': False, 'error': 'server_error', 'detail': str(e)}), 500
+
+# ===== Diary by-date (S3確認) =====
 @app.route('/api/diary/by-date')
 @login_required
 def diary_by_date():
@@ -874,11 +900,15 @@ def diary_by_date():
     except ValueError:
         return jsonify({'error': 'bad date'}), 400
 
-    key = diary_key(current_user.id, q)
-    if not s3_exists(key):
-        return jsonify({'item': None}), 200
+    key_mp3 = diary_key_mp3(current_user.id, q)
+    key_m4a = diary_key_m4a(current_user.id, q)
 
-    url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+    url = None
+    if s3_exists(key_mp3):
+        url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_mp3}"
+    elif s3_exists(key_m4a):
+        url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_m4a}"
+
     return jsonify({'item': {'date': q, 'playback_url': url}}), 200
 
 @app.route('/api/diary/list')
