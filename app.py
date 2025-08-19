@@ -71,7 +71,7 @@ from sqlalchemy import Date
 import json
 import json
 # ↓↓↓ ③ 定数はインポートしない（必要なら関数だけ）
-from s3_utils import upload_to_s3, s3_object_url, S3_BUCKET, S3_REGION
+from s3_utils import upload_to_s3, signed_url
 from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
