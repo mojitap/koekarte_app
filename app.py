@@ -71,7 +71,7 @@ from sqlalchemy import Date
 import json
 import json
 # ↓↓↓ ③ 定数はインポートしない（必要なら関数だけ）
-from s3_utils import upload_to_s3, S3_BUCKET, S3_REGION
+from s3_utils import upload_to_s3, s3_object_url, S3_BUCKET, S3_REGION
 from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
@@ -831,29 +831,25 @@ def upload():
 @login_required
 def diary_upload():
     try:
-        # 1) 日付（未指定ならJST今日）
+        # 1) 日付
         date_str = request.form.get('date') or datetime.now(JST).strftime('%Y-%m-%d')
         try:
             datetime.strptime(date_str, '%Y-%m-%d')
         except ValueError:
             return jsonify({'success': False, 'error': 'bad date'}), 400
 
-        # 2) ファイルを拾う（クライアントが複数キーで送る想定）
+        # 2) ファイル
         f = (request.files.get('audio_data')
              or request.files.get('file')
              or request.files.get('audio'))
         if not f:
-            return jsonify({
-                'success': False,
-                'error': 'no file',
-                'message': 'audio_data / file / audio のいずれかのキーで送ってください'
-            }), 400
+            return jsonify({'success': False, 'error': 'no file'}), 400
 
         overwrite = (request.args.get('overwrite') == 'true')
         key_m4a = diary_key_m4a(current_user.id, date_str)
         key_mp3 = diary_key_mp3(current_user.id, date_str)
 
-        # 3) 既存チェック（上書き要求が無ければ already を返す）
+        # 3) 既存チェック（上書き要求が無ければ already）
         if not overwrite and (s3_exists(key_m4a) or s3_exists(key_mp3)):
             return jsonify({
                 'success': False,
@@ -868,24 +864,27 @@ def diary_upload():
         tmp_in = os.path.join(tmp_dir, f'{current_user.id}-{date_str}{ext}')
         f.save(tmp_in)
 
-        # 5) 元ファイル（m4a）をS3へ
-        upload_to_s3(tmp_in, key_m4a, content_type='audio/m4a')
+        # 5) m4a を S3（ACLなし=public=False）
+        ok1 = upload_to_s3(tmp_in, key_m4a, content_type='audio/m4a', public=False)
+        if not ok1 and not s3_exists(key_m4a):
+            return jsonify({'success': False, 'error': 's3_upload_failed'}), 500
 
-        # 6) 再生用mp3も“できれば”作って上げる（失敗しても処理は継続）
-        playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_m4a}"
+        # 6) mp3 も作成できればアップロード（失敗しても続行）
         try:
             tmp_mp3 = os.path.join(tmp_dir, f'{current_user.id}-{date_str}.mp3')
             AudioSegment.from_file(tmp_in).export(tmp_mp3, format='mp3', bitrate='128k')
-            upload_to_s3(tmp_mp3, key_mp3, content_type='audio/mpeg')
-            playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_mp3}"
+            upload_to_s3(tmp_mp3, key_mp3, content_type='audio/mpeg', public=False)
         except Exception as e:
             app.logger.warning(f'[diary_upload] mp3 conversion failed: {e}')
+
+        # 7) 再生URL（どちらか存在する方に対して署名URL）
+        key = key_mp3 if s3_exists(key_mp3) else key_m4a
+        playback_url = signed_url(key, expires=86400)  # 24h
 
         return jsonify({'success': True, 'playback_url': playback_url}), 200
 
     except Exception as e:
         app.logger.exception('diary_upload failed')
-        # ← ここで必ず JSON を返す（HTMLエラーページを防ぐ）
         return jsonify({'success': False, 'error': 'server_error', 'detail': str(e)}), 500
 
 # ===== Diary by-date (S3確認) =====
@@ -903,12 +902,8 @@ def diary_by_date():
     key_mp3 = diary_key_mp3(current_user.id, q)
     key_m4a = diary_key_m4a(current_user.id, q)
 
-    url = None
-    if s3_exists(key_mp3):
-        url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_mp3}"
-    elif s3_exists(key_m4a):
-        url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key_m4a}"
-
+    key = key_mp3 if s3_exists(key_mp3) else (key_m4a if s3_exists(key_m4a) else None)
+    url = signed_url(key) if key else None
     return jsonify({'item': {'date': q, 'playback_url': url}}), 200
 
 @app.route('/api/diary/list')
@@ -918,7 +913,6 @@ def diary_list():
     prefix = f"diary/{current_user.id}/"
     resp = s3().list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
     contents = resp.get('Contents', [])
-    # Key の末尾(YYYY-MM-DD.m4a)から日付を抜き、降順で最大limit
     items = []
     for obj in contents:
         key = obj['Key']
@@ -928,7 +922,7 @@ def diary_list():
         date_str = base.replace('.m4a', '')
         items.append({
             'date': date_str,
-            'playback_url': f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}",
+            'playback_url': signed_url(key),  # ← 署名URL
             'size': obj.get('Size', 0),
             'last_modified': obj.get('LastModified').isoformat() if obj.get('LastModified') else None,
         })
