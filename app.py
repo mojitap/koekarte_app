@@ -1,9 +1,14 @@
+# --- ① .env は最初に読む ---
+from dotenv import load_dotenv
+load_dotenv()
+
 import os, time, glob, wave, csv, joblib
 import shutil
 import numpy as np
 import stripe
 import python_speech_features
 import librosa
+import boto3
 import redis as real_redis
 from pydub import AudioSegment
 import imageio_ffmpeg
@@ -12,6 +17,23 @@ AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 from datetime import datetime, date, timedelta, timezone as _tz
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
+
+S3_BUCKET = os.environ.get("S3_BUCKET")
+S3_REGION = os.environ.get("S3_REGION", "ap-northeast-1")
+
+def s3():
+    return boto3.client("s3", region_name=S3_REGION)
+
+def s3_exists(key: str) -> bool:
+    try:
+        s3().head_object(Bucket=S3_BUCKET, Key=key)
+        return True
+    except Exception:
+        return False
+
+def diary_key(user_id: int, date_str: str) -> str:
+    # 例: diary/123/2025-08-19.m4a
+    return f"diary/{user_id}/{date_str}.m4a"
 
 def _ensure_aware_utc(dt):
     if dt is None:
@@ -36,7 +58,6 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mailman import Mail, EmailMessage
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from dotenv import load_dotenv
 from io import StringIO
 from scipy.signal import butter, lfilter
 from pyAudioAnalysis import audioBasicIO, MidTermFeatures
@@ -46,6 +67,8 @@ from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize
 from sqlalchemy.sql import cast, func, text
 from sqlalchemy import Date
 import json
+import json
+# ↓↓↓ ③ 定数はインポートしない（必要なら関数だけ）
 from s3_utils import upload_to_s3, S3_BUCKET, S3_REGION
 from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
@@ -57,9 +80,6 @@ from flask import get_flashed_messages
 from flask_babel import Babel, gettext as _
 app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
 babel = Babel(app)
-
-# .env 読み込み（FLASK_ENV の取得より先）
-load_dotenv()
 
 # ✅ 本番環境かどうか判定（SESSION_COOKIE_SECUREに使用）
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
@@ -806,73 +826,84 @@ def upload():
 
 # ===== Diary API =====
 
+@app.route('/api/diary/upload', methods=['POST'])
+@login_required
+def diary_upload():
+    # 1) 入力
+    date_str = request.form.get('date')
+    if not date_str:
+        return jsonify({'success': False, 'error': 'date required'}), 400
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({'success': False, 'error': 'bad date'}), 400
+
+    # フィールド名はクライアントの互換用に3つ見ます
+    f = request.files.get('audio') or request.files.get('audio_data') or request.files.get('file')
+    if not f:
+        return jsonify({'success': False, 'error': 'file required'}), 400
+
+    overwrite = (request.args.get('overwrite') == 'true') or (request.form.get('overwrite') == 'true')
+    key = diary_key(current_user.id, date_str)
+
+    # 2) 既存判定
+    if s3_exists(key) and not overwrite:
+        return jsonify({
+            'success': False,
+            'already': True,
+            'message': '本日はすでに日記を保存済みです。上書きする場合は OK を押してください。'
+        }), 200
+
+    # 3) アップロード（公開URLで再生する想定）
+    s3().upload_fileobj(
+        f, S3_BUCKET, key,
+        ExtraArgs={'ACL': 'public-read', 'ContentType': 'audio/m4a'}
+    )
+
+    url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+    return jsonify({'success': True, 'playback_url': url}), 200
+
 @app.route('/api/diary/by-date')
 @login_required
 def diary_by_date():
-    q = request.args.get('date')  # 'YYYY-MM-DD'
+    q = request.args.get('date')
     if not q:
         return jsonify({'error': 'date required'}), 400
     try:
-        target = datetime.strptime(q, "%Y-%m-%d").date()
+        datetime.strptime(q, "%Y-%m-%d")
     except ValueError:
         return jsonify({'error': 'bad date'}), 400
 
-    log = (ScoreLog.query
-           .filter_by(user_id=current_user.id)
-           .filter(cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == target)
-           .order_by(ScoreLog.timestamp.desc())
-           .first())
-
-    if not log:
+    key = diary_key(current_user.id, q)
+    if not s3_exists(key):
         return jsonify({'item': None}), 200
 
-    playback_url = None
-    if log.filename and log.filename.endswith('_normalized.wav'):
-        mp3 = os.path.basename(log.filename).replace('_normalized.wav', '.mp3')
-        key = f"diary/{current_user.id}/{mp3}"
-        playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
-
-    return jsonify({
-        'item': {
-            'id': log.id,
-            'timestamp': fmt_jst(log.timestamp, '%Y-%m-%d %H:%M:%S'),
-            'date': fmt_jst(log.timestamp, '%Y-%m-%d'),
-            'score': log.score,
-            'playback_url': playback_url,
-        }
-    }), 200
-
+    url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+    return jsonify({'item': {'date': q, 'playback_url': url}}), 200
 
 @app.route('/api/diary/list')
 @login_required
 def diary_list():
-    # UI に返す件数の上限（保存上限ではない）
-    limit = int(request.args.get('limit', 30))
-    limit = max(1, min(limit, 500))  # 暴れ防止
-
-    logs = (ScoreLog.query
-            .filter_by(user_id=current_user.id)
-            .order_by(ScoreLog.timestamp.desc())
-            .limit(limit)
-            .all())
-
+    limit = max(1, min(int(request.args.get('limit', 30)), 500))
+    prefix = f"diary/{current_user.id}/"
+    resp = s3().list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
+    contents = resp.get('Contents', [])
+    # Key の末尾(YYYY-MM-DD.m4a)から日付を抜き、降順で最大limit
     items = []
-    for l in logs:
-        playback_url = None
-        if l.filename and l.filename.endswith('_normalized.wav'):
-            mp3_name = os.path.basename(l.filename).replace('_normalized.wav', '.mp3')
-            key = f"diary/{current_user.id}/{mp3_name}"
-            playback_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
-
+    for obj in contents:
+        key = obj['Key']
+        base = os.path.basename(key)
+        if not base.endswith('.m4a'):
+            continue
+        date_str = base.replace('.m4a', '')
         items.append({
-            "id": l.id,
-            "timestamp": fmt_jst(l.timestamp, '%Y-%m-%d %H:%M:%S'),
-            "date": fmt_jst(l.timestamp, '%Y-%m-%d'),
-            "score": l.score,
-            "playback_url": playback_url,
+            'date': date_str,
+            'playback_url': f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}",
+            'size': obj.get('Size', 0),
+            'last_modified': obj.get('LastModified').isoformat() if obj.get('LastModified') else None,
         })
-
-    return jsonify({"items": items}), 200
+    items.sort(key=lambda x: x['date'], reverse=True)
+    return jsonify({'items': items[:limit]}), 200
 
 @app.route('/result')
 @login_required
