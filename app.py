@@ -903,7 +903,7 @@ def diary_by_date():
     key_m4a = diary_key_m4a(current_user.id, q)
 
     key = key_mp3 if s3_exists(key_mp3) else (key_m4a if s3_exists(key_m4a) else None)
-    url = signed_url(key) if key else None
+    url = signed_url(key, expires=86400) if key else None
     return jsonify({'item': {'date': q, 'playback_url': url}}), 200
 
 @app.route('/api/diary/list')
