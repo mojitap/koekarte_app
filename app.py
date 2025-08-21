@@ -155,6 +155,10 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+@login_manager.unauthorized_handler
+def unauthorized():
+    return jsonify(success=False, error='unauthorized'), 401
+
 app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
 FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
@@ -1625,12 +1629,16 @@ def job_status(job_id):
     return jsonify({'status': 'running'}), 200
 
 @app.errorhandler(404)
-def not_found(e):
+def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify(success=False, error='not_found'), 404
     return render_template('error.html', code=404, message='ページが見つかりません'), 404
 
 @app.errorhandler(500)
-def server_error(e):
+def handle_500(e):
     app.logger.exception("500 error")
+    if request.path.startswith('/api/'):
+        return jsonify(success=False, error='server_error'), 500
     return render_template('error.html', code=500, message='サーバーエラーが発生しました'), 500
 
 # ✅ ローカル起動用（Renderでは無視される）
