@@ -830,6 +830,32 @@ def upload():
         'url': playback_url
     }), 200
 
+@app.route('/api/upload/result/<job_id>')
+@login_required
+def upload_result(job_id):
+    if not job_id or job_id in ('null', 'undefined'):
+        return jsonify(success=False, error='bad_job_id'), 400
+
+    try:
+        job = Job.fetch(job_id, connection=redis_conn)
+    except Exception:
+        # その job_id のジョブが無い
+        return jsonify(success=False, error='not_found'), 404
+
+    status = job.get_status()  # 'queued' | 'started' | 'finished' | 'failed' など
+
+    if status == 'finished':
+        data = job.result or {}
+        # 返却形は tasks 側で決めます。最低限 score を返す想定。
+        score = data.get('score') or data.get('final_score')
+        return jsonify(status='done', score=score, result=data), 200
+
+    if status in ('failed', 'stopped'):
+        return jsonify(status='failed'), 500
+
+    # まだ実行中
+    return jsonify(status='pending'), 200
+    
 # ===== Diary Upload API =====
 @app.route('/api/diary/upload', methods=['POST'])
 @login_required
