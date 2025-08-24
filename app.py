@@ -485,6 +485,29 @@ def api_logout():
     resp.set_cookie('session', '', expires=0)  # 明示的にCookie削除
     return resp
 
+@app.route('/api/reset_password', methods=['POST'])
+def api_reset_password():
+    data = request.get_json(force=True, silent=True) or {}
+    token = data.get('token')
+    password = data.get('password')
+    if not token or not password:
+        return jsonify(success=False, message='token と password は必須です'), 400
+
+    try:
+        user_id = serializer.loads(token, salt='reset', max_age=3600)  # 例: 1時間有効
+    except SignatureExpired:
+        return jsonify(success=False, message='リンクの有効期限が切れています'), 400
+    except BadSignature:
+        return jsonify(success=False, message='不正なリンクです'), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(success=False, message='ユーザーが見つかりません'), 404
+
+    user.password_hash = generate_password_hash(password)
+    db.session.commit()
+    return jsonify(success=True)
+
 @app.route('/set-paid/<int:user_id>')
 @login_required
 def set_paid(user_id):
