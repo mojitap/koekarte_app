@@ -1,16 +1,29 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>新しいパスワード設定</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>新しいパスワード設定</title>
+  <style>
+    :root { --w: 560px; --pad: 16px; }
+    body { margin:0; font-family: system-ui, -apple-system, sans-serif; line-height:1.6; -webkit-text-size-adjust:100%; }
+    .wrap { max-width: var(--w); margin: 24px auto; padding: 0 var(--pad); }
+    h2 { font-size: 22px; margin: 8px 0 16px; }
+    input, button {
+      width: 100%; height: 48px; font-size: 17px; padding: 12px; margin-top: 12px; box-sizing: border-box; border-radius: 8px;
+    }
+    button { background:#2563eb; color:#fff; border:0; }
+    a { display:inline-block; margin-top:12px; }
+  </style>
 </head>
 <body>
+  <div class="wrap">
     <h2>🔑 新しいパスワードを設定</h2>
     <form method="POST">
-        <input type="password" name="password" placeholder="新しいパスワード" required><br><br>
-        <button type="submit">再設定</button>
+      <input type="password" name="password" placeholder="新しいパスワード" required />
+      <button type="submit">再設定</button>
     </form>
-    <br>
     <a href="{{ url_for('login') }}">ログインページへ戻る</a>
+  </div>
 </body>
 </html>
