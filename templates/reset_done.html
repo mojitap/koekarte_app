@@ -1,4 +1,25 @@
-<h2>✅ パスワードが更新されました！</h2>
-<p>以下のリンクからログインできます。</p>
-<a href="{{ url_for('login') }}">🔐 ログイン</a> |
-<a href="{{ url_for('dashboard') }}">🏠 マイページ</a>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>パスワード更新完了</title>
+  <style>
+    :root { --w: 560px; --pad: 16px; }
+    body { margin:0; font-family: system-ui, -apple-system, sans-serif; line-height:1.6; }
+    .wrap { max-width: var(--w); margin: 24px auto; padding: 0 var(--pad); }
+    h2 { font-size: 22px; margin: 8px 0 16px; }
+    a { color:#2563eb; text-decoration: underline; margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>✅ パスワードが更新されました！</h2>
+    <p>以下のリンクからログインできます。</p>
+    <p>
+      <a href="{{ url_for('login') }}">🔐 ログイン</a>
+      <a href="{{ url_for('dashboard') }}">🏠 マイページ</a>
+    </p>
+  </div>
+</body>
+</html>
