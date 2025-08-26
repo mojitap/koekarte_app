@@ -454,21 +454,28 @@ def forgot():
 # --- リセットリンクからの再設定処理 ---
 @app.route('/reset/<token>', methods=['GET', 'POST'])
 def reset_password(token):
+    # トークン検証
     try:
         email = serializer.loads(token, salt='reset-password', max_age=3600)
     except (SignatureExpired, BadSignature):
-        return 'リンクが無効または期限切れです'
+        return render_template('reset.html', token=None, error="リンクが無効または期限切れです")
 
-    user = User.query.filter_by(email=email).first_or_404()
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return render_template('reset.html', token=None, error="ユーザーが見つかりません")
 
     if request.method == 'POST':
-        new_password = request.form['password']
-        user.password = generate_password_hash(new_password)
-        db.session.commit()
-        flash("パスワードを更新しました")
-        return render_template('reset_done.html')  # ✅ パスワード更新後に表示！
+        pw  = request.form.get('password') or ''
+        pw2 = request.form.get('password2') or ''
+        if len(pw) < 8 or pw != pw2:
+            return render_template('reset.html', token=token,
+                                   error="パスワードを確認してください（8文字以上・一致必須）")
 
-    return render_template('reset.html')  # ✅ 最初は入力フォーム！
+        user.password_hash = generate_password_hash(pw)   # ← ここを必ず password_hash に
+        db.session.commit()
+        return render_template('reset_done.html')
+
+    return render_template('reset.html', token=token)
 
 # --- アプリからのパスワード再設定申請用エンドポイント ---
 @app.route('/logout')
