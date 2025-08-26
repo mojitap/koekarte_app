@@ -1,25 +1,35 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>パスワード更新完了</title>
-  <style>
-    :root { --w: 560px; --pad: 16px; }
-    body { margin:0; font-family: system-ui, -apple-system, sans-serif; line-height:1.6; }
-    .wrap { max-width: var(--w); margin: 24px auto; padding: 0 var(--pad); }
-    h2 { font-size: 22px; margin: 8px 0 16px; }
-    a { color:#2563eb; text-decoration: underline; margin-right: 12px; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <h2>✅ パスワードが更新されました！</h2>
-    <p>以下のリンクからログインできます。</p>
-    <p>
-      <a href="{{ url_for('login') }}">🔐 ログイン</a>
-      <a href="{{ url_for('dashboard') }}">🏠 マイページ</a>
-    </p>
+{% extends "base.html" %}
+{% block title %}{{ _('パスワード更新完了') }}{% endblock %}
+
+{# 検索避け #}
+{% block head_extra %}
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="googlebot" content="noindex,nofollow">
+  {# 自動リダイレクトしたい場合は↓のコメントを外す（3秒後に /login へ） #}
+  {# <meta http-equiv="refresh" content="3; url={{ url_for('login') }}"> #}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;margin:24px auto;padding:0 16px;font-size:18px;line-height:1.7;">
+  <h2 style="font-size:22px;margin:8px 0 16px;">✅ {{ _('パスワードが更新されました！') }}</h2>
+  <p>{{ _('以下のリンクからログインできます。') }}</p>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
+    <a href="{{ url_for('login') }}"
+       style="display:inline-block;background:#007AFF;color:#fff;text-decoration:none;
+              padding:12px 16px;border-radius:8px;font-weight:700;">
+      🔐 {{ _('ログイン') }}
+    </a>
+    <a href="{{ url_for('dashboard') }}"
+       style="display:inline-block;border:1px solid #ccc;color:#111;text-decoration:none;
+              padding:12px 16px;border-radius:8px;">
+      🏠 {{ _('マイページ') }}
+    </a>
   </div>
-</body>
-</html>
+
+  {# JSでの自動遷移にしたい場合（メタリフレッシュの代わりに） #}
+  {# <script>
+     setTimeout(() => { window.location.href = "{{ url_for('login') }}"; }, 3000);
+     </script> #}
+</div>
+{% endblock %}
