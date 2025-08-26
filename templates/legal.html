@@ -4,107 +4,126 @@
 {% block head_extra %}
   <meta name="robots" content="noindex,nofollow">
   <style>
-    .legal-wrap { max-width: 880px; margin: 0 auto; text-align: left; padding: 20px; line-height: 1.9; font-size: 16.5px; }
-    .legal-wrap ul { list-style: disc; list-style-position: outside; padding-left: 1.4em; margin: 0; }
+    .legal-page { display:flex; justify-content:center; width:100%; }
+    .legal-wrap {
+      width: min(880px, 100%);
+      padding: clamp(16px, 2vw, 24px);
+      text-align: left;
+      line-height: 1.9;
+      font-size: 16.5px;
+      margin: 0 auto;
+    }
+
+    /* 見出しだけ太字（黒）、本文や <b>/<strong> は通常 */
+    .legal-wrap h1 { margin: 0 0 16px; font-size: 28px; font-weight: 700; color: #111; }
+    .legal-wrap h2 { margin: 22px 0 6px;  font-size: 18px; font-weight: 700; color: #111; }
+    .legal-wrap b, .legal-wrap strong { font-weight: 400; }
+
+    .legal-wrap ul { list-style: disc; padding-left: 1.4em; margin: 0; }
     .legal-wrap li { margin: .25em 0; }
-    /* 念のため太字タグがあっても普通の太さに */
-    .legal-wrap b, .legal-wrap strong { font-weight: normal; }
   </style>
 {% endblock %}
 
 {% block content %}
-<div class="legal-wrap">
-  <h1 style="margin: 0 0 16px;">特定商取引法に基づく表記</h1>
-  <p>本表記は、音声ストレスチェックツール「コエカルテ」（以下「本サービス」）における、特定商取引法第11条に基づく情報提供です。</p>
+<main class="legal-page">
+  <div class="legal-wrap">
 
-  <h2>■ 運営事業者</h2>
-  <p>合同会社Atbase</p>
+    <h1>■特定商取引法に基づく表記</h1>
+    <p>本表記は、音声ストレスチェックツール「コエカルテ」（以下「本サービス」）における、特定商取引法第11条に基づく情報提供です。</p>
 
-  <h2>■ 運営責任者</h2>
-  <p>野寺 孝彦</p>
+    <h2>■運営事業者</h2>
+    <p>合同会社Atbase</p>
 
-  <h2>■ 所在地</h2>
-  <p>
-    〒104-0061<br>
-    東京都中央区銀座１丁目１２番４号 Ｎ＆Ｅ BLD. 6F<br>
-    ※個人情報保護の観点から、正式な請求があった場合に限り詳細情報を開示します。
-  </p>
+    <h2>■運営責任者</h2>
+    <p>野寺 孝彦</p>
 
-  <h2>■ 電話番号</h2>
-  <p>
-    070-4787-1041<br>
-    ※お電話でのサポートは行っておりません。<br>
-    お問い合わせはメールまたはフォームをご利用ください。
-  </p>
+    <h2>■所在地</h2>
+    <p>
+      〒104-0061<br>
+      東京都中央区銀座１丁目１２番４号 Ｎ＆Ｅ BLD. 6F<br>
+      ※個人情報保護の観点から、正式な請求があった場合に限り詳細情報を開示します。
+    </p>
 
-  <h2>■ お問い合わせ</h2>
-  <p>
-    メール：<a href="mailto:koekarte.info@gmail.com">koekarte.info@gmail.com</a><br>
-    フォーム：<a href="{{ url_for('contact') }}">お問い合わせフォーム</a>
-  </p>
+    <h2>■電話番号</h2>
+    <p>
+      070-4787-1041<br>
+      ※お電話でのサポートは行っておりません。<br>
+      お問い合わせはメールまたはフォームをご利用ください。
+    </p>
 
-  <h2>■ 販売URL</h2>
-  <p><a href="https://koekarte.com" target="_blank" rel="noopener">https://koekarte.com</a></p>
+    <h2>■お問い合わせ</h2>
+    <p>
+      メール：<a href="mailto:koekarte.info@gmail.com">koekarte.info@gmail.com</a><br>
+      フォーム：<a href="{{ url_for('contact') }}">お問い合わせフォーム</a>
+    </p>
 
-  <h2>■ 販売価格（いずれも税込）</h2>
-  <ul>
-    <li>Web課金：月額 300円</li>
-    <li>アプリ内課金（iOS/Android）：月額 550円（各ストア通貨に自動対応）</li>
-  </ul>
-  <p style="margin-top: 8px;">
-    無料体験：アカウント登録後 5日間（体験終了後は有料登録でプレミアム機能が利用可能）<br>
-    ※未成年の方は保護者の同意を得たうえで登録・購入してください。
-  </p>
+    <h2>■販売URL</h2>
+    <p><a href="https://koekarte.com" target="_blank" rel="noopener">https://koekarte.com</a></p>
 
-  <h2>■ 商品代金以外の必要料金</h2>
-  <p>インターネット接続費、通信費はお客様のご負担となります。<br>
-  クレジットカードの分割手数料等が発生する場合はお客様負担です。</p>
+    <h2>■販売価格（いずれも税込）</h2>
+    <ul>
+      <li>Web課金：月額 300円</li>
+      <li>アプリ内課金（iOS/Android）：月額 550円（各ストア通貨に自動対応）</li>
+    </ul>
+    <p style="margin-top: 8px;">
+      無料体験：アカウント登録後 5日間（体験終了後は有料登録でプレミアム機能が利用可能）<br>
+      ※未成年の方は保護者の同意を得たうえで登録・購入してください。
+    </p>
 
-  <h2>■ お支払方法</h2>
-  <ul>
-    <li>Web課金：クレジットカード（Visa / Mastercard / American Express）※対応端末・ブラウザでは Apple Pay / Google Pay も利用可（対応環境のみ）</li>
-    <li>アプリ内課金：各アプリストア（App Store / Google Play）でのお支払い</li>
-  </ul>
+    <h2>■商品代金以外の必要料金</h2>
+    <p>インターネット接続費、通信費はお客様のご負担となります。<br>
+    クレジットカードの分割手数料等が発生する場合はお客様負担です。</p>
 
-  <h2>■ お支払時期</h2>
-  <ul>
-    <li>Web課金：申込時に課金。以後、毎月同日を基準に自動更新（解約で次回以降停止）</li>
-    <li>アプリ内課金：各ストアの規約・決済スケジュールに基づきます</li>
-  </ul>
+    <h2>■お支払方法</h2>
+    <ul>
+      <li>Web課金：クレジットカード（Visa / Mastercard / American Express）※対応端末・ブラウザでは Apple Pay / Google Pay も利用可（対応環境のみ）</li>
+      <li>アプリ内課金：各アプリストア（App Store / Google Play）でのお支払い</li>
+    </ul>
 
-  <h2>■ 役務の提供時期（サービス提供開始時期）</h2>
-  <p>決済完了後、即時に有料機能（プレミアムプラン）が開放されます。</p>
+    <h2>■お支払時期</h2>
+    <ul>
+      <li>Web課金：申込時に課金。以後、毎月同日を基準に自動更新（解約で次回以降停止）</li>
+      <li>アプリ内課金：各ストアの規約・決済スケジュールに基づきます</li>
+    </ul>
 
-  <h2>■ 無料会員と有料会員の違い</h2>
-  <p>無料会員：録音・スコア確認・グラフ閲覧の一部機能／音源は一部（例：3曲）<br>
-     有料会員：全機能が利用可能（録音・解析・詳細グラフ・音源18曲 など）</p>
+    <h2>■役務の提供時期（サービス提供開始時期）</h2>
+    <p>決済完了後、即時に有料機能（プレミアムプラン）が開放されます。</p>
 
-  <h2>■ 解約（退会）・キャンセル</h2>
-  <ul>
-    <li>Web課金：マイページからいつでも解約可能。解約後は次回更新日以降の課金が停止します。</li>
-    <li>アプリ内課金：各ストアの「定期購入（サブスクリプション）管理」から解約してください。<br>
-        App Store：設定 &gt; Apple ID &gt; サブスクリプション<br>
-        Google Play：Play ストア &gt; 右上アイコン &gt; お支払いと定期購入 &gt; 定期購入</li>
-  </ul>
-  <p style="margin-top: 6px;">※いずれも解約時点での月額の返金（⽇割り・⽉割り）はありません。</p>
+    <h2>■無料会員と有料会員の違い</h2>
+    <p>無料会員：録音・スコア確認・グラフ閲覧の一部機能／音源は一部（例：3曲）<br>
+       有料会員：全機能が利用可能（録音・解析・詳細グラフ・音源 など）</p>
 
-  <h2>■ 返品・返金の可否</h2>
-  <p>本サービスはデジタル役務の性質上、提供後の返品・返金には対応しておりません。重複課金・明らかな不具合等が確認できる場合は個別に対応します。まずはお問い合わせください。クーリング・オフは適用外です。</p>
+    <h2>■解約（退会）・キャンセル</h2>
+    <ul>
+      <li>Web課金：マイページからいつでも解約可能。解約後は次回更新日以降の課金が停止します。</li>
+      <li>アプリ内課金：各ストアの「定期購入（サブスクリプション）管理」から解約してください。<br>
+          App Store：設定 &gt; Apple ID &gt; サブスクリプション<br>
+          Google Play：Play ストア &gt; 右上アイコン &gt; お支払いと定期購入 &gt; 定期購入</li>
+    </ul>
+    <p style="margin-top: 6px;">※いずれも解約時点での月額の返金（日割り・月割り）はありません。</p>
 
-  <h2>■ 動作環境</h2>
-  <p>インターネット接続が可能な PC / スマートフォン / タブレット。推奨ブラウザは最新バージョンの Google Chrome、Safari、Firefox 等。</p>
+    <h2>■返品・返金の可否</h2>
+    <p>本サービスはデジタル役務の性質上、提供後の返品・返金には対応しておりません。<br>
+    重複課金・明らかな不具合等が確認できる場合は個別に対応します。<br>
+    まずはお問い合わせください。クーリング・オフは適用外です。</p>
 
-  <h2>■ 提供停止・メンテナンス等</h2>
-  <p>サーバ保守、ストア審査、外部サービス障害等により、予告なく一時的にサービスを停止する場合があります。<br>
-  長時間の停止が生じた場合は振替提供等、可能な範囲で対応します。</p>
+    <h2>■動作環境</h2>
+    <p>インターネット接続が可能な PC / スマートフォン / タブレット。<br>
+    推奨ブラウザは最新バージョンの Google Chrome、Safari、Firefox 等。</p>
 
-  <h2>■ 販売数量・条件</h2>
-  <p>数量の制限はありませんが、利用規約に違反する利用が認められた場合は提供を停止することがあります。</p>
+    <h2>■提供停止・メンテナンス等</h2>
+    <p>サーバ保守、ストア審査、外部サービス障害等により、予告なく一時的にサービスを停止する場合があります。<br>
+    長時間の停止が生じた場合は振替提供等、可能な範囲で対応します。</p>
 
-  <p style="color:#666;margin-top: 8px;">最終更新日：2025年8月26日</p>
+    <h2>■販売数量・条件</h2>
+    <p>数量の制限はありませんが、利用規約に違反する利用が認められた場合は提供を停止することがあります。</p>
 
-  <div style="margin-top: 28px;">
-    <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
+
+    <p style="color:#666;margin-top: 8px;">最終更新日：2025年8月26日</p>
+
+    <div style="margin-top: 28px;">
+      <a href="/dashboard" class="auth-links">🏠 マイページに戻る</a>
+    </div>
   </div>
-</div>
+</main>
 {% endblock %}
