@@ -19,35 +19,49 @@ def forgot():
     ua = request.headers.get("user-agent", "")
     ip = request.headers.get("x-forwarded-for") or request.remote_addr
 
-    # 常に成功（アカウント存在を伏せる）
-    def ok(): return jsonify({"ok": True})
+    def ok():  # 常に成功を返す（アカウント有無を伏せる）
+        return jsonify({"ok": True})
+
+    current_app.logger.info(f"[pw-forgot] start email={email} ip={ip}")
 
     if not email:
+        current_app.logger.info("[pw-forgot] empty email -> ok")
         return ok()
 
-    user = User.query.filter(User.email == email).first()
-    if not user:
-        return ok()
-
-    # 生トークン（メール用）とハッシュ（DB保存用）
-    token_value = secrets.token_hex(32)
-    token_hash  = hashlib.sha256(token_value.encode()).hexdigest()
-    expires_at  = datetime.now(UTC) + timedelta(hours=1)
-
-    db.session.execute(text("""
-        INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, requested_ip, user_agent)
-        VALUES (:uid, :th, :exp, :ip, :ua)
-    """), {"uid": user.id, "th": token_hash, "exp": expires_at, "ip": ip, "ua": ua})
-    db.session.commit()
-
-    base = current_app.config.get("WEB_BASE_URL", "https://koekarte.com")
-    url  = f"{base}/reset-password?token={token_value}&email={urllib.parse.quote(email)}"
     try:
-        send_password_reset_email(email, url)
+        user = User.query.filter(User.email == email).first()
+        if not user:
+            current_app.logger.info("[pw-forgot] user not found -> ok")
+            return ok()
+
+        token_value = secrets.token_hex(32)                         # メールに入れる生トークン
+        token_hash  = hashlib.sha256(token_value.encode()).hexdigest()  # DB保存はハッシュ
+        expires_at  = datetime.now(UTC) + timedelta(hours=1)
+
+        current_app.logger.info(f"[pw-forgot] issue token for user_id={user.id}")
+
+        # DBへ保存
+        db.session.execute(text("""
+            INSERT INTO password_reset_tokens
+                (user_id, token_hash, expires_at, requested_ip, user_agent)
+            VALUES (:uid, :th, :exp, :ip, :ua)
+        """), {"uid": user.id, "th": token_hash, "exp": expires_at, "ip": ip, "ua": ua})
+        db.session.commit()
+
+        base = current_app.config.get("WEB_BASE_URL", "https://koekarte.com")
+        url  = f"{base}/reset-password?token={token_value}&email={urllib.parse.quote(email)}"
+        current_app.logger.info(f"[pw-forgot] send mail url={url}")
+
+        try:
+            send_password_reset_email(email, url)
+        except Exception as e:
+            current_app.logger.exception(f"[pw-forgot] send mail failed: {e}")  # 送信失敗でもOKを返す
+
+        return ok()
+
     except Exception as e:
-        current_app.logger.exception("send_password_reset_email failed: %s", e)
-        # 送れなくてもOKを返す（悪用防止）
-    return ok()
+        current_app.logger.exception(f"[pw-forgot] server error: {e}")
+        return jsonify({"error": "server_error", "success": False}), 500
 
 
 @bp.post("/password/reset")
@@ -57,35 +71,30 @@ def reset():
     token = (data.get("token") or "").strip()
     new_password = data.get("new_password")
 
-    if not email or not token or not new_password:
+    if not token or not new_password:
         return jsonify({"error": "missing_fields"}), 400
 
-    user = User.query.filter(User.email == email).first()
-    if not user:
-        return jsonify({"error": "invalid_or_expired"}), 400
-
     token_hash = hashlib.sha256(token.encode()).hexdigest()
+    try:
+        # token から直接ユーザーを特定（email 省略でもOK）
+        rec = db.session.execute(text("""
+            SELECT id, user_id FROM password_reset_tokens
+            WHERE token_hash = :th
+              AND consumed_at IS NULL
+              AND expires_at > now()
+            ORDER BY created_at DESC
+            LIMIT 1
+        """), {"th": token_hash}).first()
 
-    rec = db.session.execute(text("""
-        SELECT id FROM password_reset_tokens
-        WHERE user_id = :uid
-          AND token_hash = :th
-          AND consumed_at IS NULL
-          AND expires_at > now()
-        ORDER BY created_at DESC
-        LIMIT 1
-    """), {"uid": user.id, "th": token_hash}).first()
+        user = User.query.get(rec.user_id) if rec else None
+        if not rec or not user:
+            return jsonify({"error": "invalid_or_expired"}), 400
 
-    if not rec:
-        return jsonify({"error": "invalid_or_expired"}), 400
-
-    # 更新＆消費
-    user.password_hash = generate_password_hash(new_password)
-    db.session.execute(text("""
-        UPDATE password_reset_tokens
-           SET consumed_at = now()
-         WHERE id = :id
-    """), {"id": rec.id})
-    db.session.commit()
-
-    return jsonify({"ok": True})
+        user.password_hash = generate_password_hash(new_password)
+        db.session.execute(text("UPDATE password_reset_tokens SET consumed_at = now() WHERE id = :id"),
+                           {"id": rec.id})
+        db.session.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        current_app.logger.exception(f"[pw-reset] server error: {e}")
+        return jsonify({"error": "server_error"}), 500
