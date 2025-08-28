@@ -449,15 +449,31 @@ def send_reset_email(user):
         # ここで失敗してもユーザー体験的には同じメッセージでOK
 
 # --- パスワードリセット申請ページ ---
-@app.post("/forgot")
-def forgot_web():
+# /forgot を GET(フォーム表示) + POST(送信) で受ける
+@app.route("/forgot", methods=["GET", "POST"], endpoint="forgot")
+def forgot():
+    if request.method == "GET":
+        # 超簡易フォーム（テンプレがあるなら render_template('forgot.html') に置き換えてOK）
+        return render_template_string("""
+        <!doctype html><meta charset="utf-8" />
+        <title>パスワードをリセット</title>
+        <style>body{font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px}</style>
+        <h2>🔐 パスワードをリセット</h2>
+        <p>ご登録のメールアドレスを入力してください。再設定リンクをお送りします。</p>
+        <form method="POST">
+          <input name="email" type="email" placeholder="you@example.com"
+                 style="width:100%;padding:10px;margin:8px 0;border:1px solid #ccc;border-radius:4px">
+          <button style="padding:10px 16px">送信</button>
+        </form>
+        """)
+    # --- ここから POST (あなたの処理をほぼそのまま) ---
     email = (request.form.get("email") or "").strip().lower()
     if not email:
         flash('メールアドレスを入力してください。', 'error')
         return redirect(url_for('forgot'))
 
     user = User.query.filter_by(email=email).first()
-    # アカウント存在を伏せる（常に同じメッセージ）
+    # アカウント有無に関わらず同じ応答（存在暴露防止）
     if user:
         token_value = secrets.token_hex(32)
         token_hash  = hashlib.sha256(token_value.encode()).hexdigest()
