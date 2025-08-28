@@ -9,6 +9,7 @@ import stripe
 import python_speech_features
 import librosa
 import boto3
+import hashlib, secrets, urllib.parse
 import redis as real_redis
 from pydub import AudioSegment
 import imageio_ffmpeg
@@ -50,7 +51,7 @@ def fmt_jst(dt, fmt='%Y-%m-%d'):
     x = to_jst(dt)
     return x.strftime(fmt) if x else None
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response, render_template_string
 from flask_cors import CORS
 from redis import Redis
 from rq import Queue
@@ -448,42 +449,79 @@ def send_reset_email(user):
         # ここで失敗してもユーザー体験的には同じメッセージでOK
 
 # --- パスワードリセット申請ページ ---
-@app.route('/forgot', methods=['GET', 'POST'])
-def forgot():
-    if request.method == 'POST':
-        email = request.form['email']
-        user = User.query.filter_by(email=email).first()
-        if user:
-            send_reset_email(user)
-        flash("パスワード再設定用のリンクを送信しました")
-        return redirect(url_for('login'))
-    return render_template('forgot.html')
+@app.post("/forgot")
+def forgot_web():
+    email = (request.form.get("email") or "").strip().lower()
+    if not email:
+        flash('メールアドレスを入力してください。', 'error')
+        return redirect(url_for('forgot'))
+
+    user = User.query.filter_by(email=email).first()
+    # アカウント存在を伏せる（常に同じメッセージ）
+    if user:
+        token_value = secrets.token_hex(32)
+        token_hash  = hashlib.sha256(token_value.encode()).hexdigest()
+        expires_at  = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        db.session.execute(text("""
+          INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, requested_ip, user_agent)
+          VALUES (:uid, :th, :exp, :ip, :ua)
+        """), {
+          "uid": user.id, "th": token_hash, "exp": expires_at,
+          "ip": request.headers.get("x-forwarded-for") or request.remote_addr,
+          "ua": request.headers.get("user-agent","")
+        })
+        db.session.commit()
+
+        base = app.config.get("WEB_BASE_URL", "https://koekarte.com")
+        url  = f"{base}/reset-password?token={token_value}&email={urllib.parse.quote(email)}"
+        try:
+            send_password_reset_email(email, url)
+        except Exception as e:
+            app.logger.exception("send mail failed: %s", e)
+
+    flash('パスワード再設定用のメールを送信しました（届かない場合は迷惑メールをご確認ください）。', 'info')
+    return redirect(url_for('login'))
 
 # --- リセットリンクからの再設定処理 ---
-@app.route('/reset/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    # トークン検証
+RESET_HTML = """
+<!doctype html><meta charset="utf-8" />
+<title>パスワード再設定</title>
+<style>body{font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px}</style>
+<h2>パスワード再設定</h2>
+<form method="POST">
+  <div><input name="new_password" type="password" placeholder="新しいパスワード"
+    style="width:100%;padding:10px;margin:8px 0;border:1px solid #ccc;border-radius:4px"></div>
+  <button style="padding:10px 16px">更新する</button>
+</form>
+<p style="color:#06c;">{{ msg or '' }}</p>
+"""
+
+@app.route("/reset/<token>", methods=["GET", "POST"])
+def reset_legacy(token):
+    if request.method == "GET":
+        return render_template_string(RESET_HTML, msg="")
+    # POST
+    new_password = (request.form.get("new_password") or "").strip()
+    if not new_password:
+        return render_template_string(RESET_HTML, msg="新しいパスワードを入力してください。")
     try:
-        email = serializer.loads(token, salt='reset-password', max_age=3600)
-    except (SignatureExpired, BadSignature):
-        return render_template('reset.html', token=None, error="リンクが無効または期限切れです")
+        # 旧フローで使っていた itsdangerous のトークンを復号
+        # （塩を使っていた場合は salt='password-reset' など、必要に応じて合わせてください）
+        try:
+            email = serializer.loads(token, max_age=3600)  # salt未使用版
+        except Exception:
+            email = serializer.loads(token, salt='password-reset', max_age=3600)  # 予備
+    except (BadSignature, SignatureExpired):
+        return render_template_string(RESET_HTML, msg="トークンが無効または期限切れです。")
 
     user = User.query.filter_by(email=email).first()
     if not user:
-        return render_template('reset.html', token=None, error="ユーザーが見つかりません")
+        return render_template_string(RESET_HTML, msg="ユーザーが見つかりません。")
 
-    if request.method == 'POST':
-        pw  = request.form.get('password') or ''
-        pw2 = request.form.get('password2') or ''
-        if len(pw) < 8 or pw != pw2:
-            return render_template('reset.html', token=token,
-                                   error="パスワードを確認してください（8文字以上・一致必須）")
-
-        user.password_hash = generate_password_hash(pw)   # ← ここを必ず password_hash に
-        db.session.commit()
-        return render_template('reset_done.html')
-
-    return render_template('reset.html', token=token)
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    return render_template_string(RESET_HTML, msg="更新しました。ログイン画面に戻ってお試しください。")
 
 @app.get("/reset-password")
 def reset_password_page():
