@@ -77,7 +77,7 @@ from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
 from routes.iap import iap_bp
-from server.mailers import send_contact_via_sendgrid as send_contact
+from server.mailers import send_contact_via_sendgrid as send_contact, send_password_reset_email
 from flask import get_flashed_messages
 
 from flask_babel import Babel, gettext as _
@@ -453,7 +453,7 @@ def send_reset_email(user):
 @app.route("/forgot", methods=["GET", "POST"], endpoint="forgot")
 def forgot():
     if request.method == "GET":
-        # 超簡易フォーム（テンプレがあるなら render_template('forgot.html') に置き換えてOK）
+        # 簡易フォーム（テンプレがあるなら render_template('forgot.html') でOK）
         return render_template_string("""
         <!doctype html><meta charset="utf-8" />
         <title>パスワードをリセット</title>
@@ -466,7 +466,8 @@ def forgot():
           <button style="padding:10px 16px">送信</button>
         </form>
         """)
-    # --- ここから POST (あなたの処理をほぼそのまま) ---
+
+    # --- ここから POST（あなたの既存ロジックを流用） ---
     email = (request.form.get("email") or "").strip().lower()
     if not email:
         flash('メールアドレスを入力してください。', 'error')
@@ -477,7 +478,7 @@ def forgot():
     if user:
         token_value = secrets.token_hex(32)
         token_hash  = hashlib.sha256(token_value.encode()).hexdigest()
-        expires_at  = datetime.now(timezone.utc) + timedelta(hours=1)
+        expires_at  = datetime.now(UTC) + timedelta(hours=1)
 
         db.session.execute(text("""
           INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, requested_ip, user_agent)
