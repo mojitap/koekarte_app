@@ -163,6 +163,14 @@ app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
 FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
 
+# パスワードリセット用Blueprint
+from server.routes.password import bp as password_bp
+app.register_blueprint(password_bp, url_prefix="/api")
+
+# Web側のベースURL（メールに入れるリンク用）
+app.config["WEB_BASE_URL"] = os.getenv("WEB_BASE_URL") \
+    or os.getenv("DOMAIN_URL") or "https://koekarte.com"
+
 def check_can_use_premium(user):
     now = datetime.now(UTC)
 
@@ -476,6 +484,39 @@ def reset_password(token):
         return render_template('reset_done.html')
 
     return render_template('reset.html', token=token)
+
+@app.get("/reset-password")
+def reset_password_page():
+    token = request.args.get("token","")
+    email = request.args.get("email","")
+    html = f"""<!doctype html><meta charset="utf-8" />
+<title>パスワード再設定</title>
+<style>body{{font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px}}</style>
+<h2>パスワード再設定</h2>
+<form id="f">
+  <input type="hidden" name="email" value="{email}">
+  <input type="hidden" name="token" value="{token}">
+  <div><input name="new_password" type="password" placeholder="新しいパスワード"
+    style="width:100%;padding:10px;margin:8px 0;border:1px solid #ccc;border-radius:4px"></div>
+  <button style="padding:10px 16px">更新する</button>
+</form>
+<p id="msg"></p>
+<script>
+  const f = document.getElementById('f');
+  f.onsubmit = async (e) => {{
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(f).entries());
+    const r = await fetch('/api/password/reset', {{
+      method:'POST', headers:{{'Content-Type':'application/json'}},
+      body: JSON.stringify(body)
+    }});
+    const j = await r.json();
+    document.getElementById('msg').textContent =
+      j.ok ? '更新しました。アプリでログインしてください。' :
+             'トークンが無効か期限切れです。もう一度お試しください。';
+  }};
+</script>"""
+    return Response(html, mimetype="text/html")
 
 # --- アプリからのパスワード再設定申請用エンドポイント ---
 @app.route('/logout')
