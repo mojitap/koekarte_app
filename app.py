@@ -1725,6 +1725,10 @@ def job_status(job_id):
         return jsonify({'status': 'failed'}), 200
     return jsonify({'status': 'running'}), 200
 
+@app.get("/api/ping")
+def ping():
+    return {"ok": True}
+
 @app.errorhandler(404)
 def handle_404(e):
     if request.path.startswith('/api/'):
