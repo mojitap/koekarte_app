@@ -4,6 +4,7 @@ from sqlalchemy import text
 from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash
 import hashlib, secrets, urllib.parse
+import ipaddress
 
 from app_instance import db
 from models import User
@@ -12,12 +13,20 @@ from server.mailers import send_password_reset_email
 bp = Blueprint("password", __name__)
 UTC = timezone.utc
 
+def _client_ip():
+    xf = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    cand = xf or (request.remote_addr or "")
+    try:
+        return str(ipaddress.ip_address(cand))
+    except Exception:
+        return None
+
 @bp.post("/password/forgot")
 def forgot():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     ua = request.headers.get("user-agent", "")
-    ip = request.headers.get("x-forwarded-for") or request.remote_addr
+    ip = _client_ip()
 
     def ok():  # 常に成功を返す（アカウント有無を伏せる）
         return jsonify({"ok": True})
@@ -90,7 +99,7 @@ def reset():
         if not rec or not user:
             return jsonify({"error": "invalid_or_expired"}), 400
 
-        user.password_hash = generate_password_hash(new_password)
+        user.password = generate_password_hash(new_password)
         db.session.execute(text("UPDATE password_reset_tokens SET consumed_at = now() WHERE id = :id"),
                            {"id": rec.id})
         db.session.commit()
