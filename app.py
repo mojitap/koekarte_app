@@ -79,6 +79,7 @@ from rq.job import Job
 from routes.iap import iap_bp
 from server.mailers import send_contact_via_sendgrid as send_contact, send_password_reset_email
 from flask import get_flashed_messages
+from urllib.parse import urlparse, urljoin
 
 from flask_babel import Babel, gettext as _
 app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
@@ -156,9 +157,27 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+def _is_safe_url(target: str) -> bool:
+    ref = urlparse(request.host_url)
+    test = urlparse(urljoin(request.host_url, target or ""))
+    return test.scheme in ("http", "https") and ref.netloc == test.netloc
+
 @login_manager.unauthorized_handler
 def unauthorized():
-    return jsonify(success=False, error='unauthorized'), 401
+    # 1) /api/ へのアクセス、または JSON を明示 → JSON 401 を返す
+    wants_json = (
+        request.path.startswith("/api/") or
+        request.is_json or
+        request.accept_mimetypes["application/json"] >= request.accept_mimetypes["text/html"]
+    )
+    if wants_json:
+        return jsonify(success=False, error='unauthorized'), 401
+
+    # 2) それ以外（ブラウザ画面）は /login へリダイレクト（戻り先付き）
+    next_url = request.url
+    if not _is_safe_url(next_url):
+        next_url = url_for("dashboard")  # 念のためフォールバック
+    return redirect(url_for("login", next=next_url))
 
 app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
@@ -352,30 +371,26 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        print("📥 request.form:", request.form)
+    # GET のときは ?next=... をテンプレに渡す
+    if request.method == 'GET':
+        return render_template('login.html', next=request.args.get('next'))
 
-        identifier = request.form.get('username')
-        password = request.form.get('password')
+    # POST のときは form か query から next を拾う
+    next_url = request.form.get('next') or request.args.get('next')
 
-        print(f"入力値: identifier={identifier}, password={password}")
+    identifier = request.form.get('username')
+    password   = request.form.get('password')
 
-        user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+    user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+    if not user or not check_password_hash(user.password, password):
+        return 'ログイン失敗'
 
-        if not user:
-            print("❌ 該当ユーザーなし")
-            return 'ログイン失敗'
-        if not check_password_hash(user.password, password):
-            print("❌ パスワード不一致")
-            return 'ログイン失敗'
+    login_user(user)
+    session.permanent = True
 
-        login_user(user)
-        session.permanent = True
-        print("✅ ログイン成功:", current_user.is_authenticated)
-
-        return redirect(url_for('dashboard'))
-
-    return render_template('login.html')
+    if next_url and _is_safe_url(next_url):
+        return redirect(next_url)
+    return redirect(url_for('dashboard'))
         
 @app.route('/export_csv')
 @login_required
