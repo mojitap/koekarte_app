@@ -372,26 +372,37 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # GET のときは ?next=... をテンプレに渡す
-    if request.method == 'GET':
-        return render_template('login.html', next=request.args.get('next'))
+    if request.method == 'POST':
+        identifier = (request.form.get('username') or '').strip()
+        password   = request.form.get('password') or ''
+        next_url   = request.form.get('next') or ''
 
-    # POST のときは form か query から next を拾う
-    next_url = request.form.get('next') or request.args.get('next')
+        # "None" という文字列で来るケースのガード
+        if next_url == 'None':
+            next_url = ''
 
-    identifier = request.form.get('username')
-    password   = request.form.get('password')
+        user = User.query.filter(
+            (User.username == identifier) | (User.email == identifier)
+        ).first()
 
-    user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
-    if not user or not check_password_hash(user.password, password):
-        return 'ログイン失敗'
+        if not user or not check_password_hash(user.password, password):
+            # 失敗時はテンプレ再表示（next を保持）
+            flash('ログイン失敗', 'error')
+            return render_template('login.html', next=next_url), 200
 
-    login_user(user)
-    session.permanent = True
+        login_user(user)
+        session.permanent = True
 
-    if next_url and _is_safe_url(next_url):
-        return redirect(next_url)
-    return redirect(url_for('dashboard'))
+        # next がサイト内URLとして安全ならそこへ
+        if next_url and _is_safe_url(next_url):
+            return redirect(next_url)
+
+        # フォールバック
+        return redirect(url_for('dashboard'))
+
+    # GET: ?next= をテンプレに渡す（未指定は空）
+    next_url = request.args.get('next') or ''
+    return render_template('login.html', next=next_url)
         
 @app.route('/export_csv')
 @login_required
@@ -574,17 +585,32 @@ def reset_password_page():
 <p id="msg"></p>
 <script>
   const f = document.getElementById('f');
+  const msg = document.getElementById('msg');
+  const btn = f.querySelector('button');
+
   f.onsubmit = async (e) => {{
     e.preventDefault();
-    const body = Object.fromEntries(new FormData(f).entries());
-    const r = await fetch('/api/password/reset', {{
-      method:'POST', headers:{{'Content-Type':'application/json'}},
-      body: JSON.stringify(body)
-    }});
-    const j = await r.json();
-    document.getElementById('msg').textContent =
-      j.ok ? '更新しました。アプリでログインしてください。' :
-             'トークンが無効か期限切れです。もう一度お試しください。';
+    btn.disabled = true; btn.textContent = '更新中…';
+    try {{
+      const body = Object.fromEntries(new FormData(f).entries());
+      const r = await fetch('/api/password/reset', {{
+        method:'POST', headers:{{'Content-Type':'application/json'}},
+        body: JSON.stringify(body)
+      }});
+      const j = await r.json();
+
+      if (j.ok) {{
+        msg.textContent = '更新しました。ログイン画面に移動します…';
+        // すぐ遷移でOKなら setTimeout は不要。好みで 600ms 後に遷移。
+        setTimeout(() => {{ location.href = '/login?reset=1'; }}, 600);
+        return;
+      }}
+      msg.textContent = 'トークンが無効か期限切れです。もう一度お試しください。';
+    }} catch (err) {{
+      msg.textContent = '通信エラーが発生しました。時間をおいて再度お試しください。';
+    }} finally {{
+      btn.disabled = false; btn.textContent = '更新する';
+    }}
   }};
 </script>"""
     return Response(html, mimetype="text/html")
