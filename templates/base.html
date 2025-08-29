@@ -169,6 +169,20 @@
     </a>
   </div>
 
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="container" style="max-width:700px;margin:8px auto 0;">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}" style="
+            padding:10px 12px;border-radius:8px;margin:8px 0;
+            background:#eef5ff;border:1px solid #cfe2ff;color:#0b5ed7;">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
   <!-- ✅ ページ個別コンテンツ -->
   {% block content %}{% endblock %}
 
