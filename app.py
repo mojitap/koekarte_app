@@ -9,6 +9,7 @@ import stripe
 import python_speech_features
 import librosa
 import boto3
+import ipaddress
 import hashlib, secrets, urllib.parse
 import redis as real_redis
 from pydub import AudioSegment
@@ -500,7 +501,7 @@ def forgot():
           VALUES (:uid, :th, :exp, :ip, :ua)
         """), {
           "uid": user.id, "th": token_hash, "exp": expires_at,
-          "ip": request.headers.get("x-forwarded-for") or request.remote_addr,
+          "ip": _client_ip(),
           "ua": request.headers.get("user-agent","")
         })
         db.session.commit()
@@ -551,7 +552,7 @@ def reset_legacy(token):
     if not user:
         return render_template_string(RESET_HTML, msg="ユーザーが見つかりません。")
 
-    user.password_hash = generate_password_hash(new_password)
+    user.password = generate_password_hash(new_password)
     db.session.commit()
     return render_template_string(RESET_HTML, msg="更新しました。ログイン画面に戻ってお試しください。")
 
@@ -1811,6 +1812,15 @@ def handle_500(e):
     if request.path.startswith('/api/'):
         return jsonify(success=False, error='server_error'), 500
     return render_template('error.html', code=500, message='サーバーエラーが発生しました'), 500
+
+def _client_ip():
+    # X-Forwarded-For は "real, proxy1, proxy2" という形になることが多い
+    xf = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    cand = xf or (request.remote_addr or "")
+    try:
+        return str(ipaddress.ip_address(cand))  # ここで単一IPに正規化（無効なら except）
+    except Exception:
+        return None  # INET列に入らない値は NULL にする
 
 # ✅ ローカル起動用（Renderでは無視される）
 if __name__ == '__main__':
