@@ -400,6 +400,9 @@ def login():
         # フォールバック
         return redirect(url_for('dashboard'))
 
+    if request.args.get('reset') == '1':
+        flash('パスワードを更新しました。新しいパスワードでログインしてください。', 'info')
+
     # GET: ?next= をテンプレに渡す（未指定は空）
     next_url = request.args.get('next') or ''
     return render_template('login.html', next=next_url)
