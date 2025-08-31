@@ -16,6 +16,7 @@ from pydub import AudioSegment
 import imageio_ffmpeg
 AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
+from datetime import time as dt_time
 from datetime import datetime, date, timedelta, timezone as _tz
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
@@ -75,7 +76,7 @@ from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize
 from sqlalchemy.sql import cast, func, text
 from sqlalchemy import Date
 import json
-import json
+
 # ↓↓↓ ③ 定数はインポートしない（必要なら関数だけ）
 from s3_utils import upload_to_s3, signed_url
 from werkzeug.utils import secure_filename
@@ -1614,10 +1615,9 @@ def api_profile():
     - baseline: ユーザー登録から5日間の中で『最初の最大5回』の平均
       * 5日間に2〜4回しか記録がなくても、その回数で平均
       * 5日間に記録が1件も無い場合は、全期間の『最初の最大5回』でフォールバック
-    - last_score: 「今日(JST)の最新スコア」なければ「直近スコア」
+    - last_score: 今日(JST)の最新スコア。無ければ直近スコア
     - score_deviation: last_score - baseline
     """
-    # 未ログインは 401
     if not current_user.is_authenticated:
         return jsonify({
             'error': '未ログイン状態です',
@@ -1627,10 +1627,9 @@ def api_profile():
             'created_at': None
         }), 401
 
-    # 課金可否
     can_use, reason = check_can_use_premium(current_user)
 
-    # ---- スコア値を抽出（列名の揺れに対応: score / total_score / stress_score）----
+    # --- スコア抽出（列名ゆらぎ対応） ---
     def pick_score(row):
         if not row:
             return None
@@ -1646,14 +1645,14 @@ def api_profile():
 
     uid = current_user.id
 
-    # ---- 「今日(JST)の範囲」をUTC境界に変換（DBのタイムゾーン設定に依存しない）----
+    # --- 今日(JST)の範囲をUTCへ ---
     today_jst = datetime.now(JST).date()
-    start_jst = datetime.combine(today_jst, time(0, 0, 0), tzinfo=JST)
+    start_jst = datetime.combine(today_jst, dt_time(0, 0, 0), tzinfo=JST)
     end_jst   = start_jst + timedelta(days=1)
     start_utc = start_jst.astimezone(UTC)
     end_utc   = end_jst.astimezone(UTC)
 
-    # 今日(JST)の最新スコア（最新順で最初に数値が取れたもの）
+    # 今日(JST)の最新スコア
     today_logs = (
         ScoreLog.query
         .filter_by(user_id=uid)
@@ -1663,7 +1662,7 @@ def api_profile():
     )
     today_score_value = next((pick_score(x) for x in today_logs if pick_score(x) is not None), None)
 
-    # 直近の記録（表示用の最終記録時刻やフォールバックに使用）
+    # 直近の1件（表示用）
     last_log = (
         ScoreLog.query
         .filter_by(user_id=uid)
@@ -1673,47 +1672,38 @@ def api_profile():
     last_recorded = fmt_jst(last_log.timestamp, '%Y-%m-%d %H:%M:%S') if last_log else None
     last_score_val = pick_score(last_log)
 
-    # ---- baseline を「登録から5日間の中で“最初の最大5回”の平均」にする ----
+    # --- baseline: 登録から5日間の「最初の最大5回」 ---
     ca_utc = _ensure_aware_utc(current_user.created_at) if current_user.created_at else None
     if ca_utc:
-        trial_end_utc = ca_utc + timedelta(days=5)  # 登録から5日間（時間も含めた正確な5日）
+        trial_end_utc = ca_utc + timedelta(days=5)
         first_within_trial = (
             ScoreLog.query
             .filter_by(user_id=uid)
             .filter(ScoreLog.timestamp >= ca_utc, ScoreLog.timestamp < trial_end_utc)
-            .order_by(ScoreLog.timestamp.asc())      # 早い順＝最初の記録から
+            .order_by(ScoreLog.timestamp.asc())
             .limit(5)
             .all()
         )
     else:
         first_within_trial = []
 
-    # 無料期間内に記録が無い場合は、全期間の「最初の最大5回」でフォールバック
-    baseline_candidates = first_within_trial
-    if not baseline_candidates:
-        baseline_candidates = (
-            ScoreLog.query
-            .filter_by(user_id=uid)
-            .order_by(ScoreLog.timestamp.asc())
-            .limit(5)
-            .all()
-        )
+    baseline_candidates = first_within_trial or (
+        ScoreLog.query
+        .filter_by(user_id=uid)
+        .order_by(ScoreLog.timestamp.asc())
+        .limit(5)
+        .all()
+    )
 
-    base_vals = []
-    for row in baseline_candidates:
-        v = pick_score(row)
-        if v is not None:
-            base_vals.append(v)
+    base_vals = [v for v in (pick_score(x) for x in baseline_candidates) if v is not None]
+    baseline = round(sum(base_vals)/len(base_vals), 1) if base_vals else None
 
-    baseline = round(sum(base_vals) / len(base_vals), 1) if base_vals else None
-
-    # ---- 偏差: （今日のスコア or 直近スコア） - baseline ----
+    # 偏差 = （今日 or 直近） - baseline
     base_for_dev = today_score_value if today_score_value is not None else last_score_val
     score_dev = (round(base_for_dev - baseline, 1)
                  if (base_for_dev is not None and baseline is not None)
                  else None)
 
-    # ---- レスポンス ----
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
@@ -1722,14 +1712,10 @@ def api_profile():
         'occupation': current_user.occupation,
         'prefecture': current_user.prefecture,
         'created_at': _ensure_aware_utc(current_user.created_at).isoformat() if current_user.created_at else None,
-
-        # スコア系
-        'last_score': base_for_dev,        # 今日が無ければ直近に自動フォールバック
-        'last_recorded': last_recorded,    # JST 表示
-        'baseline': baseline,              # 登録から5日間の「最初の最大5回」の平均
-        'score_deviation': score_dev,      # last_score - baseline
-
-        # 課金・権限
+        'last_score': base_for_dev,
+        'last_recorded': last_recorded,
+        'baseline': baseline,
+        'score_deviation': score_dev,
         'is_paid': current_user.is_paid,
         'is_free_extended': current_user.is_free_extended,
         'paid_until': _ensure_aware_utc(current_user.paid_until).isoformat() if current_user.paid_until else None,
