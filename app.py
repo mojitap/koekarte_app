@@ -23,6 +23,10 @@ JST = _tz(timedelta(hours=9))
 S3_BUCKET = os.environ.get("S3_BUCKET")
 S3_REGION = os.environ.get("S3_REGION", "ap-northeast-1")
 
+import mimetypes
+mimetypes.add_type('audio/mpeg', '.mp3')
+mimetypes.add_type('audio/mp4',  '.m4a')   # AAC(m4a) はこれ
+
 def s3():
     return boto3.client("s3", region_name=S3_REGION)
 
@@ -571,45 +575,46 @@ def reset_legacy(token):
 def reset_password_page():
     token = request.args.get("token","")
     email = request.args.get("email","")
-    html = f"""<!doctype html><meta charset="utf-8" />
+    html = f"""<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>パスワード再設定</title>
-<style>body{{font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px}}</style>
+<style>
+  :root {{ --gap:12px; }}
+  body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        max-width:640px;margin:24px auto;padding:0 16px;line-height:1.6}}
+  h2{{font-size:22px;margin:0 0 var(--gap)}}
+  .row{{margin: var(--gap) 0}}
+  input[type=password]{{width:100%;padding:14px;font-size:16px;
+        border:1px solid #ccc;border-radius:8px}}
+  button{{width:100%;padding:14px;font-size:16px;border:0;border-radius:8px;
+        background:#0b5ed7;color:#fff}}
+  #msg{{margin-top:var(--gap);color:#0b5ed7}}
+</style>
 <h2>パスワード再設定</h2>
 <form id="f">
   <input type="hidden" name="email" value="{email}">
   <input type="hidden" name="token" value="{token}">
-  <div><input name="new_password" type="password" placeholder="新しいパスワード"
-    style="width:100%;padding:10px;margin:8px 0;border:1px solid #ccc;border-radius:4px"></div>
-  <button style="padding:10px 16px">更新する</button>
+  <div class="row"><input name="new_password" type="password" placeholder="新しいパスワード"></div>
+  <button>更新する</button>
 </form>
 <p id="msg"></p>
 <script>
   const f = document.getElementById('f');
-  const msg = document.getElementById('msg');
-  const btn = f.querySelector('button');
-
   f.onsubmit = async (e) => {{
     e.preventDefault();
-    btn.disabled = true; btn.textContent = '更新中…';
-    try {{
-      const body = Object.fromEntries(new FormData(f).entries());
-      const r = await fetch('/api/password/reset', {{
-        method:'POST', headers:{{'Content-Type':'application/json'}},
-        body: JSON.stringify(body)
-      }});
-      const j = await r.json();
-
-      if (j.ok) {{
-        msg.textContent = '更新しました。ログイン画面に移動します…';
-        // すぐ遷移でOKなら setTimeout は不要。好みで 600ms 後に遷移。
-        setTimeout(() => {{ location.href = '/login?reset=1'; }}, 600);
-        return;
-      }}
-      msg.textContent = 'トークンが無効か期限切れです。もう一度お試しください。';
-    }} catch (err) {{
-      msg.textContent = '通信エラーが発生しました。時間をおいて再度お試しください。';
-    }} finally {{
-      btn.disabled = false; btn.textContent = '更新する';
+    const body = Object.fromEntries(new FormData(f).entries());
+    const r = await fetch('/api/password/reset', {{
+      method:'POST', headers:{{'Content-Type':'application/json'}},
+      body: JSON.stringify(body)
+    }});
+    const j = await r.json();
+    if (j.ok) {{
+      // 成功したらログインへ（フラッシュ表示付き）
+      location.href = '/login?reset=1';
+    }} else {{
+      document.getElementById('msg').textContent =
+        'トークンが無効か期限切れです。もう一度お試しください。';
     }}
   }};
 </script>"""
@@ -1605,6 +1610,14 @@ ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
 @app.route('/api/profile')
 def api_profile():
+    """
+    - baseline: ユーザー登録から5日間の中で『最初の最大5回』の平均
+      * 5日間に2〜4回しか記録がなくても、その回数で平均
+      * 5日間に記録が1件も無い場合は、全期間の『最初の最大5回』でフォールバック
+    - last_score: 「今日(JST)の最新スコア」なければ「直近スコア」
+    - score_deviation: last_score - baseline
+    """
+    # 未ログインは 401
     if not current_user.is_authenticated:
         return jsonify({
             'error': '未ログイン状態です',
@@ -1614,44 +1627,93 @@ def api_profile():
             'created_at': None
         }), 401
 
+    # 課金可否
     can_use, reason = check_can_use_premium(current_user)
 
-    # ← JSTの「きょう」
+    # ---- スコア値を抽出（列名の揺れに対応: score / total_score / stress_score）----
+    def pick_score(row):
+        if not row:
+            return None
+        for key in ('score', 'total_score', 'stress_score'):
+            if hasattr(row, key):
+                v = getattr(row, key)
+                if v is not None:
+                    try:
+                        return float(v)
+                    except Exception:
+                        return None
+        return None
+
+    uid = current_user.id
+
+    # ---- 「今日(JST)の範囲」をUTC境界に変換（DBのタイムゾーン設定に依存しない）----
     today_jst = datetime.now(JST).date()
+    start_jst = datetime.combine(today_jst, time(0, 0, 0), tzinfo=JST)
+    end_jst   = start_jst + timedelta(days=1)
+    start_utc = start_jst.astimezone(UTC)
+    end_utc   = end_jst.astimezone(UTC)
 
-    # ← DB上で timestamp を JST にしてから日付化して比較
-    today_score = (
+    # 今日(JST)の最新スコア（最新順で最初に数値が取れたもの）
+    today_logs = (
         ScoreLog.query
-        .filter_by(user_id=current_user.id)
-        .filter(
-            func.date(func.timezone('Asia/Tokyo', ScoreLog.timestamp)) == today_jst
-            # あるいは cast(func.timezone('Asia/Tokyo', ScoreLog.timestamp), Date) == today_jst
-        )
+        .filter_by(user_id=uid)
+        .filter(ScoreLog.timestamp >= start_utc, ScoreLog.timestamp < end_utc)
         .order_by(ScoreLog.timestamp.desc())
-        .first()
+        .all()
     )
-    today_score_value = today_score.score if today_score else None
+    today_score_value = next((pick_score(x) for x in today_logs if pick_score(x) is not None), None)
 
+    # 直近の記録（表示用の最終記録時刻やフォールバックに使用）
     last_log = (
         ScoreLog.query
-        .filter_by(user_id=current_user.id)
+        .filter_by(user_id=uid)
         .order_by(ScoreLog.timestamp.desc())
         .first()
     )
-    # ← JSTで見やすく
     last_recorded = fmt_jst(last_log.timestamp, '%Y-%m-%d %H:%M:%S') if last_log else None
+    last_score_val = pick_score(last_log)
 
-    last_5 = (
-        ScoreLog.query
-        .filter_by(user_id=current_user.id)
-        .order_by(ScoreLog.timestamp.asc())
-        .limit(5).all()
-    )
-    baseline = round(sum(x.score for x in last_5)/len(last_5), 1) if last_5 else None
-    score_dev = (round(today_score_value - baseline, 1)
-                 if (today_score_value is not None and baseline is not None)
+    # ---- baseline を「登録から5日間の中で“最初の最大5回”の平均」にする ----
+    ca_utc = _ensure_aware_utc(current_user.created_at) if current_user.created_at else None
+    if ca_utc:
+        trial_end_utc = ca_utc + timedelta(days=5)  # 登録から5日間（時間も含めた正確な5日）
+        first_within_trial = (
+            ScoreLog.query
+            .filter_by(user_id=uid)
+            .filter(ScoreLog.timestamp >= ca_utc, ScoreLog.timestamp < trial_end_utc)
+            .order_by(ScoreLog.timestamp.asc())      # 早い順＝最初の記録から
+            .limit(5)
+            .all()
+        )
+    else:
+        first_within_trial = []
+
+    # 無料期間内に記録が無い場合は、全期間の「最初の最大5回」でフォールバック
+    baseline_candidates = first_within_trial
+    if not baseline_candidates:
+        baseline_candidates = (
+            ScoreLog.query
+            .filter_by(user_id=uid)
+            .order_by(ScoreLog.timestamp.asc())
+            .limit(5)
+            .all()
+        )
+
+    base_vals = []
+    for row in baseline_candidates:
+        v = pick_score(row)
+        if v is not None:
+            base_vals.append(v)
+
+    baseline = round(sum(base_vals) / len(base_vals), 1) if base_vals else None
+
+    # ---- 偏差: （今日のスコア or 直近スコア） - baseline ----
+    base_for_dev = today_score_value if today_score_value is not None else last_score_val
+    score_dev = (round(base_for_dev - baseline, 1)
+                 if (base_for_dev is not None and baseline is not None)
                  else None)
 
+    # ---- レスポンス ----
     return jsonify({
         'email': current_user.email,
         'username': current_user.username,
@@ -1661,16 +1723,15 @@ def api_profile():
         'prefecture': current_user.prefecture,
         'created_at': _ensure_aware_utc(current_user.created_at).isoformat() if current_user.created_at else None,
 
-        'last_score': today_score_value,
-        'last_recorded': last_recorded,
-        'baseline': baseline,
-        'score_deviation': score_dev,
+        # スコア系
+        'last_score': base_for_dev,        # 今日が無ければ直近に自動フォールバック
+        'last_recorded': last_recorded,    # JST 表示
+        'baseline': baseline,              # 登録から5日間の「最初の最大5回」の平均
+        'score_deviation': score_dev,      # last_score - baseline
 
-        # 既存互換フィールド
+        # 課金・権限
         'is_paid': current_user.is_paid,
         'is_free_extended': current_user.is_free_extended,
-
-        # サーバ優先フィールド
         'paid_until': _ensure_aware_utc(current_user.paid_until).isoformat() if current_user.paid_until else None,
         'paid_platform': current_user.paid_platform,
         'can_use_premium': can_use,
