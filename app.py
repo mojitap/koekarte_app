@@ -223,6 +223,12 @@ def can_use_premium(user):
     ok, _ = check_can_use_premium(user)
     return ok
 
+@app.route('/calm')
+def calm_page():
+    # ログイン必須にしたいなら:
+    # if not current_user.is_authenticated: return redirect(url_for('login', next='/calm'))
+    return render_template('calm.html')
+
 # ======== 音声処理 =========
 def extract_advanced_features(signal, sr):
     features = {}
