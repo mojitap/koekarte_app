@@ -187,7 +187,7 @@ def unauthorized():
 
 app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
-FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
+FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "5"))
 
 # パスワードリセット用Blueprint
 from server.routes.password import bp as password_bp
@@ -224,10 +224,26 @@ def can_use_premium(user):
     return ok
 
 @app.route('/calm')
+@login_required
 def calm_page():
-    # ログイン必須にしたいなら:
-    # if not current_user.is_authenticated: return redirect(url_for('login', next='/calm'))
-    return render_template('calm.html')
+    # ✅ トライアル/延長/有料のいずれかならOK
+    ok, reason = check_can_use_premium(current_user)  # 'trial'|'extended'|'paid'|'free'
+    if not ok:
+        flash("⚠️ 無料期間は終了しています。有料登録が必要です。")
+        return redirect(url_for('dashboard'), code=303)  # マイページへ
+
+    # テンプレでバッジ表示したい場合は reason を渡す
+    return render_template('calm.html', premium_reason=reason)
+
+@app.route('/music')
+@login_required
+def music_legacy():
+    return redirect(url_for('calm_page'), code=301)
+
+@app.route('/api/music')
+@login_required
+def api_music():
+    return jsonify({"error":"This endpoint was removed."}), 410
 
 # ======== 音声処理 =========
 def extract_advanced_features(signal, sr):
@@ -1405,82 +1421,6 @@ def update_profile():
             flash("エラーが発生しました")
             return redirect(url_for('profile'))
     
-@app.route('/music')
-@login_required
-def music():
-    if not can_use_premium(current_user):
-        flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
-        return redirect(url_for('dashboard'))
-    
-    # 無料期間 or 有料 or 拡張フラグ
-    can_play_premium = can_use_premium(current_user)
-
-    filenames = sorted(os.path.basename(f) for f in glob.glob("static/paid/*.mp3"))
-    display_names = {
-        "positive1.mp3": "サウンドトラック 01",
-        "positive2.mp3": "サウンドトラック 02",
-        "positive3.mp3": "サウンドトラック 03",
-        "positive4.mp3": "サウンドトラック 04",
-        "positive5.mp3": "サウンドトラック 05",
-        "relax1.mp3": "サウンドトラック 01",
-        "relax2.mp3": "サウンドトラック 02",
-        "relax3.mp3": "サウンドトラック 03",
-        "relax4.mp3": "サウンドトラック 04",
-        "relax5.mp3": "サウンドトラック 05",
-        "mindfulness1.mp3": "サウンドトラック 01",
-        "mindfulness2.mp3": "サウンドトラック 02",
-        "mindfulness3.mp3": "サウンドトラック 03",
-        "mindfulness4.mp3": "サウンドトラック 04",
-        "mindfulness5.mp3": "サウンドトラック 05",
-    }
-
-    tracks = [{"filename": f, "display": display_names.get(f, f)} for f in filenames]
-
-    return render_template('unified_music.html', tracks=tracks, can_play_premium=can_play_premium)
-
-@app.route('/api/music')
-@login_required
-def api_music():
-    if not can_use_premium(current_user):
-        return jsonify({
-            'error': '無料期間が終了しています。有料登録が必要です。'
-        }), 403
-
-    # …以降はそのまま
-
-    filenames = sorted(os.path.basename(f) for f in glob.glob("static/paid/*.mp3"))
-
-    display_names = {
-        "positive1.mp3": "サウンドトラック 01",
-        "positive2.mp3": "サウンドトラック 02",
-        "positive3.mp3": "サウンドトラック 03",
-        "positive4.mp3": "サウンドトラック 04",
-        "positive5.mp3": "サウンドトラック 05",
-        "relax1.mp3": "サウンドトラック 01",
-        "relax2.mp3": "サウンドトラック 02",
-        "relax3.mp3": "サウンドトラック 03",
-        "relax4.mp3": "サウンドトラック 04",
-        "relax5.mp3": "サウンドトラック 05",
-        "mindfulness1.mp3": "サウンドトラック 01",
-        "mindfulness2.mp3": "サウンドトラック 02",
-        "mindfulness3.mp3": "サウンドトラック 03",
-        "mindfulness4.mp3": "サウンドトラック 04",
-        "mindfulness5.mp3": "サウンドトラック 05",
-    }
-
-    tracks = [
-        {
-            "filename": f,
-            "display": display_names.get(f, f),
-            "url": f"/static/paid/{f}"
-        }
-        for f in filenames
-    ]
-
-    return jsonify({
-        "tracks": tracks
-    })
-
 @app.route('/diary')
 @login_required
 def diary_redirect():
