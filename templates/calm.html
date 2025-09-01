@@ -421,13 +421,13 @@ function getSequence(){
 }
 
 function showStep(s){
-  // 呼吸ツール：ヒント欄に現在ステップを表示
+  // 呼吸ツール：テキスト＆リング更新
   if (STEPSETS[curToolRef]?.pattern){
     actionEl.textContent = s.text;
     ringBy(s.text);
   } else {
-    // 手順ツール：手順のテキストを表示
-    stepsDiv.innerHTML = `<p style="font-weight:700">${s.text}</p>`;
+    // 手順ツール：一覧は残したまま、現在行だけハイライト
+    markStep(stepIdx);
   }
 }
 
