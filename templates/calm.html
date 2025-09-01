@@ -2,11 +2,65 @@
 {% block title %}整える（60秒ミニツール）{% endblock %}
 {% block content %}
 <style>
-  .wrap{max-width:720px;margin:0 auto;padding:20px}
-  .pills,.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-  .pill,.chip{padding:6px 12px;border-radius:16px;background:#eee;cursor:pointer}
-  .pill.active,.chip.active{background:#007AFF;color:#fff}
-  .card{background:#fafafa;border-radius:12px;padding:16px;margin-top:14px}
+  .chips { justify-items: center; }
+  .pills{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    justify-content:center;
+    margin-top:12px;
+  }
+
+  .pill{
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:16px;
+    padding:6px 12px;
+    text-align:center;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 1px 0 rgba(0,0,0,.04);
+  }
+
+  .pill.active{
+    border-color:#007AFF;
+    background:#eaf3ff;
+    color:#003a8c;
+  }
+  .pills, .chips{
+    justify-content: center;
+  }
+  .wrap{
+    width: min(720px, 92vw);   /* 最大720px、画面の92%以内 */
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .chips{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap:12px;
+    margin-top:12px;
+  }
+  .chip{
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:12px;
+    padding:10px 12px;
+    text-align:center;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 1px 0 rgba(0,0,0,.04);
+  }
+  .chip.active{
+    border-color:#007AFF;
+    background:#eaf3ff;
+    color:#003a8c;
+  }
+  .card{
+    max-width: 720px;
+    margin: 14px auto;         /* 中央寄せ */
+    width: 100%;
+  }
   .title{font-weight:700;text-align:center;margin-bottom:8px}
   .ring{
     width:140px; height:140px; border-radius:50%;
@@ -41,6 +95,13 @@
     justify-content:center;
     gap:10px;
     margin-top:10px;
+  }
+  .subhead{
+    margin:14px 8px 6px;
+    font-size:14px;
+    color:#555;
+    text-align:center;
+    font-weight:700;
   }
 </style>
 
@@ -309,16 +370,16 @@ function renderChips(){
         .forEach(n => n.classList.remove('active'));
       el.classList.add('active');
 
-      renderBody();      // コンテンツだけ更新（タイマーは保持）
+      renderBody();      // コンテンツだけ更新（タイマーは停止中）
     };
     chips.appendChild(el);
   }
 }
 
 function renderBody(){
-  const cat = CATEGORIES.find(x=>x.key===curCat);
+  const cat  = CATEGORIES.find(x=>x.key===curCat);
   const tool = cat.tools.find(x=>x.ref===curToolRef);
-  const set = STEPSETS[curToolRef];
+  const set  = STEPSETS[curToolRef];
 
   titleEl.textContent = tool.label;
 
@@ -328,11 +389,14 @@ function renderBody(){
 
   if(isBreath){
     actionEl.textContent = '準備…';
-    hint.textContent = set.note || '';
+    // ← ラベル付きで説明を明示
+    hint.textContent = (set.note ? `説明：${set.note}` : '');
   }else{
-    // 手順リストと注記
-    stepsDiv.innerHTML = set.steps.map((s,i)=>`<p data-i="${i}">${s.text}（約${s.sec}秒）</p>`).join('');
-    hint2.textContent = set.note || '';
+    // 一覧を表示（開始したら showStep() が1行表示に切替）
+    stepsDiv.innerHTML = set.steps
+      .map((s,i)=>`<p data-i="${i}">${s.text}（約${s.sec}秒）</p>`).join('');
+    // ← ラベル付きで説明を明示（常時最下部）
+    hint2.textContent = (set.note ? `説明：${set.note}` : '');
   }
 
   resetTimer();
@@ -401,14 +465,17 @@ function start(){
 
 function stop(){
   if (tickInt){ clearInterval(tickInt); tickInt = null; }
-  if (progInt){ clearInterval(progInt); progInt = null; }
   startBtn.disabled = false; stopBtn.disabled = true;
   ring.style.transform = 'scale(1)';
   try { ambAud.pause(); } catch(e){}
   sec = 60; timerEl.textContent = '60s';
-  // ヒントをデフォルト文に戻す（任意）
-  const note = STEPSETS[curToolRef]?.note || '';
-  if (STEPSETS[curToolRef]?.pattern){ hint.textContent = note; }
+
+  // 呼吸系は説明文を戻す、ステップ系は元の全手順リストに戻す
+  const set = STEPSETS[curToolRef];
+  if (set?.pattern) { hint.textContent = set.note || ''; }
+
+  // ← 追加：停止時にデフォ表示へ（一覧に戻す）
+  renderBody();
 }
 
 function runPattern(pattern){
