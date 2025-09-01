@@ -504,18 +504,61 @@ def send_reset_email(user):
 @app.route("/forgot", methods=["GET", "POST"], endpoint="forgot")
 def forgot():
     if request.method == "GET":
-        # 簡易フォーム（テンプレがあるなら render_template('forgot.html') でOK）
         return render_template_string("""
-        <!doctype html><meta charset="utf-8" />
-        <title>パスワードをリセット</title>
-        <style>body{font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px}</style>
-        <h2>🔐 パスワードをリセット</h2>
-        <p>ご登録のメールアドレスを入力してください。再設定リンクをお送りします。</p>
-        <form method="POST">
-          <input name="email" type="email" placeholder="you@example.com"
-                 style="width:100%;padding:10px;margin:8px 0;border:1px solid #ccc;border-radius:4px">
-          <button style="padding:10px 16px">送信</button>
-        </form>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>パスワードをリセット</title>
+  <style>
+    :root{ --brand:#007AFF; }
+    html,body{ height:100%; margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Hiragino Sans","Noto Sans JP",sans-serif; background:#fff; color:#111; }
+    .auth-wrap{
+      min-height:100svh;
+      display:grid; place-items:center;
+      padding:24px 16px;
+      padding-top:calc(24px + env(safe-area-inset-top));
+      padding-bottom:calc(24px + env(safe-area-inset-bottom));
+    }
+    .auth-card{
+      width:min(560px, 94vw);
+      background:#fff; border-radius:12px;
+      box-shadow:0 2px 12px rgba(0,0,0,.06);
+      padding:20px;
+    }
+    h2{ font-size:clamp(20px,5vw,24px); margin:0 0 12px; }
+    p{  line-height:1.7; color:#444; margin:0 0 16px; }
+    .field{ margin:10px 0 0; }
+    input[type="email"]{
+      width:100%; height:48px; box-sizing:border-box;
+      padding:10px 12px; font-size:16px;  /* iOSオートズーム回避 */
+      border:1px solid #d0d5dd; border-radius:10px;
+    }
+    button{
+      width:100%; height:48px; margin-top:12px;
+      border:0; border-radius:24px; background:var(--brand);
+      color:#fff; font-size:17px; font-weight:700; cursor:pointer;
+    }
+    a.back{ display:inline-block; margin-top:14px; color:var(--brand); text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <h2>🔐 パスワードをリセット</h2>
+      <p>ご登録のメールアドレスを入力してください。再設定リンクをお送りします。</p>
+      <form method="POST">
+        <div class="field">
+          <input name="email" type="email" placeholder="you@example.com" required />
+        </div>
+        <button type="submit">送信</button>
+      </form>
+      <a class="back" href="{{ url_for('login') }}">ログインページへ戻る</a>
+    </div>
+  </div>
+</body>
+</html>
         """)
 
     # --- ここから POST（あなたの既存ロジックを流用） ---
