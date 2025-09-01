@@ -522,7 +522,9 @@ def forgot():
       padding-bottom:calc(24px + env(safe-area-inset-bottom));
     }
     .auth-card{
-      width:min(560px, 94vw);
+      width:100%;
+      max-width:560px;
+      box-sizing:border-box;   /* ★ padding込みで幅計算（必須） */
       background:#fff; border-radius:12px;
       box-shadow:0 2px 12px rgba(0,0,0,.06);
       padding:20px;
