@@ -1,17 +1,48 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>パスワードを忘れた方へ</title>
+  <meta charset="UTF-8" />
+  <title>パスワードを忘れた方へ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <style>
+    :root { --brand:#007AFF; }
+    body {
+      margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background:#fff; color:#111;
+    }
+    .wrap {
+      width:min(92vw, 560px);
+      margin:24px auto;
+      padding:clamp(12px,4vw,24px);
+    }
+    h2 { font-size:clamp(20px,5vw,24px); margin:0 0 12px; }
+    p  { line-height:1.7; color:#444; margin:0 0 16px; }
+    .field { margin:10px 0 0; }
+    input[type="email"]{
+      width:100%; height:46px; box-sizing:border-box;
+      padding:10px 12px; font-size:16px;
+      border:1px solid #d0d5dd; border-radius:8px;
+    }
+    button{
+      width:100%; height:46px; margin-top:12px;
+      border:0; border-radius:8px; background:var(--brand);
+      color:#fff; font-size:16px; font-weight:700; cursor:pointer;
+    }
+    a.back { display:inline-block; margin-top:14px; color:var(--brand); text-decoration:underline; }
+  </style>
 </head>
 <body>
+  <div class="wrap">
     <h2>🔐 パスワードをリセット</h2>
     <p>ご登録のメールアドレスを入力してください。再設定リンクをお送りします。</p>
-    <form method="POST">
-        <input type="email" name="email" placeholder="メールアドレス" required><br><br>
-        <button type="submit">送信</button>
+    <form method="POST" action="">
+      <div class="field">
+        <input type="email" name="email" placeholder="you@example.com" required />
+      </div>
+      <button type="submit">送信</button>
     </form>
-    <br>
-    <a href="{{ url_for('login') }}">ログインページへ戻る</a>
+    <a class="back" href="{{ url_for('login') }}">ログインページへ戻る</a>
+  </div>
 </body>
 </html>
