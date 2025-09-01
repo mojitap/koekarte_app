@@ -271,15 +271,20 @@ function renderCats(){
 
 function renderChips(){
   chips.innerHTML = '';
-  const cat = CATEGORIES.find(x=>x.key===curCat);
-  for(const t of cat.tools){
+  const cat = CATEGORIES.find(x => x.key === curCat);
+  for (const t of cat.tools){
     const el = document.createElement('div');
-    el.className = 'chip' + (t.ref===curToolRef?' active':'');
+    el.className = 'chip' + (t.ref === curToolRef ? ' active' : '');
     el.textContent = t.label;
-    el.onclick = ()=>{
+    el.onclick = () => {
       curToolRef = t.ref;
       stop();
-      renderBody();
+      // ← ここを追加：見た目だけ即座に更新
+      document.querySelectorAll('#chips .chip')
+        .forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+
+      renderBody();      // コンテンツだけ更新（タイマーは保持）
     };
     chips.appendChild(el);
   }
