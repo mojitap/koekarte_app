@@ -78,11 +78,6 @@
       <label><input type="checkbox" id="ambientToggle"> 環境音（小さめ）</label>
       <audio id="ambientAudio" loop style="display:none"></audio>
     </div>
-
-    <div class="row" style="margin-top:6px">
-      <label><input type="checkbox" id="voiceToggle"> 音声ガイド（読み上げ）</label>
-    </div>
-
   </div>
 
   <div class="footer-links">
@@ -91,12 +86,6 @@
 </div>
 
 <script>
-
-if ('speechSynthesis' in window) {
-  // 端末の音声一覧を一度取得して初期化
-  speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = () => {};
-}
 
 // ───────────────── カリキュラム定義 ─────────────────
 const STEPSETS = {
@@ -376,7 +365,6 @@ function showStep(s){
     // 手順ツール：手順のテキストを表示
     stepsDiv.innerHTML = `<p style="font-weight:700">${s.text}</p>`;
   }
-  say(s.say || s.text); // 読み上げ
 }
 
 function start(){
@@ -417,7 +405,6 @@ function stop(){
   startBtn.disabled = false; stopBtn.disabled = true;
   ring.style.transform = 'scale(1)';
   try { ambAud.pause(); } catch(e){}
-  try { speechSynthesis.cancel(); } catch(e){}
   sec = 60; timerEl.textContent = '60s';
   // ヒントをデフォルト文に戻す（任意）
   const note = STEPSETS[curToolRef]?.note || '';
@@ -469,24 +456,6 @@ function markStep(i){
   if(cur) cur.classList.add('active');
 }
 
-const voiceTgl = document.getElementById('voiceToggle');
-
-function jaVoice() {
-  const vs = window.speechSynthesis?.getVoices?.() || [];
-  return vs.find(v => (v.lang || '').startsWith('ja')) || null;
-}
-function say(txt) {
-  if (!voiceTgl.checked || !window.speechSynthesis) return;
-  const u = new SpeechSynthesisUtterance(String(txt).replace(/（.*?）/g,''));
-  u.lang = 'ja-JP';
-  u.rate = 1.0;      // 0.1〜2.0
-  u.volume = 0.95;
-  const v = jaVoice();
-  if (v) u.voice = v;
-  // 前の発話が残っていたらキャンセル（重なり防止）
-  try { speechSynthesis.cancel(); } catch(e){}
-  speechSynthesis.speak(u);
-}
 function ringBy(text){
   if (/吸/.test(text))      ring.style.transform = 'scale(1.18)';
   else if (/吐/.test(text)) ring.style.transform = 'scale(0.90)';
