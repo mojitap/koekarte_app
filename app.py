@@ -226,13 +226,10 @@ def can_use_premium(user):
 @app.route('/calm')
 @login_required
 def calm_page():
-    # ✅ トライアル/延長/有料のいずれかならOK
-    ok, reason = check_can_use_premium(current_user)  # 'trial'|'extended'|'paid'|'free'
+    ok, reason = check_can_use_premium(current_user)  # ← ここで判定
     if not ok:
-        flash("⚠️ 無料期間は終了しています。有料登録が必要です。")
-        return redirect(url_for('dashboard'), code=303)  # マイページへ
-
-    # テンプレでバッジ表示したい場合は reason を渡す
+        flash("⚠️ 無料期間は終了しています。有料登録後にご利用ください。")
+        return redirect(url_for('dashboard'), code=303)
     return render_template('calm.html', premium_reason=reason)
 
 @app.route('/music')
