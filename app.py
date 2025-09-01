@@ -1158,32 +1158,43 @@ def result():
     if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'))
+
     range_type = request.args.get('range', 'all')
     today = date.today()
 
+    start_date = None
+    end_date = None
+
     if range_type == 'week':
         start_date = today - timedelta(days=7)
-        logs = ScoreLog.query.filter(
-            ScoreLog.user_id == current_user.id,
-            ScoreLog.timestamp >= start_date
-        ).order_by(ScoreLog.timestamp).all()
-    elif range_type == 'month':
+    elif range_type == 'this_month':
         start_date = today.replace(day=1)
-        logs = ScoreLog.query.filter(
-            ScoreLog.user_id == current_user.id,
-            ScoreLog.timestamp >= start_date
-        ).order_by(ScoreLog.timestamp).all()
-    else:
-        logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+    elif range_type == 'last_month':
+        first_this = today.replace(day=1)
+        last_last  = first_this - timedelta(days=1)
+        start_date = last_last.replace(day=1)  # 先月1日
+        end_date   = first_this                # 今月1日(未満)
 
-    dates = [log.timestamp.strftime('%m/%d') for log in logs]
+    q = ScoreLog.query.filter(ScoreLog.user_id == current_user.id)
+    if start_date:
+        q = q.filter(ScoreLog.timestamp >= start_date)
+    if end_date:
+        q = q.filter(ScoreLog.timestamp < end_date)
+
+    logs = q.order_by(ScoreLog.timestamp).all()
+
+    dates  = [log.timestamp.strftime('%m/%d') for log in logs]
     scores = [log.score for log in logs]
 
-    # ✅ 最初の5回分のスコアの平均（ベースライン）
-    first_five_scores = scores[:5]
-    baseline = round(sum(first_five_scores) / len(first_five_scores), 2) if first_five_scores else 0
+    first_five = scores[:5]
+    baseline = round(sum(first_five) / len(first_five), 2) if first_five else 0
 
-    return render_template('result.html', dates=dates, scores=scores, first_score=scores[0] if scores else 0, baseline=baseline)
+    return render_template(
+        'result.html',
+        dates=dates, scores=scores,
+        first_score=scores[0] if scores else 0,
+        baseline=baseline
+    )
 
 @app.route('/admin')
 @login_required
