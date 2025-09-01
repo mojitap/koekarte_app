@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}整える（60秒ミニツール）{% endblock %}
+{% block content %}
+<style>
+  .wrap{max-width:720px;margin:0 auto;padding:20px}
+  .pills,.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .pill,.chip{padding:6px 12px;border-radius:16px;background:#eee;cursor:pointer}
+  .pill.active,.chip.active{background:#007AFF;color:#fff}
+  .card{background:#fafafa;border-radius:12px;padding:16px;margin-top:14px}
+  .title{font-weight:700;text-align:center;margin-bottom:8px}
+  .ring{width:140px;height:140px;border-radius:50%;margin:16px auto;background:#e6f0ff;transform:scale(1)}
+  .center{ text-align:center }
+  .hint{color:#666;margin-top:6px}
+  .row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
+  button{padding:8px 16px;border-radius:20px;border:0;color:#fff;cursor:pointer}
+  .start{background:#2ecc71}.stop{background:#e74c3c}
+  .steps p{margin:6px 0}
+</style>
+
+<div class="wrap">
+  <h1 class="center">整える（60秒ミニツール）</h1>
+
+  <!-- カテゴリ -->
+  <div id="catPills" class="pills"></div>
+
+  <div class="card">
+    <div id="toolTitle" class="title">呼吸 (5–5)</div>
+
+    <!-- 呼吸リング or 手順 -->
+    <div id="breathArea" class="center" style="display:block">
+      <div id="ring" class="ring"></div>
+      <div id="hint" class="hint">5秒 吸う・5秒 吐く をゆっくり</div>
+    </div>
+    <div id="stepsArea" class="steps" style="display:none">
+      <div id="steps"></div>
+    </div>
+
+    <div class="row">
+      <button id="startBtn" class="start">開始</button>
+      <button id="stopBtn"  class="stop" disabled>停止</button>
+      <div id="timer">60s</div>
+    </div>
+
+    <!-- 他の方法 -->
+    <div id="chips" class="chips" style="margin-top:12px"></div>
+
+    <!-- 環境音（任意・デフォルトOFF、後日音を入れる想定） -->
+    <div class="row">
+      <label><input type="checkbox" id="ambientToggle"> 環境音（小さめ）</label>
+      <audio id="ambientAudio" loop style="display:none"></audio>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // --- 定義 ---
+  const cats = ['sleep','anxiety','cooldown','focus','boost','parent'];
+  const catLabel = {sleep:'睡眠', anxiety:'不安', cooldown:'クールダウン', focus:'集中', boost:'気分UP', parent:'親子'};
+  const defaultTool = {sleep:'55', anxiety:'ground', cooldown:'478', focus:'55', boost:'talk', parent:'55'};
+  const toolNames = {'55':'呼吸 (5–5)', 'box':'ボックス呼吸', '478':'4–7–8 呼吸', 'ground':'5-4-3-2-1', 'scan':'体スキャン', 'stretch':'ストレッチ', 'talk':'自己トーク'};
+  const toolsByCat = {
+    sleep:['55','scan','talk'],
+    anxiety:['ground','55','talk'],
+    cooldown:['478','stretch','talk'],
+    focus:['55','scan','ground'],
+    boost:['talk','55','stretch'],
+    parent:['55','talk','stretch']
+  };
+  const stepsText = {
+    ground:['5 見えるもの','4 触れるもの','3 聞こえる音','2 嗅げる香り','1 味わえるもの'],
+    scan:['頭 → 顔 → 肩 → 胸 → 腹 → 足先','各部にやさしく意識を移す'],
+    stretch:['肩：上げ下げ3回','首：左右ゆっくり1回ずつ','手：グーパー3回'],
+    talk:['「いまの自分で十分」','「ここは安全」']
+  };
+  const breathHints = {
+    '55':'5秒 吸う・5秒 吐く をゆっくり',
+    'box':'4秒 吸う → 4秒 止める → 4秒 吐く → 4秒 止める',
+    '478':'4秒 吸う → 7秒 止める → 8秒 吐く'
+  };
+
+  // --- UI参照 ---
+  const pills = document.getElementById('catPills');
+  const chips = document.getElementById('chips');
+  const title = document.getElementById('toolTitle');
+  const ring = document.getElementById('ring');
+  const hint = document.getElementById('hint');
+  const breathArea = document.getElementById('breathArea');
+  const stepsArea = document.getElementById('stepsArea');
+  const stepsDiv = document.getElementById('steps');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn  = document.getElementById('stopBtn');
+  const timerEl  = document.getElementById('timer');
+  const ambTgl = document.getElementById('ambientToggle');
+  const ambAud = document.getElementById('ambientAudio');
+
+  // --- 状態 ---
+  let curCat = 'sleep';
+  let curTool = defaultTool[curCat];
+  let tickInt = null, sec = 60, animInt = null, phase = 0;
+
+  // --- 描画 ---
+  function renderCats(){
+    pills.innerHTML = '';
+    cats.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'pill' + (c===curCat?' active':'');
+      el.textContent = catLabel[c];
+      el.onclick = ()=>{ curCat=c; curTool=defaultTool[c]; stop(); render(); };
+      pills.appendChild(el);
+    });
+  }
+  function renderChips(){
+    chips.innerHTML = '';
+    toolsByCat[curCat].forEach(k=>{
+      const el = document.createElement('div');
+      el.className = 'chip' + (k===curTool?' active':'');
+      el.textContent = toolNames[k];
+      el.onclick = ()=>{ curTool=k; stop(); render(); };
+      chips.appendChild(el);
+    });
+  }
+  function renderBody(){
+    title.textContent = toolNames[curTool];
+    const isBreath = ['55','box','478'].includes(curTool);
+    breathArea.style.display = isBreath ? 'block' : 'none';
+    stepsArea.style.display  = isBreath ? 'none'  : 'block';
+    if(isBreath){
+      hint.textContent = breathHints[curTool];
+    }else{
+      stepsDiv.innerHTML = (stepsText[curTool]||[]).map(s=>`<p>${s}</p>`).join('');
+    }
+  }
+  function render(){ renderCats(); renderChips(); renderBody(); resetTimer(); }
+
+  // --- タイマーとアニメ ---
+  function resetTimer(){ sec=60; timerEl.textContent='60s'; }
+  function start(){
+    if(tickInt) return;
+    resetTimer();
+    startBtn.disabled=true; stopBtn.disabled=false;
+    tickInt = setInterval(()=>{
+      sec--; timerEl.textContent = sec+'s';
+      if(sec<=0){ stop(); alert('完了！'); }
+    },1000);
+    // 呼吸アニメ（1秒ごとにサイズを上下）
+    if(['55','box','478'].includes(curTool)){
+      const cycle = curTool==='box'?4: (curTool==='478'? (4+7+8):10); // ざっくり周期
+      animInt = setInterval(()=>{
+        phase = (phase+1)%10;
+        const scale = phase<5 ? 1+phase*0.04 : 1+(10-phase)*0.04;
+        ring.style.transform = `scale(${scale})`;
+      },1000);
+    }
+    // 環境音（任意）
+    if(ambTgl.checked && ambAud.src){ ambAud.volume=0.15; ambAud.play().catch(()=>{}); }
+  }
+  function stop(){
+    if(tickInt){ clearInterval(tickInt); tickInt=null; }
+    if(animInt){ clearInterval(animInt); animInt=null; ring.style.transform='scale(1)'; }
+    startBtn.disabled=false; stopBtn.disabled=true;
+    if(!document.hidden){ try{ ambAud.pause(); }catch{} }
+    resetTimer();
+  }
+
+  // --- イベント ---
+  startBtn.onclick = start;
+  stopBtn.onclick  = stop;
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) stop(); });
+
+  // （任意）環境音ファイルを後で置く場合はここで指定
+  // ambAud.src = "/static/audio/rain.mp3";
+
+  render();
+})();
+</script>
+{% endblock %}
