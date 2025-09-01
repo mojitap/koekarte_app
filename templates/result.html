@@ -112,60 +112,67 @@
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
 
     <script>
-      // 1) 全データ（サーバから）
-      const allDates  = {{ dates|tojson|safe }};      // 'YYYY-MM-DD' 前提
-      const allScores = {{ scores|tojson|safe }};
-      const BASELINE  = {{ baseline|tojson|safe }};
+      // 1) サーバから来た「全件」
+      const ALL_DATES  = {{ dates|tojson|safe }};     // 'YYYY-MM-DD' が理想だが、'YYYY/MM/DD' でも可
+      const ALL_SCORES = {{ scores|tojson|safe }};
+      const BASELINE   = {{ baseline|tojson|safe }};
 
-      // 2) ユーティリティ（ローカル日付で比較してズレ防止）
-      function parseDateLocal(s){
-        // 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:mm:ss' 両対応
-        const ymd = s.split(/[T\s]/)[0];
-        const [y,m,d] = ymd.split('-').map(Number);
-        return new Date(y, m-1, d);
+      // 2) 日付パース（フォーマット揺れに強い）
+      function parseDateSmart(x){
+        if (x instanceof Date) return x;
+        if (typeof x !== 'string') return new Date(x);
+        // 2025-08-31 / 2025/08/31
+        let m = x.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+        if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+        // 08/31 → 今年扱い
+        m = x.match(/^(\d{1,2})\/(\d{1,2})$/);
+        if (m) { const Y = new Date().getFullYear(); return new Date(Y, +m[1]-1, +m[2]); }
+        // ISOなどその他
+        return new Date(x);
       }
       function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0); }
       function endOfDay(d){   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999); }
 
+      // 3) レンジ計算（今日基準）
       function getRange(kind){
         const today = new Date();
-        if (kind === 'past'){ // = 先月
+        if (kind === 'past'){ // 先月
           const first = new Date(today.getFullYear(), today.getMonth()-1, 1);
-          const last  = new Date(today.getFullYear(), today.getMonth(), 0); // 今月0日=先月末
+          const last  = new Date(today.getFullYear(), today.getMonth(), 0);
           return [startOfDay(first), endOfDay(last)];
         }
         if (kind === 'month'){ // 今月
           const first = new Date(today.getFullYear(), today.getMonth(), 1);
           return [startOfDay(first), endOfDay(today)];
         }
-        if (kind === 'week'){
+        if (kind === 'week'){ // 直近7日（今日含む）
           const start = new Date(today);
-          start.setDate(start.getDate()-6); // 今日含む7日
+          start.setDate(start.getDate()-6);
           return [startOfDay(start), endOfDay(today)];
         }
-        return [null, null]; // all
+        return [null, null];  // all
       }
 
-      // 3) クエリ取得してフィルタ
-      const params = new URLSearchParams(location.search);
-      const range  = params.get('range') || 'all'; // 'all' | 'past' | 'month' | 'week'
+      // 4) クエリ取得 → フィルタ
+      const qs    = new URLSearchParams(location.search);
+      const range = qs.get('range') || 'all';   // 'all' | 'past' | 'month' | 'week'
       const [from, to] = getRange(range);
 
       let dates = [], scores = [];
-      if (from && to) {
-        for (let i=0;i<allDates.length;i++){
-          const d = parseDateLocal(allDates[i]);
+      if (from && to){
+        for (let i=0;i<ALL_DATES.length;i++){
+          const d = parseDateSmart(ALL_DATES[i]);
           if (d >= from && d <= to){
-            dates.push(allDates[i]);
-            scores.push(allScores[i]);
+            dates.push(ALL_DATES[i]);
+            scores.push(ALL_SCORES[i]);
           }
         }
       } else {
-        dates  = allDates.slice();
-        scores = allScores.slice();
+        dates = ALL_DATES.slice();
+        scores = ALL_SCORES.slice();
       }
 
-      // 4) ここからChart.js（labels/dataを↑で生成したものに）
+      // 5) Chart.js を「絞った配列」で生成（★ここが重要）
       const ctx = document.getElementById('stressChart').getContext('2d');
       const stressChart = new Chart(ctx, {
         type: 'line',
@@ -183,7 +190,7 @@
             },
             {
               label: 'ベースライン（5日平均）',
-              data: Array(dates.length).fill(BASELINE),  // ★ 長さを合わせる
+              data: Array(dates.length).fill(BASELINE), // ← labels と同じ長さ
               fill: false,
               borderColor: 'rgba(255, 99, 132, 0.8)',
               borderDash: [5, 5],
@@ -198,9 +205,7 @@
             y: { min: 0, max: 100, title: { display: true, text: 'スコア（0〜100）' } },
             x: { ticks: { autoSkip: true, maxTicksLimit: 7 } }
           },
-          plugins: {
-            tooltip: { enabled: true, mode: 'nearest', intersect: true }
-          },
+          plugins: { tooltip: { enabled: true, mode: 'nearest', intersect: true } },
           onClick: (evt, active) => {
             if (active.length) {
               stressChart.setActiveElements(active);
@@ -211,7 +216,7 @@
         }
       });
 
-      // 5) ついでに現在レンジのリンクを強調（任意）
+      // 6) 今のレンジのリンクを強調（任意）
       document.querySelectorAll('a[href*="range="]').forEach(a=>{
         const k = new URL(a.href).searchParams.get('range') || 'all';
         if (k === range) a.style.fontWeight = '700';
