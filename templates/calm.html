@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}整える（60秒ミニツール）{% endblock %}
 {% block content %}
+{% set SHOW_AMBIENT = false %}
 <style>
   .chips { justify-items: center; }
   .pills{
@@ -68,6 +69,20 @@
     transform:scale(1);
     transition: transform .8s ease-in-out; /* ← これを追加 */
   }
+  .panel{
+    border:1px solid #e5e7eb;
+    background:#fafafa;
+    border-radius:12px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .panel .title{ margin-top:0; }
+
+  .control-row{                 /* 開始/停止ボタン行だけに付ける */
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 8px;
+  }
   .center{text-align:center}
   .hint{color:#666;margin-top:6px}
   .row button{
@@ -112,20 +127,25 @@
   <div id="catPills" class="pills"></div>
 
   <div class="card">
-    <div id="toolTitle" class="title"></div>
+    <!-- ▼ ここを panel で囲む -->
+    <div class="panel">
+      <div id="toolTitle" class="title"></div>
 
-    <!-- 呼吸リング or 手順 -->
-    <div id="breathArea" class="center" style="display:none">
-      <div id="ring" class="ring"></div>
-      <div id="actionText" class="title" style="margin-top:6px;"></div>
-      <div id="hint" class="hint"></div>
-    </div>
-    <div id="stepsArea" class="steps" style="display:none">
-      <div id="steps"></div>
-      <div id="hint2" class="hint"></div>
-    </div>
+      <div id="breathArea" class="center" style="display:none">
+        <div id="ring" class="ring"></div>
+        <div id="actionText" class="title" style="margin-top:6px;" aria-live="polite"></div>
+        <div id="hint" class="hint"></div>
+      </div>
 
-    <div class="row">
+      <div id="stepsArea" class="steps" style="display:none">
+        <div id="steps"></div>
+        <div id="hint2" class="hint"></div>
+      </div>
+    </div>
+    <!-- ▲ ここまで panel -->
+
+    <!-- 開始/停止の行にだけ control-row を追加 -->
+    <div class="row control-row">
       <button id="startBtn" class="start">開始</button>
       <button id="stopBtn"  class="stop" disabled>停止</button>
       <div id="timer">60s</div>
@@ -134,12 +154,18 @@
     <!-- 他の方法 -->
     <div id="chips" class="chips" style="margin-top:12px"></div>
 
-    <!-- 環境音（任意・デフォルトOFF、後日音を入れる想定） -->
+    <!-- 環境音 ... -->
+    {% if SHOW_AMBIENT %}
     <div class="row">
       <label><input type="checkbox" id="ambientToggle"> 環境音（小さめ）</label>
+      <select id="ambientSelect" style="margin-left:8px">
+        <option value="/static/audio/rain.mp3">雨</option>
+        <option value="/static/audio/forest.mp3">森</option>
+        <option value="/static/audio/cafe.mp3">カフェ</option>
+      </select>
       <audio id="ambientAudio" loop style="display:none"></audio>
     </div>
-  </div>
+    {% endif %}
 
   <div class="footer-links">
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
@@ -327,8 +353,8 @@ const stepsDiv = document.getElementById('steps');
 const startBtn = document.getElementById('startBtn');
 const stopBtn  = document.getElementById('stopBtn');
 const timerEl  = document.getElementById('timer');
-const ambTgl = document.getElementById('ambientToggle');
-const ambAud = document.getElementById('ambientAudio');
+const ambTgl = document.getElementById('ambientToggle') || null;
+const ambAud = document.getElementById('ambientAudio') || null;
 
 // ───────────────── 状態 ─────────────────
 let curCat = CATEGORIES[0].key;
@@ -460,14 +486,18 @@ function start(){
   }, 1000);
 
   // 環境音（任意）
-  if (ambTgl.checked && ambAud.src){ ambAud.volume = 0.15; ambAud.play().catch(()=>{}); }
+  if (ambTgl && ambTgl.checked && ambAud && ambAud.src){
+    ambAud.volume = 0.15;
+    ambAud.currentTime = 0;
+    ambAud.play().catch(()=>{});
+  }
 }
 
 function stop(){
   if (tickInt){ clearInterval(tickInt); tickInt = null; }
   startBtn.disabled = false; stopBtn.disabled = true;
   ring.style.transform = 'scale(1)';
-  try { ambAud.pause(); } catch(e){}
+  if (ambAud){ try { ambAud.pause(); } catch(e){} }
   sec = 60; timerEl.textContent = '60s';
 
   // 呼吸系は説明文を戻す、ステップ系は元の全手順リストに戻す
