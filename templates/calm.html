@@ -101,6 +101,18 @@
     cursor:pointer;
     box-shadow:0 1px 0 rgba(0,0,0,.05);
   }
+  #timer{
+    min-width:72px;
+    height:48px;                 /* ボタンと同じ高さ */
+    display:flex; align-items:center; justify-content:center;
+    padding:0 12px;
+    font-size:18px; font-weight:700;
+    border:1px solid #e5e7eb;
+    border-radius:24px;
+    background:#fff;
+    box-shadow:0 1px 0 rgba(0,0,0,.05);
+    font-variant-numeric: tabular-nums; /* 数字の桁がブレない小技（任意） */
+  }
   @media (pointer:coarse){
     .row button{ height:54px; font-size:20px; }
   }
@@ -152,8 +164,8 @@
     <!-- 開始/停止の行にだけ control-row を追加 -->
     <div class="row control-row">
       <button id="startBtn" class="start">開始</button>
-      <button id="stopBtn"  class="stop" disabled>停止</button>
-      <div id="timer">60s</div>
+      <div id="timer" role="timer" aria-live="polite">60s</div>
+      <button id="stopBtn" class="stop" disabled>停止</button>
     </div>
 
     <!-- 他の方法 -->
