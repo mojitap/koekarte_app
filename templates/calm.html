@@ -3,6 +3,9 @@
 {% block content %}
 {% set SHOW_AMBIENT = false %}
 <style>
+  /* 先頭の <style> の一番上に追加 */
+  *, *::before, *::after { box-sizing: border-box; }
+  
   .chips { justify-items: center; }
   .pills{
     display:flex;
@@ -32,9 +35,11 @@
     justify-content: center;
   }
   .wrap{
-    width: min(720px, 92vw);   /* 最大720px、画面の92%以内 */
-    margin-left: auto;
-    margin-right: auto;
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+    padding-left:  max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
   .chips{
     display:grid;
@@ -166,6 +171,7 @@
       <audio id="ambientAudio" loop style="display:none"></audio>
     </div>
     {% endif %}
+  </div>
 
   <div class="footer-links">
     <a href="/dashboard" class="button">🏠 マイページに戻る</a>
