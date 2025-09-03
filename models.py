@@ -18,6 +18,13 @@ class User(UserMixin, db.Model):
     paid_until    = db.Column(db.DateTime(timezone=True), index=True)  # 有効期限(UTC)
     paid_platform = db.Column(db.String(16))  # 'web' | 'ios' など 
 
+    # ▼▼ ここを追加（Stripe サブスク反映用）▼▼
+    stripe_customer_id     = db.Column(db.String(64),  index=True)
+    stripe_subscription_id = db.Column(db.String(64))
+    plan_status            = db.Column(db.String(32))                  # 'active' / 'trialing' / 'canceled' 等
+    current_period_end     = db.Column(db.DateTime(timezone=True))     # 次回更新の期日
+    # ▲▲ ここまで ▲▲
+
     # ✅ 新規に追加するカラム
     birthdate = db.Column(db.Date)
     gender = db.Column(db.String(50))
@@ -40,6 +47,10 @@ class User(UserMixin, db.Model):
     last_score      = db.Column(db.Integer)      # 直近スコア
     last_recorded   = db.Column(db.DateTime)     # 直近録音日時
     # ---------------------------------------------------
+
+    # ダッシュボード用キャッシュ
+    last_score    = db.Column(db.Integer)
+    last_recorded = db.Column(db.DateTime)
 
     # ✅ 管理者判定
     @property
