@@ -1492,7 +1492,7 @@ def create_checkout_session():
     price_id = os.getenv("STRIPE_PRICE_ID")
     user = current_user
 
-    # 1) customer を固定
+    # 1) 既存customerなければ作成して保存
     if not user.stripe_customer_id:
         customer = stripe.Customer.create(
             email=user.email,
@@ -1501,26 +1501,18 @@ def create_checkout_session():
         user.stripe_customer_id = customer.id
         db.session.commit()
 
-    # 2) 既存サブスク（active/trialing 等）を確認
-    subs = stripe.Subscription.list(
-        customer=user.stripe_customer_id,
-        status='all',  # ← trialing 等も取る
-        limit=3
-    )
-    existing = next(
-        (s for s in subs.auto_paging_iter()
-         if s.status in ('active', 'trialing', 'past_due', 'unpaid')),
-        None
-    )
-    if existing:
+    # 2) すでにactiveサブスクがあればCheckout作らずポータルへ
+    subs = stripe.Subscription.list(customer=user.stripe_customer_id, status='active', limit=1)
+    if subs.data:
         portal = stripe.billing_portal.Session.create(
             customer=user.stripe_customer_id,
             return_url=url_for('dashboard', _external=True),
         )
         return redirect(portal.url, code=303)
 
-    # 3) Checkout を作成（多重クリック対策）
+    # 3) Checkout（多重クリック対策のidempotency_key）
     idem = f"sub_{user.id}_{price_id}"
+
     session = stripe.checkout.Session.create(
         mode='subscription',
         line_items=[{'price': price_id, 'quantity': 1}],
@@ -1528,8 +1520,9 @@ def create_checkout_session():
         client_reference_id=str(user.id),
         success_url=url_for('checkout_success', _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=url_for('dashboard', _external=True),
-        idempotency_key=idem,  # ← 先頭にカンマを置かない
+        idempotency_key=idem
     )
+
     return redirect(session.url, code=303)
 
 @app.route('/checkout/success')
@@ -1574,17 +1567,16 @@ def stripe_webhook():
 
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
-
     endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET_TEST") if os.getenv("FLASK_ENV") == "development" else os.getenv("STRIPE_WEBHOOK_SECRET")
+
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-    except Exception as e:
-        return ("", 400)
+    except Exception:
+        return "", 400
 
     def update_user_by_customer(customer_id, patch: dict):
         user = User.query.filter_by(stripe_customer_id=customer_id).first()
         if not user:
-            # 初回のみ email 経由で救済（以後は stripe_customer_id を保持するため不要になる）
             try:
                 c = stripe.Customer.retrieve(customer_id)
                 if c and c.email:
@@ -1600,7 +1592,6 @@ def stripe_webhook():
     obj = event['data']['object']
 
     if t == 'checkout.session.completed':
-        # 念のため即反映（成功ページでもやっているが二重OK）
         sub_id = obj.get('subscription')
         if sub_id:
             sub = stripe.Subscription.retrieve(sub_id)
@@ -1639,12 +1630,8 @@ def stripe_webhook():
             )
         )
 
-    return ("", 200)
-
-    # ---------------------------
-    # その他イベント
-    else:
-        return jsonify(success=True)
+    # 未対応イベント含め最終的に200
+    return "", 200
 
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
