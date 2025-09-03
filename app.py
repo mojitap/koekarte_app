@@ -12,6 +12,7 @@ import boto3
 import ipaddress
 import hashlib, secrets, urllib.parse
 import redis as real_redis
+from utils.subscription_utils import sync_subscription_from_stripe
 from pydub import AudioSegment
 import imageio_ffmpeg
 AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
@@ -750,6 +751,14 @@ def set_paid(user_id):
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # ★ここを追加：画面描画前に一度だけ Stripe と突き合わせ
+    try:
+        if not current_user.is_paid:
+            ok, st = sync_subscription_from_stripe(current_user)
+            print(f"[DASH SYNC] ok={ok}, status={st}")
+    except Exception as e:
+        print(f"[SYNC WARN] {e}")
+        
     # ① detailed / fallback で latest を取るコードはそのまま…
     detailed = (
         ScoreLog.query
