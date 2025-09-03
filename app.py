@@ -1484,15 +1484,16 @@ def diary_redirect():
 def checkout():
     return render_template('checkout.html')
 
+# /create-checkout-session
 @app.route('/create-checkout-session', methods=['POST'])
 @login_required
 def create_checkout_session():
-    import stripe, os
+    import stripe, os, time, uuid
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
     price_id = os.getenv("STRIPE_PRICE_ID")
     user = current_user
 
-    # 1) 既存customerなければ作成して保存
+    # 1) 顧客IDの確保
     if not user.stripe_customer_id:
         customer = stripe.Customer.create(
             email=user.email,
@@ -1501,7 +1502,7 @@ def create_checkout_session():
         user.stripe_customer_id = customer.id
         db.session.commit()
 
-    # 2) すでにactiveサブスクがあればCheckout作らずポータルへ
+    # 2) すでに active サブスクがあるならポータルへ
     subs = stripe.Subscription.list(customer=user.stripe_customer_id, status='active', limit=1)
     if subs.data:
         portal = stripe.billing_portal.Session.create(
@@ -1510,8 +1511,8 @@ def create_checkout_session():
         )
         return redirect(portal.url, code=303)
 
-    # 3) Checkout（多重クリック対策のidempotency_key）
-    idem = f"sub_{user.id}_{price_id}"
+    # 3) 新しいセッションを必ず作るため、キーを“v2”などに変更
+    idem = f"sub_v2_{user.id}_{price_id}"  # ← v1 → v2 に“世代上げ”して再作成させる
 
     session = stripe.checkout.Session.create(
         mode='subscription',
@@ -1520,7 +1521,7 @@ def create_checkout_session():
         client_reference_id=str(user.id),
         success_url=url_for('checkout_success', _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=url_for('dashboard', _external=True),
-        idempotency_key=idem
+        idempotency_key=idem,      # ← 余計なカンマの前置きなしでここに置く
     )
 
     return redirect(session.url, code=303)
@@ -1535,27 +1536,25 @@ def checkout_success():
 
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
     sess = stripe.checkout.Session.retrieve(sid, expand=['subscription', 'customer'])
-    sub = sess.subscription
+    sub  = sess.subscription
+
+    print(f"[SUCCESS] sid={sid} status={getattr(sub,'status',None)} cust={sess.customer} ref={sess.client_reference_id}")
 
     # 本人確認（client_reference_id 優先。次点で customer 一致）
     if str(current_user.id) != (sess.client_reference_id or str(current_user.id)):
         if getattr(current_user, 'stripe_customer_id', None) != sess.customer:
+            print("[SUCCESS] user mismatch -> redirect dashboard")
             return redirect(url_for('dashboard'))
 
     # DB更新（即 paid 反映）
     current_user.is_paid = bool(sub and sub.status in ('active', 'trialing'))
     current_user.has_ever_paid = True
-    if hasattr(current_user, 'stripe_customer_id'):
-        current_user.stripe_customer_id = sess.customer or current_user.stripe_customer_id
-    if hasattr(current_user, 'stripe_subscription_id'):
-        current_user.stripe_subscription_id = sub.id if sub else None
-    if hasattr(current_user, 'plan_status'):
-        current_user.plan_status = sub.status if sub else None
-    if hasattr(current_user, 'current_period_end'):
-        current_user.current_period_end = (
-            dt.datetime.fromtimestamp(sub.current_period_end)
-            if getattr(sub, 'current_period_end', None) else None
-        )
+    current_user.stripe_customer_id = sess.customer or getattr(current_user, 'stripe_customer_id', None)
+    current_user.stripe_subscription_id = (sub.id if sub else None)
+    current_user.plan_status = (sub.status if sub else None)
+    current_user.current_period_end = (
+        dt.datetime.fromtimestamp(sub.current_period_end) if getattr(sub, 'current_period_end', None) else None
+    )
     db.session.commit()
 
     return redirect(url_for('dashboard'))
