@@ -1487,118 +1487,159 @@ def checkout():
 @app.route('/create-checkout-session', methods=['POST'])
 @login_required
 def create_checkout_session():
-    try:
-        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-        price_id = os.getenv("STRIPE_PRICE_ID")
-        print(f"STRIPE_SECRET_KEY={stripe.api_key[:10]}..., PRICE_ID={price_id}")
-        print(f"current_user.email={current_user.email}")
+    import stripe, os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    price_id = os.getenv("STRIPE_PRICE_ID")
+    user = current_user
 
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price': price_id,
-                'quantity': 1,
-            }],
-            mode='subscription',
-            success_url=url_for('dashboard', _external=True),
-            cancel_url=url_for('dashboard', _external=True),
-            customer_email=current_user.email
+    # 1) customer を固定
+    if not user.stripe_customer_id:
+        customer = stripe.Customer.create(
+            email=user.email,
+            metadata={'user_id': str(user.id)}
         )
-        return redirect(checkout_session.url, code=303)
-    except Exception as e:
-        print(f"[CHECKOUT ERROR]: {e}")
-        return str(e), 400
+        user.stripe_customer_id = customer.id
+        db.session.commit()
+
+    # 2) 既存サブスク（active/trialing 等）を確認
+    subs = stripe.Subscription.list(
+        customer=user.stripe_customer_id,
+        status='all',  # ← trialing 等も取る
+        limit=3
+    )
+    existing = next(
+        (s for s in subs.auto_paging_iter()
+         if s.status in ('active', 'trialing', 'past_due', 'unpaid')),
+        None
+    )
+    if existing:
+        portal = stripe.billing_portal.Session.create(
+            customer=user.stripe_customer_id,
+            return_url=url_for('dashboard', _external=True),
+        )
+        return redirect(portal.url, code=303)
+
+    # 3) Checkout を作成（多重クリック対策）
+    idem = f"sub_{user.id}_{price_id}"
+    session = stripe.checkout.Session.create(
+        mode='subscription',
+        line_items=[{'price': price_id, 'quantity': 1}],
+        customer=user.stripe_customer_id,
+        client_reference_id=str(user.id),
+        success_url=url_for('checkout_success', _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url=url_for('dashboard', _external=True),
+        idempotency_key=idem,  # ← 先頭にカンマを置かない
+    )
+    return redirect(session.url, code=303)
+
+@app.route('/checkout/success')
+@login_required
+def checkout_success():
+    import stripe, os, datetime as dt
+    sid = request.args.get('session_id')
+    if not sid:
+        return redirect(url_for('dashboard'))
+
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    sess = stripe.checkout.Session.retrieve(sid, expand=['subscription', 'customer'])
+    sub = sess.subscription
+
+    # 本人確認（client_reference_id 優先。次点で customer 一致）
+    if str(current_user.id) != (sess.client_reference_id or str(current_user.id)):
+        if getattr(current_user, 'stripe_customer_id', None) != sess.customer:
+            return redirect(url_for('dashboard'))
+
+    # DB更新（即 paid 反映）
+    current_user.is_paid = bool(sub and sub.status in ('active', 'trialing'))
+    current_user.has_ever_paid = True
+    if hasattr(current_user, 'stripe_customer_id'):
+        current_user.stripe_customer_id = sess.customer or current_user.stripe_customer_id
+    if hasattr(current_user, 'stripe_subscription_id'):
+        current_user.stripe_subscription_id = sub.id if sub else None
+    if hasattr(current_user, 'plan_status'):
+        current_user.plan_status = sub.status if sub else None
+    if hasattr(current_user, 'current_period_end'):
+        current_user.current_period_end = (
+            dt.datetime.fromtimestamp(sub.current_period_end)
+            if getattr(sub, 'current_period_end', None) else None
+        )
+    db.session.commit()
+
+    return redirect(url_for('dashboard'))
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
+    import stripe, os, datetime as dt
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-    print("📩 Webhook受信しました")
-    print(f"Content-Type: {request.headers.get('Content-Type')}")
-    print(f"Stripe-Signature: {request.headers.get('Stripe-Signature')}")
-
-    content_type = request.headers.get("Content-Type", "")
-    if not content_type.startswith("application/json"):
-        return "Unsupported Media Type", 415
 
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
 
-    # ✅ 環境に応じてWebhookシークレットを切り替える！
-    if os.getenv("FLASK_ENV") == "development":
-        endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET_TEST")
-    else:
-        endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET_TEST") if os.getenv("FLASK_ENV") == "development" else os.getenv("STRIPE_WEBHOOK_SECRET")
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-    except ValueError:
-        print("❌ Invalid payload")
-        return "Invalid payload", 400
-    except stripe.error.SignatureVerificationError as e:
-        print("❌ Invalid signature")
-        print(f"詳細: {str(e)}")
-        return "Invalid signature", 400
+    except Exception as e:
+        return ("", 400)
 
-    print(f"✅ Event type: {event['type']}")
-
-    if event["type"] == "checkout.session.completed":
-        session_data = event["data"]["object"]
-        email = session_data.get("customer_email")
-    
-        # 🔍 customer_emailがない場合はcustomerから取得
-        if not email and session_data.get("customer"):
+    def update_user_by_customer(customer_id, patch: dict):
+        user = User.query.filter_by(stripe_customer_id=customer_id).first()
+        if not user:
+            # 初回のみ email 経由で救済（以後は stripe_customer_id を保持するため不要になる）
             try:
-                customer = stripe.Customer.retrieve(session_data["customer"])
-                email = customer.get("email")
-                print(f"📧 Stripe顧客情報から取得したメール: {email}")
-            except Exception as e:
-                print(f"❌ 顧客情報の取得に失敗: {e}")
+                c = stripe.Customer.retrieve(customer_id)
+                if c and c.email:
+                    user = User.query.filter_by(email=c.email).first()
+            except Exception:
+                pass
+        if user:
+            for k, v in patch.items():
+                setattr(user, k, v)
+            db.session.commit()
 
-        if email:
-            print(f"🎯 顧客メール: {email}")
-            user = User.query.filter_by(email=email).first()
-            if user:
-                print(f"✅ ユーザー {email} が見つかりました。is_paidを更新します")
-                user.is_paid = True
-                user.has_ever_paid = True
-                db.session.commit()
-                print(f"💰 {email} の支払いステータスを更新しました")
-            else:
-                print(f"❌ ユーザー {email} が見つかりませんでした")
-        else:
-            print("❌ 顧客メールが取得できませんでした")
+    t = event['type']
+    obj = event['data']['object']
 
-        return jsonify(success=True)
+    if t == 'checkout.session.completed':
+        # 念のため即反映（成功ページでもやっているが二重OK）
+        sub_id = obj.get('subscription')
+        if sub_id:
+            sub = stripe.Subscription.retrieve(sub_id)
+            update_user_by_customer(
+                obj.get('customer'),
+                dict(
+                    is_paid=sub.status in ('active', 'trialing'),
+                    has_ever_paid=True,
+                    stripe_subscription_id=sub.id,
+                    plan_status=sub.status,
+                    current_period_end=dt.datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                )
+            )
 
-    # ---------------------------
-    # 2. サブスク解約（is_paid=False）
-    elif event["type"] == "customer.subscription.deleted":
-        subscription = event["data"]["object"]
-        customer_id = subscription.get("customer")
-        print(f"🗑 サブスク削除検知 customer_id={customer_id}")
+    elif t in ('invoice.payment_succeeded', 'customer.subscription.updated'):
+        sub = stripe.Subscription.retrieve(obj.get('subscription') or obj.get('id'))
+        update_user_by_customer(
+            sub.customer,
+            dict(
+                is_paid=sub.status in ('active', 'trialing'),
+                stripe_subscription_id=sub.id,
+                plan_status=sub.status,
+                current_period_end=dt.datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+            )
+        )
 
-        # Stripe顧客IDからユーザー特定
-        try:
-            customer = stripe.Customer.retrieve(customer_id)
-            email = customer.get("email")
-            print(f"📧 顧客メール: {email}")
-        except Exception as e:
-            print(f"❌ 顧客情報取得失敗: {e}")
-            email = None
+    elif t == 'customer.subscription.deleted':
+        sub = obj
+        update_user_by_customer(
+            sub.get('customer'),
+            dict(
+                is_paid=False,
+                plan_status=sub.get('status'),
+                stripe_subscription_id=None,
+                current_period_end=None
+            )
+        )
 
-        if email:
-            user = User.query.filter_by(email=email).first()
-            if user:
-                user.is_paid = False
-                user.has_ever_paid = True
-                db.session.commit()
-                print(f"✅ ユーザー {email} のis_paidをFalseにしました")
-            else:
-                print("❌ DBに該当ユーザーがいません")
-        else:
-            print("❌ 顧客メール取得できず")
-
-        return jsonify(success=True)
+    return ("", 200)
 
     # ---------------------------
     # その他イベント
