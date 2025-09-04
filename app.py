@@ -58,6 +58,7 @@ def fmt_jst(dt, fmt='%Y-%m-%d'):
     x = to_jst(dt)
     return x.strftime(fmt) if x else None
 
+from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response, render_template_string
 from flask_cors import CORS
 from redis import Redis
@@ -226,6 +227,15 @@ def check_can_use_premium(user):
 def can_use_premium(user):
     ok, _ = check_can_use_premium(user)
     return ok
+
+def require_premium(fn):
+    @wraps(fn)
+    def _wrapped(*args, **kwargs):
+        ok, _ = check_can_use_premium(current_user)
+        if not ok:
+            return jsonify(success=False, error='forbidden'), 403
+        return fn(*args, **kwargs)
+    return _wrapped
 
 @app.route('/calm')
 @login_required
