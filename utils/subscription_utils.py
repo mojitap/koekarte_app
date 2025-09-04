@@ -1,11 +1,10 @@
 # utils/subscription_utils.py
 import os, stripe
 from datetime import datetime, timezone
-
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 def sync_subscription_from_stripe(user):
-    from app_instance import db   # ←こちらに変更
+    from app_instance import db  # ←OK（関数内importで循環回避）
 
     cust_id = getattr(user, "stripe_customer_id", None)
     cust = None
@@ -28,25 +27,28 @@ def sync_subscription_from_stripe(user):
         else:
             return False, "no_customer"
 
-    # 2) サブスク取得 → active/trialing を優先
+    # 2) サブスク取得（active / trialing を優先）
     subs = stripe.Subscription.list(customer=cust_id, status="all", limit=10)
-    active_sub = next((s for s in subs.auto_paging_iter()
-                       if s.status in ("active", "trialing")), None)
+    active_sub = next((s for s in subs.auto_paging_iter() if s.status in ("active", "trialing")), None)
 
     if not active_sub:
         user.is_paid = False
         user.plan_status = None
         user.stripe_subscription_id = None
         user.current_period_end = None
+        # ここを追加（落とし忘れ防止）
+        user.paid_until = None
+        user.paid_platform = None
         db.session.commit()
         return True, "none"
 
+    # サブスク有り → 反映
     user.is_paid = True
     user.has_ever_paid = True
     user.plan_status = active_sub.status
     user.stripe_subscription_id = active_sub.id
-    user.current_period_end = datetime.fromtimestamp(
-        active_sub.current_period_end, tz=timezone.utc
-    )
+    user.current_period_end = datetime.fromtimestamp(active_sub.current_period_end, tz=timezone.utc)
+    user.paid_until = user.current_period_end           # ← 既存ガード互換のためここを更新
+    user.paid_platform = 'web'
     db.session.commit()
     return True, active_sub.status
