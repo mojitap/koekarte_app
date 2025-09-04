@@ -201,6 +201,9 @@ app.config["WEB_BASE_URL"] = os.getenv("WEB_BASE_URL") \
 def check_can_use_premium(user):
     now = datetime.now(UTC)
 
+    if getattr(user, "is_paid", False):
+        return True, "subscription"   # ← ここが最優先
+
     if getattr(user, "paid_until", None):
         pu = user.paid_until
         if pu.tzinfo is None:
@@ -227,10 +230,18 @@ def can_use_premium(user):
 @app.route('/calm')
 @login_required
 def calm_page():
-    ok, reason = check_can_use_premium(current_user)  # ← ここで判定
+    # 1) Stripeと突き合わせ
+    try:
+        sync_subscription_from_stripe(current_user)
+    except Exception as e:
+        print(f"[PAYWALL SYNC WARN] /calm: {e}")
+
+    # 2) 判定（理由もテンプレへ渡す）
+    ok, reason = check_can_use_premium(current_user)
     if not ok:
         flash("⚠️ 無料期間は終了しています。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'), code=303)
+
     return render_template('calm.html', premium_reason=reason)
 
 @app.route('/music')
@@ -900,6 +911,11 @@ def api_forgot_password():
 @app.route('/record')
 @login_required
 def record_page():
+    try:
+        sync_subscription_from_stripe(current_user)  # ここで最新化
+    except Exception as e:
+        print(f"[PAYWALL SYNC WARN] {e}")
+
     if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
         return redirect(url_for('dashboard'))
@@ -1209,10 +1225,18 @@ def diary_list():
 @app.route('/result')
 @login_required
 def result():
+    # 1) Stripeと突き合わせ（念のため毎回最新化）
+    try:
+        sync_subscription_from_stripe(current_user)
+    except Exception as e:
+        print(f"[PAYWALL SYNC WARN] /result: {e}")
+
+    # 2) 使えるか判定
     if not can_use_premium(current_user):
         flash("⚠️ 無料期間は終了しました。有料登録後にご利用ください。")
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard'), code=303)
 
+    # 3) 以降は既存ロジック
     range_type = request.args.get('range', 'all')
     today = date.today()
 
