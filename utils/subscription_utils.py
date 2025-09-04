@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 def sync_subscription_from_stripe(user):
-    from app import db  # 循環import回避のため遅延import
+    from app_instance import db   # ←こちらに変更
 
     cust_id = getattr(user, "stripe_customer_id", None)
     cust = None
