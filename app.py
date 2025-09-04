@@ -1493,26 +1493,42 @@ def diary_redirect():
 def checkout():
     return render_template('checkout.html')
 
-# /create-checkout-session
+# app.py
 @app.route('/create-checkout-session', methods=['POST'])
 @login_required
 def create_checkout_session():
-    import stripe, os, time, uuid
+    import os, uuid, stripe
+    from datetime import datetime as dt
+    from app_instance import db
+
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
     price_id = os.getenv("STRIPE_PRICE_ID")
     user = current_user
 
-    # 1) 顧客IDの確保
-    if not user.stripe_customer_id:
-        customer = stripe.Customer.create(
-            email=user.email,
-            metadata={'user_id': str(user.id)}
-        )
-        user.stripe_customer_id = customer.id
+    # 1) 既存の Stripe Customer をメールで検索 → 無ければ作成 → DBへ保存
+    if not getattr(user, 'stripe_customer_id', None):
+        cust = None
+        try:
+            res = stripe.Customer.search(query=f"email:'{user.email}'")
+            if res.data:
+                cust = res.data[0]
+        except Exception:
+            res = stripe.Customer.list(email=user.email, limit=1)
+            if res.data:
+                cust = res.data[0]
+
+        if not cust:
+            cust = stripe.Customer.create(
+                email=user.email,
+                metadata={'user_id': str(user.id)}
+            )
+
+        user.stripe_customer_id = cust.id
         db.session.commit()
 
     # 2) すでに active サブスクがあるならポータルへ
-    subs = stripe.Subscription.list(customer=user.stripe_customer_id, status='active', limit=1)
+    subs = stripe.Subscription.list(customer=user.stripe_customer_id,
+                                    status='active', limit=1)
     if subs.data:
         portal = stripe.billing_portal.Session.create(
             customer=user.stripe_customer_id,
@@ -1520,19 +1536,18 @@ def create_checkout_session():
         )
         return redirect(portal.url, code=303)
 
-    # 3) 新しいセッションを必ず作るため、キーを“v2”などに変更
-    idem = f"sub_v2_{user.id}_{price_id}"  # ← v1 → v2 に“世代上げ”して再作成させる
-
+    # 3) Checkout セッション作成
+    idem = f"sub_v2_{user.id}_{price_id}"
     session = stripe.checkout.Session.create(
         mode='subscription',
         line_items=[{'price': price_id, 'quantity': 1}],
         customer=user.stripe_customer_id,
         client_reference_id=str(user.id),
-        success_url=url_for('checkout_success', _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
+        success_url=url_for('checkout_success', _external=True)
+                    + "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=url_for('dashboard', _external=True),
-        idempotency_key=idem,      # ← 余計なカンマの前置きなしでここに置く
+        idempotency_key=idem,
     )
-
     return redirect(session.url, code=303)
 
 @app.route('/checkout/success')
