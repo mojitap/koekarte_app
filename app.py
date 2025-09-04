@@ -466,22 +466,24 @@ def faq():
 @app.route('/api/score-history')
 @login_required
 def api_score_history():
-    print("🪪 current_user.id =", current_user.id)
-    logs = ScoreLog.query.filter_by(user_id=current_user.id).order_by(ScoreLog.timestamp).all()
+    # 必要なら同期（重いなら省略可）
+    # try: sync_subscription_from_stripe(current_user)
+    # except Exception as e: app.logger.warning(f"[PAYWALL SYNC WARN] {e}")
 
-    print(f"📊 ログ件数 = {len(logs)}")
-    for log in logs:
-        print(f"📝 {log.timestamp}: {log.score}")
+    ok, _ = check_can_use_premium(current_user)
+    if not ok:
+        return jsonify(success=False, error='forbidden'), 403
 
-    result = [
-        {
-            'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-            'score': log.score, 
-            'is_fallback': log.is_fallback  # ← 追加
-        }
-        for log in logs
-    ]
-    return jsonify({ "scores": result }), 200
+    logs = (ScoreLog.query
+            .filter_by(user_id=current_user.id)
+            .order_by(ScoreLog.timestamp)
+            .all())
+    result = [{
+        'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+        'score': log.score,
+        'is_fallback': log.is_fallback
+    } for log in logs]
+    return jsonify({"scores": result}), 200
 
 # --- パスワード再設定メール送信（SendGrid版） ---
 def send_reset_email(user):
@@ -923,10 +925,9 @@ def record_page():
 
 @app.route('/api/record')
 @login_required
-def record_api():  # ← こちらも別名にしておくと安心
+@require_premium
+def record_api():
     return jsonify({"status": "ok"})
-
-from flask import jsonify
 
 @app.route('/api/upload', methods=['POST'])
 @login_required
@@ -1122,6 +1123,7 @@ def upload_result(job_id):
 # ===== Diary Upload API =====
 @app.route('/api/diary/upload', methods=['POST'])
 @login_required
+@require_premium
 def diary_upload():
     try:
         # 1) 日付
@@ -1183,6 +1185,7 @@ def diary_upload():
 # ===== Diary by-date (S3確認) =====
 @app.route('/api/diary/by-date')
 @login_required
+@require_premium
 def diary_by_date():
     q = request.args.get('date')
     if not q:
@@ -1201,6 +1204,7 @@ def diary_by_date():
 
 @app.route('/api/diary/list')
 @login_required
+@require_premium
 def diary_list():
     limit = max(1, min(int(request.args.get('limit', 30)), 500))
     prefix = f"diary/{current_user.id}/"
@@ -1221,6 +1225,17 @@ def diary_list():
         })
     items.sort(key=lambda x: x['date'], reverse=True)
     return jsonify({'items': items[:limit]}), 200
+
+@app.route('/api/premium/status')
+@login_required
+def premium_status():
+    try:
+        sync_subscription_from_stripe(current_user)  # 任意（重いなら省略）
+    except Exception as e:
+        app.logger.warning(f"[PAYWALL SYNC WARN] /api/premium/status: {e}")
+
+    ok, reason = check_can_use_premium(current_user)
+    return jsonify(ok=ok, reason=reason), 200
 
 @app.route('/result')
 @login_required
