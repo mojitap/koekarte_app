@@ -43,11 +43,6 @@ class User(UserMixin, db.Model):
     )
     score_logs = db.relationship('ScoreLog', backref='user', lazy=True)
 
-    # ★ここを追加★  ------------------------------------
-    last_score      = db.Column(db.Integer)      # 直近スコア
-    last_recorded   = db.Column(db.DateTime)     # 直近録音日時
-    # ---------------------------------------------------
-
     # ダッシュボード用キャッシュ
     last_score    = db.Column(db.Integer)
     last_recorded = db.Column(db.DateTime)
