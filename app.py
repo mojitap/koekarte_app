@@ -59,7 +59,7 @@ def fmt_jst(dt, fmt='%Y-%m-%d'):
     return x.strftime(fmt) if x else None
 
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response, render_template_string
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response, render_template_string, abort
 from flask_cors import CORS
 from redis import Redis
 from rq import Queue
@@ -160,6 +160,10 @@ CORS(app, origins=[
 
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+def admin_required():
+    if not current_user.is_admin:
+        abort(403)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -747,29 +751,37 @@ def api_reset_password():
     db.session.commit()
     return jsonify(success=True)
 
-@app.route('/set-paid/<int:user_id>')
+@app.post('/set-paid/<int:user_id>')  # Flask 2
+# @app.route('/set-paid/<int:user_id>', methods=['POST'])  # ← Flask 1系ならこちら
 @login_required
 def set_paid(user_id):
-    if not current_user.is_admin:
-        return "アクセス権がありません", 403
+    admin_required()
 
-    user = User.query.get(user_id)
-    if user:
-        user.is_paid = True
-        db.session.commit()
+    user = User.query.get_or_404(user_id)
+    user.is_paid = not bool(user.is_paid)   # ← トグル
+    if user.is_paid:
+        user.has_ever_paid = True
+        user.is_free_extended = False       # 有料にしたら無料延長はOFF
+    db.session.commit()
 
-        # ✅ 操作ログを保存
-        from models import ActionLog  # 必要なら上でimport
-        log = ActionLog(
-            admin_email=current_user.email,
-            user_email=user.email,
-            action='有料に変更'
-        )
-        db.session.add(log)
-        db.session.commit()
+    # （任意）操作ログを残すならここで ActionLog 追加
 
-        return redirect(url_for('admin.index'))
-    return 'User not found', 404
+    return redirect(url_for('admin'))       # ← あなたの一覧ルートは関数名が admin
+
+# --- 無料延長のトグル（「追記」して新設） ---
+@app.post('/set-free-extended/<int:user_id>')
+# @app.route('/set-free-extended/<int:user_id>', methods=['POST'])  # Flask 1系
+@login_required
+def set_free_extended(user_id):
+    admin_required()
+
+    user = User.query.get_or_404(user_id)
+    user.is_free_extended = not bool(user.is_free_extended)
+    if user.is_free_extended:
+        user.is_paid = False                # 延長ONなら有料はOFF
+    db.session.commit()
+
+    return redirect(url_for('admin'))       # 一覧へ戻る
 
 @app.route('/dashboard')
 @login_required
@@ -1708,12 +1720,35 @@ def stripe_webhook():
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
 ALLOWED_FREE_EMAILS = ['ta714kadvance@gmail.com']
 
+def within_free_trial(user) -> bool:
+    """登録から FREE_DAYS 日以内なら True"""
+    ca = getattr(user, "created_at", None)
+    if not ca:
+        return False
+    created_utc = _ensure_aware_utc(ca)
+    return (datetime.now(UTC) - created_utc) <= timedelta(days=FREE_DAYS)
+
+def check_can_use_premium(user):
+    """
+    プレミアム機能が使えるかを判定し、(bool, reason) を返す。
+    reason: 'paid' | 'free_extended' | f'free_trial_until_{ISO8601}' | 'not_paid'
+    """
+    if getattr(user, "is_paid", False):
+        return True, "paid"
+    if getattr(user, "is_free_extended", False):
+        return True, "free_extended"
+    if within_free_trial(user):
+        end = _ensure_aware_utc(user.created_at) + timedelta(days=FREE_DAYS)
+        return True, f"free_trial_until_{end.isoformat()}"
+    return False, "not_paid"
+
+
 @app.route('/api/profile')
 def api_profile():
     """
     - baseline: ユーザー登録から5日間の中で『最初の最大5回』の平均
-      * 5日間に2〜4回しか記録がなくても、その回数で平均
-      * 5日間に記録が1件も無い場合は、全期間の『最初の最大5回』でフォールバック
+        * 5日間に2〜4回しか記録がなくても、その回数で平均
+        * 5日間に記録が1件も無い場合は、全期間の『最初の最大5回』でフォールバック
     - last_score: 今日(JST)の最新スコア。無ければ直近スコア
     - score_deviation: last_score - baseline
     """
@@ -1824,13 +1859,6 @@ def api_profile():
         'next_renewal_at': _ensure_aware_utc(current_user.paid_until).isoformat() if current_user.paid_until else None,
     })
     
-try:
-    with app.app_context():
-        time.sleep(3)  # ← ⭐️ここで3秒だけ待つ
-        db.create_all()
-except Exception as e:
-    print("❌ データベース接続に失敗しました:", e)
-
 @app.route('/api/scores')
 @login_required
 def api_scores():
