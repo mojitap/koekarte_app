@@ -751,33 +751,30 @@ def api_reset_password():
     db.session.commit()
     return jsonify(success=True)
 
-# --- 有料/無料トグル（endpoint を明示し、関数名はユニークに） ---
-@app.post('/set-paid/<int:user_id>', endpoint='set_paid')
-# Flask 1系なら:
-# @app.route('/set-paid/<int:user_id>', methods=['POST'], endpoint='set_paid')
+# --- 有料/無料 トグル ---
+@app.post('/admin/set_paid/<int:user_id>', endpoint='admin_set_paid')
 @login_required
-def set_paid_view(user_id):
+def admin_set_paid(user_id):
     admin_required()
     user = User.query.get_or_404(user_id)
     user.is_paid = not bool(user.is_paid)
     if user.is_paid:
         user.has_ever_paid = True
-        user.is_free_extended = False  # 有料ONなら無料延長OFF
+        user.is_free_extended = False   # 有料ONなら延長OFF
     db.session.commit()
-    return redirect(url_for('admin'))  # あなたの一覧ルートが def admin() なので 'admin'
+    return redirect(url_for('admin'))
 
-# --- 無料延長トグル（endpoint を明示し、関数名はユニークに） ---
-@app.post('/set-free-extended/<int:user_id>', endpoint='set_free_extended')
-# Flask 1系なら:
-# @app.route('/set-free-extended/<int:user_id>', methods=['POST'], endpoint='set_free_extended')
+# --- 無料延長 トグル ---
+@app.post('/admin/set_free_extended/<int:user_id>', endpoint='admin_set_free_extended')
 @login_required
-def set_free_extended_view(user_id):
+def admin_set_free_extended(user_id):
     admin_required()
     user = User.query.get_or_404(user_id)
     user.is_free_extended = not bool(user.is_free_extended)
     if user.is_free_extended:
-        user.is_paid = False  # 無料延長ONなら有料OFF
+        user.is_paid = False            # 延長ONなら有料OFF
     db.session.commit()
+    flash(f"{user.email} の無料延長状態を変更しました。")
     return redirect(url_for('admin'))
 
 @app.route('/dashboard')
@@ -1334,18 +1331,6 @@ def cleanup_users_without_scores():
 
     db.session.commit()
     return f"{deleted_count} 件のスコアなしユーザーを削除しました"
-
-@app.route('/admin/set_free_extended/<int:user_id>', methods=['POST'])
-@login_required
-def set_free_extended(user_id):
-    if current_user.email != 'ta714kadvance@gmail.com':
-        return "アクセス拒否", 403
-
-    user = User.query.get(user_id)
-    user.is_free_extended = not user.is_free_extended
-    db.session.commit()
-    flash(f"{user.email} の無料延長状態を変更しました。")
-    return redirect(url_for('admin'))
 
 @app.route('/terms')
 def terms():
