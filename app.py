@@ -751,37 +751,31 @@ def api_reset_password():
     db.session.commit()
     return jsonify(success=True)
 
-@app.post('/set-paid/<int:user_id>')  # Flask 2
-# @app.route('/set-paid/<int:user_id>', methods=['POST'])  # ← Flask 1系ならこちら
+@app.post('/set-paid/<int:user_id>', endpoint='set_paid')
+# Flask 1系なら: @app.route('/set-paid/<int:user_id>', methods=['POST'], endpoint='set_paid')
 @login_required
-def set_paid(user_id):
+def set_paid_view(user_id):  # ← 関数名をユニークに
     admin_required()
-
     user = User.query.get_or_404(user_id)
-    user.is_paid = not bool(user.is_paid)   # ← トグル
+    user.is_paid = not bool(user.is_paid)      # トグル
     if user.is_paid:
         user.has_ever_paid = True
-        user.is_free_extended = False       # 有料にしたら無料延長はOFF
+        user.is_free_extended = False          # 有料ON時は無料延長OFF
     db.session.commit()
+    return redirect(url_for('admin'))          # あなたの一覧ルートは 'admin'
 
-    # （任意）操作ログを残すならここで ActionLog 追加
-
-    return redirect(url_for('admin'))       # ← あなたの一覧ルートは関数名が admin
-
-# --- 無料延長のトグル（「追記」して新設） ---
-@app.post('/set-free-extended/<int:user_id>')
-# @app.route('/set-free-extended/<int:user_id>', methods=['POST'])  # Flask 1系
+# --- 無料延長トグル ---
+@app.post('/set-free-extended/<int:user_id>', endpoint='set_free_extended')
+# Flask 1系なら: @app.route('/set-free-extended/<int:user_id>', methods=['POST'], endpoint='set_free_extended')
 @login_required
-def set_free_extended(user_id):
+def set_free_extended_view(user_id):  # ← 関数名をユニークに
     admin_required()
-
     user = User.query.get_or_404(user_id)
     user.is_free_extended = not bool(user.is_free_extended)
     if user.is_free_extended:
-        user.is_paid = False                # 延長ONなら有料はOFF
+        user.is_paid = False                     # 無料延長ON時は有料OFF
     db.session.commit()
-
-    return redirect(url_for('admin'))       # 一覧へ戻る
+    return redirect(url_for('admin'))            # 一覧へ戻る
 
 @app.route('/dashboard')
 @login_required
