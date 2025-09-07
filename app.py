@@ -751,31 +751,34 @@ def api_reset_password():
     db.session.commit()
     return jsonify(success=True)
 
+# --- 有料/無料トグル（endpoint を明示し、関数名はユニークに） ---
 @app.post('/set-paid/<int:user_id>', endpoint='set_paid')
-# Flask 1系なら: @app.route('/set-paid/<int:user_id>', methods=['POST'], endpoint='set_paid')
+# Flask 1系なら:
+# @app.route('/set-paid/<int:user_id>', methods=['POST'], endpoint='set_paid')
 @login_required
-def set_paid_view(user_id):  # ← 関数名をユニークに
+def set_paid_view(user_id):
     admin_required()
     user = User.query.get_or_404(user_id)
-    user.is_paid = not bool(user.is_paid)      # トグル
+    user.is_paid = not bool(user.is_paid)
     if user.is_paid:
         user.has_ever_paid = True
-        user.is_free_extended = False          # 有料ON時は無料延長OFF
+        user.is_free_extended = False  # 有料ONなら無料延長OFF
     db.session.commit()
-    return redirect(url_for('admin'))          # あなたの一覧ルートは 'admin'
+    return redirect(url_for('admin'))  # あなたの一覧ルートが def admin() なので 'admin'
 
-# --- 無料延長トグル ---
+# --- 無料延長トグル（endpoint を明示し、関数名はユニークに） ---
 @app.post('/set-free-extended/<int:user_id>', endpoint='set_free_extended')
-# Flask 1系なら: @app.route('/set-free-extended/<int:user_id>', methods=['POST'], endpoint='set_free_extended')
+# Flask 1系なら:
+# @app.route('/set-free-extended/<int:user_id>', methods=['POST'], endpoint='set_free_extended')
 @login_required
-def set_free_extended_view(user_id):  # ← 関数名をユニークに
+def set_free_extended_view(user_id):
     admin_required()
     user = User.query.get_or_404(user_id)
     user.is_free_extended = not bool(user.is_free_extended)
     if user.is_free_extended:
-        user.is_paid = False                     # 無料延長ON時は有料OFF
+        user.is_paid = False  # 無料延長ONなら有料OFF
     db.session.commit()
-    return redirect(url_for('admin'))            # 一覧へ戻る
+    return redirect(url_for('admin'))
 
 @app.route('/dashboard')
 @login_required
