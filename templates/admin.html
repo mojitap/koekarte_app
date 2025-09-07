@@ -27,14 +27,14 @@
     <td>{{ '延長中' if user.is_free_extended else '-' }}</td> <!-- ✅ 表示 -->
     <td>
       <!-- 有料状態切替 -->
-      <form method="POST" action="{{ url_for('set_paid', user_id=user.id) }}" style="display:inline-block;">
+      <form method="POST" action="{{ url_for('admin_set_paid', user_id=user.id) }}" style="display:inline-block;">
         <button type="submit">
           {{ '無料にする' if user.is_paid else '有料にする' }}
         </button>
       </form>
 
       <!-- 無料延長切替 -->
-      <form method="POST" action="{{ url_for('set_free_extended', user_id=user.id) }}" style="display:inline-block; margin-left: 10px;">
+      <form method="POST" action="{{ url_for('admin_set_free_extended', user_id=user.id) }}" style="display:inline-block; margin-left: 10px;">
         <button type="submit">
           {{ '延長解除' if user.is_free_extended else '延長する' }}
         </button>
