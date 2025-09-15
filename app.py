@@ -22,8 +22,8 @@ from datetime import datetime, date, timedelta, timezone as _tz
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
 
-S3_BUCKET = os.environ.get("S3_BUCKET")
-S3_REGION = os.environ.get("S3_REGION", "ap-northeast-1")
+S3_BUCKET = os.getenv("S3_BUCKET") or os.getenv("AWS_S3_BUCKET_NAME")
+S3_REGION = os.getenv("S3_REGION") or os.getenv("AWS_S3_REGION", "ap-northeast-1")
 
 import mimetypes
 mimetypes.add_type('audio/mpeg', '.mp3')
@@ -1214,7 +1214,10 @@ def diary_by_date():
     key_mp3 = diary_key_mp3(current_user.id, q)
     key_m4a = diary_key_m4a(current_user.id, q)
 
-    key = key_mp3 if s3_exists(key_mp3) else (key_m4a if s3_exists(key_m4a) else None)
+    # ★ここを m4a 優先に
+    key = key_m4a if s3_exists(key_m4a) \
+        else (key_mp3 if s3_exists(key_mp3) else None)
+
     url = signed_url(key, expires=86400) if key else None
     return jsonify({'item': {'date': q, 'playback_url': url}}), 200
 
