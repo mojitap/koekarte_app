@@ -1221,29 +1221,39 @@ def diary_by_date():
     url = signed_url(key, expires=86400) if key else None
     return jsonify({'item': {'date': q, 'playback_url': url}}), 200
 
+# app.py
 @app.route('/api/diary/list')
 @login_required
 @require_premium
 def diary_list():
-    limit = max(1, min(int(request.args.get('limit', 30)), 500))
+    limit = max(1, min(int(request.args.get('limit', 90)), 500))
     prefix = f"diary/{current_user.id}/"
     resp = s3().list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
-    contents = resp.get('Contents', [])
-    items = []
+    contents = resp.get('Contents', []) or []
+
+    # 同一日付に m4a と mp3 がある場合は m4a を優先
+    by_date = {}
     for obj in contents:
-        key = obj['Key']
+        key  = obj['Key']
         base = os.path.basename(key)
-        if not base.endswith('.m4a'):
+        if not (base.endswith('.m4a') or base.endswith('.mp3')):
             continue
-        date_str = base.replace('.m4a', '')
-        items.append({
-            'date': date_str,
-            'playback_url': signed_url(key),  # ← 署名URL
-            'size': obj.get('Size', 0),
-            'last_modified': obj.get('LastModified').isoformat() if obj.get('LastModified') else None,
-        })
-    items.sort(key=lambda x: x['date'], reverse=True)
-    return jsonify({'items': items[:limit]}), 200
+        date_str = base[:-4]  # 拡張子を除去
+        rec = by_date.get(date_str, {'date': date_str, 'size': 0, 'last_modified': None, 'playback_url': None, 'ext': None})
+
+        # m4a を優先（既に m4a が入っていれば mp3 は上書きしない）
+        is_m4a = base.endswith('.m4a')
+        if rec['ext'] != 'm4a':
+            rec['playback_url'] = signed_url(key)  # 署名URL（印には不要だが再生で使える）
+            rec['ext'] = 'm4a' if is_m4a else 'mp3'
+
+        rec['size'] = max(rec['size'], obj.get('Size', 0))
+        if obj.get('LastModified'):
+            rec['last_modified'] = obj['LastModified'].isoformat()
+        by_date[date_str] = rec
+
+    items = sorted(by_date.values(), key=lambda x: x['date'], reverse=True)[:limit]
+    return jsonify({'items': items}), 200
 
 @app.route('/api/premium/status')
 @login_required
