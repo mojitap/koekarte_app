@@ -19,9 +19,8 @@ from pydub import AudioSegment
 import imageio_ffmpeg
 AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
-import datetime as dt
-from datetime import time as dt_time, timezone as _tz, timedelta, date
-from datetime import datetime
+from datetime import datetime, date, timedelta, time as dt_time, timezone as _tz
+
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
 
@@ -1921,6 +1920,8 @@ def compute_score_baseline(user_id: int):
     if not first5:
         return None
     return round(sum(x.score for x in first5) / len(first5), 1)
+
+print(f"[PROFILE] uid={current_user.id} paid={current_user.is_paid} status={current_user.plan_status} until={current_user.paid_until}")
 
 @app.route('/api/profile')
 def api_profile():
