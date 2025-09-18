@@ -19,8 +19,8 @@ from pydub import AudioSegment
 import imageio_ffmpeg
 AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
-from datetime import time as dt_time, dt
-from datetime import datetime, date, timedelta, timezone as _tz
+import datetime as dt
+from datetime import time as dt_time, timezone as _tz, timedelta, date
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
 
