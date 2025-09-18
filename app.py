@@ -66,6 +66,7 @@ from rq import Queue
 from app_instance import app, db, login_manager
 from tasks import enqueue_detailed_analysis, redis_conn
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask.cli import with_appcontext
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mailman import Mail, EmailMessage
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -206,27 +207,30 @@ app.config["WEB_BASE_URL"] = os.getenv("WEB_BASE_URL") \
 def check_can_use_premium(user):
     now = datetime.now(UTC)
 
+    # ①有料（最優先）
     if getattr(user, "is_paid", False):
-        return True, "subscription"   # ← ここが最優先
+        return True, "paid"
 
-    if getattr(user, "paid_until", None):
-        pu = user.paid_until
-        if pu.tzinfo is None:
-            pu = pu.replace(tzinfo=UTC)
+    # ②paid_until での有効期限（あれば尊重）
+    pu = getattr(user, "paid_until", None)
+    if pu:
+        pu = _ensure_aware_utc(pu)
         if pu >= now:
-            return True, "paid"
+            return True, "paid_until"
 
+    # ③無料延長
     if getattr(user, "is_free_extended", False):
-        return True, "extended"
+        return True, "free_extended"
 
-    if getattr(user, "created_at", None):
-        ca = user.created_at
-        if ca.tzinfo is None:
-            ca = ca.replace(tzinfo=UTC)
+    # ④トライアル（登録からFREE_DAYS日）
+    ca = getattr(user, "created_at", None)
+    if ca:
+        ca = _ensure_aware_utc(ca)
         if ca + timedelta(days=FREE_DAYS) >= now:
-            return True, "trial"
+            end = ca + timedelta(days=FREE_DAYS)
+            return True, f"free_trial_until_{end.isoformat()}"
 
-    return False, "free"
+    return False, "not_paid"
 
 def can_use_premium(user):
     ok, _ = check_can_use_premium(user)
@@ -818,31 +822,30 @@ def dashboard():
             detailed_ready=False
         )
 
-    # ③ 本来の処理：過去5件でbaselineを計算
-    past5 = (
+    # ★ baseline を統一定義に
+    baseline = compute_score_baseline(current_user.id)
+    diff = latest.score - baseline if baseline is not None else 0
+
+    # ★ 全期間の最初の1件（表示用）
+    earliest = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
-        .order_by(ScoreLog.timestamp)
-        .limit(5)
-        .all()
+        .order_by(ScoreLog.timestamp.asc())
+        .first()
     )
-    scores5 = [l.score for l in past5]
-    baseline = sum(scores5) // len(scores5) if scores5 else latest.score
-    diff = latest.score - baseline
-
-    # JST に変換してからフォーマット
-    first_date = fmt_jst(past5[0].timestamp, '%Y-%m-%d') if past5 else fmt_jst(latest.timestamp, '%Y-%m-%d')
-    last_date  = fmt_jst(latest.timestamp, '%Y-%m-%d')
+    first_score = earliest.score if earliest else latest.score
+    first_date  = fmt_jst(earliest.timestamp, '%Y-%m-%d') if earliest else fmt_jst(latest.timestamp, '%Y-%m-%d')
+    last_date   = fmt_jst(latest.timestamp, '%Y-%m-%d')
 
     return render_template('dashboard.html',
-        user=current_user,
-        first_score=past5[0].score if past5 else latest.score,
-        latest_score=latest.score,
-        diff=diff,
-        first_score_date=first_date,
-        last_date=last_date,
-        baseline=baseline,
-        detailed_ready=(detailed is not None)
+            user=current_user,
+            first_score=first_score,
+            latest_score=latest.score,
+            diff=diff,
+            first_score_date=first_date,
+            last_date=last_date,
+            baseline=baseline or 0,
+            detailed_ready=(detailed is not None)
     )
 
 @app.route('/api/dashboard')
@@ -880,17 +883,17 @@ def api_dashboard():
             'detailed_ready': False
         }), 200
 
-    # ベースラインは過去5件の平均などで
-    past5 = (
+    # ★ baseline を統一定義に
+    baseline = compute_score_baseline(current_user.id)
+    diff = latest.score - baseline if baseline is not None else 0
+
+    # ★ 全期間の最初の1件（表示用）
+    earliest = (
         ScoreLog.query
         .filter_by(user_id=current_user.id)
-        .order_by(ScoreLog.timestamp)
-        .limit(5)
-        .all()
+        .order_by(ScoreLog.timestamp.asc())
+        .first()
     )
-    scores5 = [l.score for l in past5]
-    baseline = sum(scores5) // len(scores5) if scores5 else latest.score
-    diff = latest.score - baseline
 
     def to_jst(dt):
         if dt.tzinfo is None:
@@ -898,14 +901,12 @@ def api_dashboard():
         return dt.astimezone(JST).strftime('%Y-%m-%d')
 
     return jsonify({
-        'first_score': past5[0].score if past5 else latest.score,
-        'latest_score': latest.score,
-        'first_score_date': to_jst(past5[0].timestamp) if past5 else to_jst(latest.timestamp),
-        'last_date': to_jst(latest.timestamp),
-        'baseline': baseline,
+        'first_score': earliest.score if earliest else latest.score,
+        'first_score_date': to_jst(earliest.timestamp) if earliest else to_jst(latest.timestamp),
+        'baseline': baseline or 0,
         'diff': diff,
         'detailed_ready': detailed_ready
-    }), 200
+    })
 
 @app.route('/api/forgot-password', methods=['POST'])
 def api_forgot_password():
@@ -1084,7 +1085,7 @@ def upload():
         AudioSegment.from_wav(normalized_path).export(mp3_path, format="mp3", bitrate="192k")
 
         s3_key = f"diary/{current_user.id}/{os.path.basename(mp3_path)}"
-        playback_url = upload_to_s3(mp3_path, s3_key, content_type="audio/mpeg")
+        upload_to_s3(mp3_path, s3_key, content_type="audio/mpeg", public=False)
     except Exception:
         app.logger.exception("make/upload mp3 failed")
 
@@ -1176,7 +1177,7 @@ def diary_upload():
         f.save(tmp_in)
 
         # 5) m4a を S3（ACLなし=public=False）
-        ok1 = upload_to_s3(tmp_in, key_m4a, content_type='audio/m4a', public=False)
+        ok1 = upload_to_s3(tmp_in, key_m4a, content_type='audio/mp4', public=False)
         if not ok1 and not s3_exists(key_m4a):
             return jsonify({'success': False, 'error': 's3_upload_failed'}), 500
 
@@ -1244,7 +1245,7 @@ def diary_list():
         # m4a を優先（既に m4a が入っていれば mp3 は上書きしない）
         is_m4a = base.endswith('.m4a')
         if rec['ext'] != 'm4a':
-            rec['playback_url'] = signed_url(key)  # 署名URL（印には不要だが再生で使える）
+            rec['playback_url'] = signed_url(key, expires=86400)  # 24時間
             rec['ext'] = 'm4a' if is_m4a else 'mp3'
 
         rec['size'] = max(rec['size'], obj.get('Size', 0))
@@ -1477,67 +1478,28 @@ def api_login():
         return jsonify({'error': 'ログイン中にエラーが発生しました'}), 500
         
 @app.route('/api/update-profile', methods=['POST'])
+@login_required
 def update_profile():
-    data = request.get_json()
-    is_json = request.is_json
+    data = request.get_json() or {}
 
-    print("📥 POSTデータ:", data)
+    # 変更を許可するフィールドをホワイトリスト化（推奨）
+    allowed = ('username', 'gender', 'occupation', 'prefecture', 'birthdate')
+    payload = {k: v for k, v in data.items() if k in allowed}
 
-    # ✅ 開発者だけはログイン不要で処理許可
-    if data and data.get('email') == 'ta714kadvance@gmail.com':
-        user = User.query.filter_by(email=data['email']).first()
-        if user:
-            user.username = data.get('username', user.username)
+    if 'username'   in payload: current_user.username   = payload['username'] or current_user.username
+    if 'gender'     in payload: current_user.gender     = payload['gender'] or current_user.gender
+    if 'occupation' in payload: current_user.occupation = payload['occupation'] or current_user.occupation
+    if 'prefecture' in payload: current_user.prefecture = payload['prefecture'] or current_user.prefecture
+    if 'birthdate'  in payload:
+        try:
+            current_user.birthdate = datetime.strptime(payload['birthdate'], "%Y-%m-%d").date()
+        except Exception:
+            pass  # 無視
 
-            birth_str = data.get('birthdate')
-            if birth_str:
-                try:
-                    user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
-                except Exception:
-                    pass  # フォーマット不正なら無視
+    # ※ email の更新は本人確認（メール検証フロー）が必要なので基本は許可しないのが安全
 
-            user.gender = data.get('gender', user.gender)
-            user.occupation = data.get('occupation', user.occupation)
-            user.prefecture = data.get('prefecture', user.prefecture)
-
-            db.session.commit()
-            return jsonify({'message': '✅ 開発者プロフィール更新成功'})
-
-        return jsonify({'error': '開発者アカウントが見つかりません'}), 404
-
-    # ✅ 通常ユーザーはログイン必須
-    if not current_user.is_authenticated:
-        return jsonify({'error': '未ログインのため更新できません'}), 401
-
-    try:
-        # ユーザー情報の更新処理
-        current_user.email = data.get('email', current_user.email)
-        current_user.username = data.get('username', current_user.username)
-        # 生年月日
-        birth_str = data.get('birthdate')
-        if birth_str:
-            try:
-                current_user.birthdate = datetime.strptime(birth_str, "%Y-%m-%d").date()
-            except Exception:
-                pass
-        current_user.gender = data.get('gender', current_user.gender)
-        current_user.occupation = data.get('occupation', current_user.occupation)
-        current_user.prefecture = data.get('prefecture', current_user.prefecture)
-
-        db.session.commit()
-
-        if is_json:
-            return jsonify({'message': '✅ 通常プロフィール更新成功'})
-        else:
-            flash("プロフィールを更新しました")
-            return redirect(url_for('profile'))
-
-    except Exception as e:
-        if is_json:
-            return jsonify({'error': f'プロフィール更新エラー: {str(e)}'}), 400
-        else:
-            flash("エラーが発生しました")
-            return redirect(url_for('profile'))
+    db.session.commit()
+    return jsonify({'message': '✅ プロフィール更新成功'})
     
 @app.route('/diary')
 @login_required
@@ -1737,6 +1699,15 @@ def check_can_use_premium(user):
         return True, f"free_trial_until_{end.isoformat()}"
     return False, "not_paid"
 
+def compute_score_baseline(user_id: int):
+    """全期間の『最初の最大5回』の平均に統一（小数1桁）。"""
+    first5 = (ScoreLog.query
+              .filter_by(user_id=user_id)
+              .order_by(ScoreLog.timestamp.asc())
+              .limit(5).all())
+    if not first5:
+        return None
+    return round(sum(x.score for x in first5) / len(first5), 1)
 
 @app.route('/api/profile')
 def api_profile():
@@ -1802,30 +1773,13 @@ def api_profile():
     last_score_val = pick_score(last_log)
 
     # --- baseline: 登録から5日間の「最初の最大5回」 ---
-    ca_utc = _ensure_aware_utc(current_user.created_at) if current_user.created_at else None
-    if ca_utc:
-        trial_end_utc = ca_utc + timedelta(days=5)
-        first_within_trial = (
-            ScoreLog.query
-            .filter_by(user_id=uid)
-            .filter(ScoreLog.timestamp >= ca_utc, ScoreLog.timestamp < trial_end_utc)
-            .order_by(ScoreLog.timestamp.asc())
-            .limit(5)
-            .all()
-        )
-    else:
-        first_within_trial = []
+    baseline = compute_score_baseline(uid)
 
-    baseline_candidates = first_within_trial or (
-        ScoreLog.query
-        .filter_by(user_id=uid)
-        .order_by(ScoreLog.timestamp.asc())
-        .limit(5)
-        .all()
-    )
-
-    base_vals = [v for v in (pick_score(x) for x in baseline_candidates) if v is not None]
-    baseline = round(sum(base_vals)/len(base_vals), 1) if base_vals else None
+    # 偏差 = （今日 or 直近） - baseline
+    base_for_dev = today_score_value if today_score_value is not None else last_score_val
+    score_dev = (round(base_for_dev - baseline, 1)
+        if (base_for_dev is not None and baseline is not None)
+        else None)
 
     # 偏差 = （今日 or 直近） - baseline
     base_for_dev = today_score_value if today_score_value is not None else last_score_val
@@ -1885,16 +1839,9 @@ def api_scores():
         'is_fallback': log.is_fallback
     } for log in logs]
 
-    # ★ グローバル（全期間）の“最初の5件”平均：常に同じ
-    first5_all = (
-        ScoreLog.query
-        .filter(ScoreLog.user_id == current_user.id)
-        .order_by(ScoreLog.timestamp.asc())
-        .limit(5).all()
-    )
-    global_baseline = round(sum(x.score for x in first5_all)/len(first5_all), 1) if first5_all else 0
+    # ★ 統一：全期間の『最初の最大5回』平均
+    global_baseline = compute_score_baseline(current_user.id) or 0
 
-    # ★ 表示期間内の最新と、その差（常に global_baseline と比較）
     latest_score = scores[-1]['score'] if scores else 0
     diff_global  = round(latest_score - global_baseline, 1)
 
@@ -1906,25 +1853,17 @@ def api_scores():
         'diff_against_global': diff_global
     }), 200
 
-@app.route('/create-admin')
-def create_admin():
-    from werkzeug.security import generate_password_hash
-    from models import db, User
-
-    # すでに存在していたらスキップ
-    existing = User.query.filter_by(email='ta714kadvance@gmail.com').first()
-    if existing:
-        return 'すでに作成済みです'
-
-    user = User(
-        email='ta714kadvance@gmail.com',
-        username='管理者',
-        password=generate_password_hash('taka0714'),
-        is_verified=True
-    )
-    db.session.add(user)
-    db.session.commit()
-    return '管理者ユーザーを作成しました'
+@app.cli.command("create-admin")
+@click.option("--email", required=True)
+@click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
+@with_appcontext
+def create_admin(email, password):
+    if User.query.filter_by(email=email).first():
+        click.echo("already exists"); return
+    u = User(email=email, username="admin", password=generate_password_hash(password),
+             is_verified=True, is_admin=True)
+    db.session.add(u); db.session.commit()
+    click.echo("admin created")
 
 @app.route('/api/feedback', methods=['POST'])
 @login_required
@@ -1950,6 +1889,7 @@ def api_feedback():
 
 @app.route('/admin/upgrade-db')
 def upgrade_db():
+    admin_required()
     from flask_migrate import upgrade
     try:
         upgrade()
@@ -1959,6 +1899,7 @@ def upgrade_db():
 
 @app.route('/enqueue')
 def enqueue_test():
+    admin_required()
     from tasks import enqueue_detailed_analysis
     test_path = "/tmp/uploads/test.wav"
     user_id = 1  # 実際に存在するID
