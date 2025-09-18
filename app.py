@@ -11,6 +11,7 @@ import librosa
 import boto3
 import ipaddress
 import hashlib, secrets, urllib.parse
+import click
 import redis as real_redis
 from utils.subscription_utils import sync_subscription_from_stripe
 from pydub import AudioSegment
@@ -1603,75 +1604,104 @@ def checkout_success():
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
-    import stripe, os, datetime as dt
+    import os, stripe
+    from datetime import datetime, timezone as tz
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
-    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET_TEST") if os.getenv("FLASK_ENV") == "development" else os.getenv("STRIPE_WEBHOOK_SECRET")
+    endpoint_secret = (
+        os.getenv("STRIPE_WEBHOOK_SECRET_TEST")
+        if os.getenv("FLASK_ENV") == "development"
+        else os.getenv("STRIPE_WEBHOOK_SECRET")
+    )
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-    except Exception:
+    except Exception as e:
+        print("[WEBHOOK verify error]", e)
         return "", 400
+
+    t   = event["type"]
+    obj = event["data"]["object"]
+    cust = obj.get("customer") or getattr(obj, "customer", None)
+    print(f"[WEBHOOK] t={t} obj={obj.get('id')} cust={cust}")
+
+    def _to_utc_epoch(ts):
+        return datetime.fromtimestamp(ts, tz=tz.utc) if ts else None
 
     def update_user_by_customer(customer_id, patch: dict):
         user = User.query.filter_by(stripe_customer_id=customer_id).first()
+        # fallback: email照合（無い場合のみ）
         if not user:
             try:
                 c = stripe.Customer.retrieve(customer_id)
-                if c and c.email:
-                    user = User.query.filter_by(email=c.email).first()
+                if c and c.get("email"):
+                    user = User.query.filter_by(email=c["email"]).first()
             except Exception:
                 pass
         if user:
+            # paid_until を current_period_end と同じに入れておく（コード内の参照ゆらぎ対策）
+            if "current_period_end" in patch and "paid_until" not in patch:
+                patch["paid_until"] = patch["current_period_end"]
             for k, v in patch.items():
                 setattr(user, k, v)
+            # stripe_customer_id が未保存ならここで保存
+            if not getattr(user, "stripe_customer_id", None) and customer_id:
+                user.stripe_customer_id = customer_id
             db.session.commit()
+        return user
 
-    t = event['type']
-    obj = event['data']['object']
-
-    if t == 'checkout.session.completed':
-        sub_id = obj.get('subscription')
-        if sub_id:
+    # ---- event handlers ----
+    if t == "checkout.session.completed":
+        sub_id = obj.get("subscription")
+        if sub_id and cust:
             sub = stripe.Subscription.retrieve(sub_id)
             update_user_by_customer(
-                obj.get('customer'),
+                cust,
                 dict(
-                    is_paid=sub.status in ('active', 'trialing'),
+                    is_paid=sub.status in ("active","trialing","past_due"),
                     has_ever_paid=True,
                     stripe_subscription_id=sub.id,
                     plan_status=sub.status,
-                    current_period_end=dt.datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
-                )
+                    current_period_end=_to_utc_epoch(sub.current_period_end),
+                    paid_platform="web",
+                ),
             )
 
-    elif t in ('invoice.payment_succeeded', 'customer.subscription.updated'):
-        sub = stripe.Subscription.retrieve(obj.get('subscription') or obj.get('id'))
-        update_user_by_customer(
-            sub.customer,
-            dict(
-                is_paid=sub.status in ('active', 'trialing'),
-                stripe_subscription_id=sub.id,
-                plan_status=sub.status,
-                current_period_end=dt.datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+    elif t in (
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "invoice.payment_succeeded",
+    ):
+        # obj は subscription か invoice。どちらでも subscription を取得して正にする
+        sub_id = obj.get("id") if t.startswith("customer.subscription") else obj.get("subscription")
+        if sub_id:
+            sub = stripe.Subscription.retrieve(sub_id)
+            update_user_by_customer(
+                sub.customer,
+                dict(
+                    is_paid=sub.status in ("active","trialing","past_due"),
+                    stripe_subscription_id=sub.id,
+                    plan_status=sub.status,
+                    current_period_end=_to_utc_epoch(sub.current_period_end),
+                    paid_platform="web",
+                ),
             )
-        )
 
-    elif t == 'customer.subscription.deleted':
-        sub = obj
+    elif t == "customer.subscription.deleted":
         update_user_by_customer(
-            sub.get('customer'),
+            cust,
             dict(
                 is_paid=False,
-                plan_status=sub.get('status'),
+                plan_status=obj.get("status"),
                 stripe_subscription_id=None,
-                current_period_end=None
-            )
+                current_period_end=None,
+                paid_until=None,
+            ),
         )
 
-    # 未対応イベント含め最終的に200
+    # 未対応も含め常に200でOK（Stripeの再送に備える）
     return "", 200
 
 # ✅ 無制限メールアドレスリスト（漏洩リスクに備えて限定的に）
@@ -1860,9 +1890,15 @@ def api_scores():
 def create_admin(email, password):
     if User.query.filter_by(email=email).first():
         click.echo("already exists"); return
-    u = User(email=email, username="admin", password=generate_password_hash(password),
-             is_verified=True, is_admin=True)
-    db.session.add(u); db.session.commit()
+    u = User(
+        email=email,
+        username="admin",
+        password=generate_password_hash(password),  # ← 生パスワード保存は絶対NG。ハッシュでOK
+        is_verified=True,
+        is_admin=True
+    )
+    db.session.add(u)
+    db.session.commit()
     click.echo("admin created")
 
 @app.route('/api/feedback', methods=['POST'])
