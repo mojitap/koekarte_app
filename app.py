@@ -19,7 +19,8 @@ from pydub import AudioSegment
 import imageio_ffmpeg
 AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
-from datetime import datetime, date, timedelta, time as dt_time, timezone as _tz
+import datetime as dt
+from datetime import datetime, time as dt_time, timedelta, timezone as _tz
 
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
@@ -1921,8 +1922,6 @@ def compute_score_baseline(user_id: int):
         return None
     return round(sum(x.score for x in first5) / len(first5), 1)
 
-print(f"[PROFILE] uid={current_user.id} paid={current_user.is_paid} status={current_user.plan_status} until={current_user.paid_until}")
-
 @app.route('/api/profile')
 def api_profile():
     """
@@ -1932,6 +1931,17 @@ def api_profile():
     - last_score: 今日(JST)の最新スコア。無ければ直近スコア
     - score_deviation: last_score - baseline
     """
+    try:
+        print(
+            "[PROFILE] "
+            f"uid={getattr(current_user, 'id', None)} "
+            f"paid={getattr(current_user, 'is_paid', None)} "
+            f"status={getattr(current_user, 'plan_status', None)} "
+            f"until={getattr(current_user, 'paid_until', None)}"
+        )
+    except Exception as e:
+        print(f"[PROFILE] log error: {e}")
+
     if not current_user.is_authenticated:
         return jsonify({
             'error': '未ログイン状態です',
@@ -1988,12 +1998,6 @@ def api_profile():
 
     # --- baseline: 登録から5日間の「最初の最大5回」 ---
     baseline = compute_score_baseline(uid)
-
-    # 偏差 = （今日 or 直近） - baseline
-    base_for_dev = today_score_value if today_score_value is not None else last_score_val
-    score_dev = (round(base_for_dev - baseline, 1)
-        if (base_for_dev is not None and baseline is not None)
-        else None)
 
     # 偏差 = （今日 or 直近） - baseline
     base_for_dev = today_score_value if today_score_value is not None else last_score_val
