@@ -234,3 +234,11 @@ def iap_verify():
 
     return jsonify({"ok": False, "error": "unsupported_platform"}), 400
     
+@iap_bp.get("/ping")
+def iap_ping():
+    try:
+        uid = getattr(current_user, "id", None)
+    except Exception:
+        uid = None
+    print(f"[IAP PING] uid={uid}")
+    return jsonify(ok=True, uid=uid), 200
