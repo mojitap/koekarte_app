@@ -794,18 +794,14 @@ def dashboard():
         print(f"[SYNC WARN] {e}")
         
     # ① detailed / fallback で latest を取るコードはそのまま…
-    detailed = (
+    latest = (
         ScoreLog.query
-        .filter_by(user_id=current_user.id, is_fallback=False)
+        .filter_by(user_id=current_user.id)
         .order_by(ScoreLog.timestamp.desc())
         .first()
     )
-    latest = detailed or (
-        ScoreLog.query
-        .filter_by(user_id=current_user.id, is_fallback=True)
-        .order_by(ScoreLog.timestamp.desc())
-        .first()
-    )
+    # その最新が detailed なら True
+    detailed_ready = bool(latest and not latest.is_fallback)
 
     # ② ログが一件もないときはダミー値を渡してエラーを防止
     if not latest:
@@ -825,7 +821,8 @@ def dashboard():
 
     # ★ baseline を統一定義に
     baseline = compute_score_baseline(current_user.id)
-    diff = latest.score - baseline if baseline is not None else 0
+    baseline = baseline if baseline is not None else latest.score
+    diff = round(latest.score - baseline, 1)
 
     # ★ 全期間の最初の1件（表示用）
     earliest = (
@@ -853,24 +850,13 @@ def dashboard():
 @login_required
 def api_dashboard():
     # 1) 詳細済みの最新
-    detailed = (
+    latest = (
         ScoreLog.query
-        .filter_by(user_id=current_user.id, is_fallback=False)
+        .filter_by(user_id=current_user.id)
         .order_by(ScoreLog.timestamp.desc())
         .first()
     )
-    if detailed:
-        latest = detailed
-        detailed_ready = True
-    else:
-        # 2) なければ light（fallback）
-        latest = (
-            ScoreLog.query
-            .filter_by(user_id=current_user.id, is_fallback=True)
-            .order_by(ScoreLog.timestamp.desc())
-            .first()
-        )
-        detailed_ready = False
+    detailed_ready = bool(latest and not latest.is_fallback)
 
     # ログが一件もない場合にも、必ず同じキーを返す
     if not latest:
@@ -886,7 +872,8 @@ def api_dashboard():
 
     # ★ baseline を統一定義に
     baseline = compute_score_baseline(current_user.id)
-    diff = latest.score - baseline if baseline is not None else 0
+    baseline = baseline if baseline is not None else latest.score
+    diff = round(latest.score - baseline, 1)
 
     # ★ 全期間の最初の1件（表示用）
     earliest = (
