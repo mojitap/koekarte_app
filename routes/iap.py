@@ -10,6 +10,23 @@ from googleapiclient.discovery import build
 # Blueprint は定義だけ（register は app.py 側で 1 回だけ）
 iap_bp = Blueprint("iap", __name__)
 
+@iap_bp.before_app_request
+def _iap_debug_in():
+    if request.path.startswith("/api/iap/"):
+        try:
+            body = request.get_json(silent=True) or {}
+            keys = list(body.keys())
+        except Exception:
+            keys = []
+        print(f"[IAP IN] {request.method} {request.path} "
+              f"uid={getattr(current_user,'id',None)} keys={keys}")
+
+@iap_bp.after_app_request
+def _iap_debug_out(resp):
+    if request.path.startswith("/api/iap/"):
+        print(f"[IAP OUT] {request.method} {request.path} -> {resp.status_code}")
+    return resp
+    
 # ===== 設定（環境変数） =========================================
 # 複数SKUをカンマ区切りで許容: IAP_PRODUCT_ID="com.koekarte.premium,com.koekarte.premium.monthly"
 PRODUCT_IDS = {s.strip() for s in (os.getenv("IAP_PRODUCT_ID") or "com.koekarte.premium").split(",") if s.strip()}
