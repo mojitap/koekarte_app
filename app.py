@@ -91,7 +91,8 @@ from werkzeug.utils import secure_filename
 from utils.log_utils import add_action_log
 from rq.job import Job
 from routes.iap import iap_bp
-app.register_blueprint(iap_bp, url_prefix="/api/iap")
+if 'iap' not in app.blueprints:
+    app.register_blueprint(iap_bp, url_prefix="/api/iap")
 
 from server.mailers import send_contact_via_sendgrid as send_contact, send_password_reset_email
 from flask import get_flashed_messages
