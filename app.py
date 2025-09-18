@@ -200,8 +200,6 @@ def unauthorized():
         next_url = url_for("dashboard")  # 念のためフォールバック
     return redirect(url_for("login", next=next_url))
 
-app.register_blueprint(iap_bp, url_prefix="/api/iap")
-
 FREE_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "5"))
 
 # パスワードリセット用Blueprint
