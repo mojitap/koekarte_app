@@ -192,6 +192,10 @@ def unauthorized():
         request.accept_mimetypes["application/json"] >= request.accept_mimetypes["text/html"]
     )
     if wants_json:
+        if request.path.startswith("/api/iap/"):
+            print(f"[IAP 401] {request.method} {request.path} "
+                f"cookie_session_present={bool(request.cookies.get('session'))} "
+                f"ua={request.user_agent}")
         return jsonify(success=False, error='unauthorized'), 401
 
     # 2) それ以外（ブラウザ画面）は /login へリダイレクト（戻り先付き）
