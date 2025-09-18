@@ -12,13 +12,14 @@ import boto3
 import ipaddress
 import hashlib, secrets, urllib.parse
 import click
+import requests
 import redis as real_redis
 from utils.subscription_utils import sync_subscription_from_stripe
 from pydub import AudioSegment
 import imageio_ffmpeg
 AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
-from datetime import time as dt_time
+from datetime import time as dt_time, dt
 from datetime import datetime, date, timedelta, timezone as _tz
 UTC = _tz.utc
 JST = _tz(timedelta(hours=9))
@@ -80,6 +81,8 @@ from utils.audio_utils import convert_m4a_to_wav, convert_webm_to_wav, normalize
 from sqlalchemy.sql import cast, func, text
 from sqlalchemy import Date
 import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 # ↓↓↓ ③ 定数はインポートしない（必要なら関数だけ）
 from s3_utils import upload_to_s3, signed_url
@@ -477,6 +480,196 @@ def export_csv():
     return Response(output,
                     mimetype="text/csv",
                     headers={"Content-Disposition": "attachment;filename=stress_scores.csv"})
+
+# ------------------------------------------------------------
+# 共有: サブスク状態の参照
+# ------------------------------------------------------------
+@app.route('/api/subscription/status', methods=['GET'])
+@login_required
+def subscription_status():
+    return jsonify({
+        "is_paid": bool(current_user.is_paid),
+        "plan_status": current_user.plan_status,
+        "paid_until": current_user.paid_until.isoformat() if current_user.paid_until else None
+    }), 200
+
+
+# ------------------------------------------------------------
+# Stripe をサーバ側で再同期（Web課金の時に使う）
+# ------------------------------------------------------------
+@app.route('/api/subscription/sync', methods=['POST'])
+@login_required
+def subscription_sync():
+    # 既存の同期関数がある前提
+    ok, status = sync_subscription_from_stripe(current_user)
+    return jsonify({
+        "ok": bool(ok),
+        "status": status,
+        "is_paid": bool(current_user.is_paid),
+        "plan_status": current_user.plan_status,
+        "paid_until": current_user.paid_until.isoformat() if current_user.paid_until else None
+    }), 200
+
+
+# ===== iOS: StoreKit（レシート検証） =========================
+def _allowed_sku(product_id: str) -> bool:
+    allow = (os.getenv("IAP_ALLOWED_PRODUCT_IDS") or "").strip()
+    if not allow:
+        return True  # 設定が無ければ許可（運用で絞るのがオススメ）
+    allowed = {s.strip() for s in allow.split(",") if s.strip()}
+    return product_id in allowed
+
+@app.route('/api/iap/ios/verify_receipt', methods=['POST'])
+@login_required
+def iap_ios_verify_receipt():
+    data = request.get_json(silent=True) or {}
+    receipt_b64 = (data.get('receipt_data') or '').strip()      # base64レシート
+    product_id  = (data.get('product_id')  or '').strip()
+    sandbox     = bool(data.get('sandbox'))  # テスト時は true
+
+    if not receipt_b64 or not product_id:
+        return jsonify({"ok": False, "error": "missing_params"}), 400
+    if not _allowed_sku(product_id):
+        return jsonify({"ok": False, "error": "sku_not_allowed"}), 400
+
+    shared_secret = os.getenv("APPLE_SHARED_SECRET") or ""
+    if not shared_secret:
+        print(f"[IAP iOS] missing APPLE_SHARED_SECRET uid={current_user.id}")
+        return jsonify({"ok": False, "error": "server_not_configured"}), 501
+
+    endpoint = "https://buy.itunes.apple.com/verifyReceipt"
+    if sandbox:
+        endpoint = "https://sandbox.itunes.apple.com/verifyReceipt"
+
+    payload = {
+        "receipt-data": receipt_b64,
+        "password": shared_secret,  # 自動更新サブスクに必須
+        "exclude-old-transactions": True,
+    }
+
+    # 呼び出し
+    try:
+        r = requests.post(endpoint, json=payload, timeout=12)
+        resp = r.json()
+    except Exception as e:
+        print(f"[IAP iOS] verify error: {e} pid={product_id} uid={current_user.id}")
+        return jsonify({"ok": False, "error": "verify_error"}), 502
+
+    status = int(resp.get("status", -1))
+    # 本番で 21007 が返る → Sandbox で再試行
+    if status == 21007 and not sandbox:
+        try:
+            r = requests.post("https://sandbox.itunes.apple.com/verifyReceipt", json=payload, timeout=12)
+            resp = r.json()
+            status = int(resp.get("status", -1))
+        except Exception as e:
+            print(f"[IAP iOS] retry sandbox error: {e} pid={product_id} uid={current_user.id}")
+            return jsonify({"ok": False, "error": "verify_error"}), 502
+
+    if status != 0:
+        print(f"[IAP iOS] verify failed status={status} pid={product_id} uid={current_user.id}")
+        return jsonify({"ok": False, "status": status}), 400
+
+    # 最新の有効期限を抽出（同SKUで一番未来の expires_date_ms）
+    latest = resp.get("latest_receipt_info") or []
+    candidates = [i for i in latest if i.get("product_id") == product_id]
+    expires = None
+    if candidates:
+        try:
+            ms = max(int(c.get("expires_date_ms")) for c in candidates if c.get("expires_date_ms"))
+            expires = dt.datetime.fromtimestamp(ms/1000.0, tz=dt.timezone.utc)
+        except Exception:
+            expires = None
+
+    active = bool(expires and expires > dt.datetime.now(dt.timezone.utc))
+
+    # DB反映
+    current_user.is_paid = active
+    current_user.plan_status = "active" if active else "expired"
+    current_user.paid_until = expires
+    db.session.commit()
+
+    tx_tail = None
+    if candidates:
+        tid = candidates[-1].get("transaction_id")
+        tx_tail = (tid[-8:] if tid else None)
+
+    print(f"[IAP iOS] uid={current_user.id} active={active} pid={product_id} "
+          f"paid_until={expires} tx_tail={tx_tail}")
+
+    return jsonify({
+        "ok": True,
+        "is_paid": bool(current_user.is_paid),
+        "plan_status": current_user.plan_status,
+        "paid_until": current_user.paid_until.isoformat() if current_user.paid_until else None
+    }), 200
+
+
+# ===== Android: Google Play Billing（購入検証） =============
+def _build_android_publisher():
+    raw = os.getenv("GOOGLE_PLAY_SERVICE_JSON") or ""
+    if not raw:
+        return None
+    try:
+        # JSON 直貼り or base64 どちらでも受ける
+        if raw.strip().startswith("{"):
+            info = json.loads(raw)
+        else:
+            info = json.loads(os.popen("python - <<'P'\nimport os,base64,json\nprint(json.dumps(json.loads(base64.b64decode(os.environ['GOOGLE_PLAY_SERVICE_JSON']).decode())))\nP").read())
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/androidpublisher"]
+        )
+        return build("androidpublisher", "v3", credentials=creds, cache_discovery=False)
+    except Exception as e:
+        print(f"[IAP Android] service acct error: {e}")
+        return None
+
+@app.route('/api/iap/android/verify_purchase', methods=['POST'])
+@login_required
+def iap_android_verify_purchase():
+    data = request.get_json(silent=True) or {}
+    package_name  = (data.get('package_name')  or '').strip()
+    product_id    = (data.get('product_id')    or '').strip()   # サブスクSKU
+    purchase_token= (data.get('purchase_token')or '').strip()
+
+    if not package_name or not product_id or not purchase_token:
+        return jsonify({"ok": False, "error": "missing_params"}), 400
+    if not _allowed_sku(product_id):
+        return jsonify({"ok": False, "error": "sku_not_allowed"}), 400
+
+    svc = _build_android_publisher()
+    if not svc:
+        return jsonify({"ok": False, "error": "server_not_configured"}), 501
+
+    try:
+        sub = svc.purchases().subscriptions().get(
+            packageName=package_name, subscriptionId=product_id, token=purchase_token
+        ).execute()
+    except Exception as e:
+        print(f"[IAP Android] verify error: {e} pid={product_id} uid={current_user.id}")
+        return jsonify({"ok": False, "error": "verify_error"}), 502
+
+    # expiryTimeMillis を見て有効判定
+    ms = int(sub.get("expiryTimeMillis", "0") or "0")
+    expires = dt.datetime.fromtimestamp(ms/1000.0, tz=dt.timezone.utc) if ms else None
+    active = bool(expires and expires > dt.datetime.now(dt.timezone.utc))
+
+    # DB反映
+    current_user.is_paid = active
+    current_user.plan_status = "active" if active else "expired"
+    current_user.paid_until = expires
+    db.session.commit()
+
+    tok_tail = purchase_token[-6:] if purchase_token else None
+    print(f"[IAP Android] uid={current_user.id} active={active} pid={product_id} "
+          f"paid_until={expires} token_tail={tok_tail}")
+
+    return jsonify({
+        "ok": True,
+        "is_paid": bool(current_user.is_paid),
+        "plan_status": current_user.plan_status,
+        "paid_until": current_user.paid_until.isoformat() if current_user.paid_until else None
+    }), 200
 
 @app.route('/faq')
 def faq():
