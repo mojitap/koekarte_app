@@ -843,7 +843,7 @@ def dashboard():
             first_score_date=first_date,
             last_date=last_date,
             baseline=baseline or 0,
-            detailed_ready=(detailed is not None)
+            detailed_ready=detailed_ready
     )
 
 @app.route('/api/dashboard')
@@ -891,10 +891,12 @@ def api_dashboard():
     return jsonify({
         'first_score': earliest.score if earliest else latest.score,
         'first_score_date': to_jst(earliest.timestamp) if earliest else to_jst(latest.timestamp),
+        'last_date': to_jst(latest.timestamp),
+        'latest_score': latest.score,  
         'baseline': baseline or 0,
         'diff': diff,
         'detailed_ready': detailed_ready
-    })
+    }), 200
 
 @app.route('/api/forgot-password', methods=['POST'])
 def api_forgot_password():
