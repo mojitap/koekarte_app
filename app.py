@@ -1689,6 +1689,19 @@ def update_profile():
 
     db.session.commit()
     return jsonify({'message': '✅ プロフィール更新成功'})
+
+@app.route('/api/account', methods=['DELETE'])
+@login_required
+def delete_account():
+    uid = current_user.id
+    # 1) 関連データの物理削除（DB, S3等）
+    # delete_user_assets(uid)
+    # 2) ログアウト
+    logout_user()
+    # 3) ユーザー削除
+    db.session.delete(current_user)
+    db.session.commit()
+    return {"ok": True}
     
 @app.route('/diary')
 @login_required
