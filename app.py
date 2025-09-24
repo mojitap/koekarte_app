@@ -518,34 +518,37 @@ def subscription_sync():
 
 
 # ===== iOS: StoreKit（レシート検証） =========================
+def _allowed_ids() -> set:
+    raw = os.getenv("IAP_ALLOWED_PRODUCT_IDS") or os.getenv("IAP_PRODUCT_ID") or ""
+    # 改行/余白にも耐える
+    raw = raw.replace("\n", ",")
+    return {s.strip() for s in raw.split(",") if s.strip()}
+
 def _allowed_sku(product_id: str) -> bool:
-    allow = (os.getenv("IAP_ALLOWED_PRODUCT_IDS") or "").strip()
-    if not allow:
-        return True  # 設定が無ければ許可（運用で絞るのがオススメ）
-    allowed = {s.strip() for s in allow.split(",") if s.strip()}
-    return product_id in allowed
+    allowed = _allowed_ids()
+    # 環境変数が未設定なら全許可、設定があればホワイトリスト照合
+    return True if not allowed else (product_id in allowed)
 
 @app.route('/api/iap/ios/verify_receipt', methods=['POST'])
 @login_required
 def iap_ios_verify_receipt():
     data = request.get_json(silent=True) or {}
-    receipt_b64 = (data.get('receipt_data') or '').strip()      # base64レシート
-    product_id  = (data.get('product_id')  or '').strip()
-    sandbox     = bool(data.get('sandbox'))  # テスト時は true
+    receipt_b64 = (data.get('receipt_data') or '').strip()
+    product_id  = (data.get('product_id')  or 'com.koekarte.premium.monthly').strip()
 
     if not receipt_b64 or not product_id:
         return jsonify({"ok": False, "error": "missing_params"}), 400
     if not _allowed_sku(product_id):
         return jsonify({"ok": False, "error": "sku_not_allowed"}), 400
 
-    shared_secret = os.getenv("APPLE_SHARED_SECRET") or ""
+    # Render に設定した APP_SHARED_SECRET を優先
+    shared_secret = os.getenv("APP_SHARED_SECRET") or os.getenv("APPLE_SHARED_SECRET") or ""
     if not shared_secret:
         print(f"[IAP iOS] missing APPLE_SHARED_SECRET uid={current_user.id}")
         return jsonify({"ok": False, "error": "server_not_configured"}), 501
 
-    endpoint = "https://buy.itunes.apple.com/verifyReceipt"
-    if sandbox:
-        endpoint = "https://sandbox.itunes.apple.com/verifyReceipt"
+    PROD = "https://buy.itunes.apple.com/verifyReceipt"
+    SBOX = "https://sandbox.itunes.apple.com/verifyReceipt"
 
     payload = {
         "receipt-data": receipt_b64,
@@ -553,23 +556,30 @@ def iap_ios_verify_receipt():
         "exclude-old-transactions": True,
     }
 
-    # 呼び出し
+    # 1) まず本番で検証 → 21007ならSB、21008なら本番へ戻す
     try:
-        r = requests.post(endpoint, json=payload, timeout=12)
+        r = requests.post(PROD, json=payload, timeout=12)
         resp = r.json()
     except Exception as e:
         print(f"[IAP iOS] verify error: {e} pid={product_id} uid={current_user.id}")
         return jsonify({"ok": False, "error": "verify_error"}), 502
 
     status = int(resp.get("status", -1))
-    # 本番で 21007 が返る → Sandbox で再試行
-    if status == 21007 and not sandbox:
+    if status == 21007:  # sandboxレシートを本番に投げた
         try:
-            r = requests.post("https://sandbox.itunes.apple.com/verifyReceipt", json=payload, timeout=12)
+            r = requests.post(SBOX, json=payload, timeout=12)
             resp = r.json()
             status = int(resp.get("status", -1))
         except Exception as e:
             print(f"[IAP iOS] retry sandbox error: {e} pid={product_id} uid={current_user.id}")
+            return jsonify({"ok": False, "error": "verify_error"}), 502
+    elif status == 21008:  # 逆方向（ほぼ無いが念のため）
+        try:
+            r = requests.post(PROD, json=payload, timeout=12)
+            resp = r.json()
+            status = int(resp.get("status", -1))
+        except Exception as e:
+            print(f"[IAP iOS] retry prod error: {e} pid={product_id} uid={current_user.id}")
             return jsonify({"ok": False, "error": "verify_error"}), 502
 
     if status != 0:
@@ -609,7 +619,6 @@ def iap_ios_verify_receipt():
         "plan_status": current_user.plan_status,
         "paid_until": current_user.paid_until.isoformat() if current_user.paid_until else None
     }), 200
-
 
 # ===== Android: Google Play Billing（購入検証） =============
 def _build_android_publisher():
