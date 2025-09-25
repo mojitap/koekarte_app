@@ -556,35 +556,46 @@ def iap_ios_verify_receipt():
         "exclude-old-transactions": True,
     }
 
+    stage = "prod"  # どの環境で成功したかを記録
+
     # 1) まず本番で検証 → 21007ならSB、21008なら本番へ戻す
     try:
         r = requests.post(PROD, json=payload, timeout=12)
         resp = r.json()
     except Exception as e:
-        print(f"[IAP iOS] verify error: {e} pid={product_id} uid={current_user.id}")
+        print(f"[IAP iOS] network_error stage=prod err={e} uid={current_user.id} pid={product_id}")
         return jsonify({"ok": False, "error": "verify_error"}), 502
 
     status = int(resp.get("status", -1))
-    if status == 21007:  # sandboxレシートを本番に投げた
+    print(f"[IAP iOS] stage=prod status={status} uid={current_user.id} pid={product_id}")
+
+    if status == 21007:
         try:
             r = requests.post(SBOX, json=payload, timeout=12)
             resp = r.json()
             status = int(resp.get("status", -1))
+            stage = "sandbox"
+            print(f"[IAP iOS] stage=sandbox status={status} uid={current_user.id} pid={product_id}")
         except Exception as e:
-            print(f"[IAP iOS] retry sandbox error: {e} pid={product_id} uid={current_user.id}")
+            print(f"[IAP iOS] network_error stage=sandbox err={e} uid={current_user.id} pid={product_id}")
             return jsonify({"ok": False, "error": "verify_error"}), 502
-    elif status == 21008:  # 逆方向（ほぼ無いが念のため）
+    elif status == 21008:
         try:
             r = requests.post(PROD, json=payload, timeout=12)
             resp = r.json()
             status = int(resp.get("status", -1))
+            stage = "prod_back"
+            print(f"[IAP iOS] stage=prod_back status={status} uid={current_user.id} pid={product_id}")
         except Exception as e:
-            print(f"[IAP iOS] retry prod error: {e} pid={product_id} uid={current_user.id}")
+            print(f"[IAP iOS] network_error stage=prod_back err={e} uid={current_user.id} pid={product_id}")
             return jsonify({"ok": False, "error": "verify_error"}), 502
 
     if status != 0:
         print(f"[IAP iOS] verify failed status={status} pid={product_id} uid={current_user.id}")
         return jsonify({"ok": False, "status": status}), 400
+    else:
+        # ★ここが「成功時ログ」
+        print(f"[IAP iOS] OK stage={stage} uid={current_user.id} pid={product_id}")
 
     # 最新の有効期限を抽出（同SKUで一番未来の expires_date_ms）
     latest = resp.get("latest_receipt_info") or []
