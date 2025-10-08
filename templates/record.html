@@ -1,31 +1,29 @@
 {% extends "base.html" %}
 {% block title %}ストレスチェック録音ページ{% endblock %}
 {% block content %}
-  <div
-    class="record-container"
-    style="max-width:460px;margin:0 auto;padding:24px 12px 18px 12px; text-align:left;"
-  >
-    <h1 style="font-size:1.32em; font-weight:bold; margin-bottom:10px; text-align:center;">
-      ストレスチェック録音ページ
-    </h1>
-    <p style="font-size:1.04em; margin-bottom:15px; text-align:left;">
-      下記の6つの文章を読み上げてください。
-    </p>
-    <div style="text-align:left!important; font-size:17px; font-weight:bold; line-height:1.65; margin:0 0 16px 0;">
-      <!-- ↓↓↓ olをblock-level&左寄せに強制 -->
-      <ol style="margin-left:1.1em; margin-top:10px; text-align:left; list-style-position:outside;">
-        <li>今日は落ち着いた気持ちで過ごしました</li>
-        <li>人との関わりに安心感を感じています</li>
-        <li>最近は夜によく眠れています</li>
-        <li>体の調子も比較的安定しています</li>
-        <li>一人の時間も心地よく過ごせています</li>
-        <li>今日は特に強い不安は感じていません</li>
-      </ol>
-    </div>
-    <p style="color: #555; font-size: 14px; margin-bottom:15px; text-align:left;">
-      ※小声やささやき声での録音は、実際の気分に関係なく低スコアになる場合があります。<br>
-      ※録音後の解析には数秒ほどかかることがありますので、その間お待ちください。
-    </p>
+
+<div class="record-container"
+     style="max-width:460px;margin:0 auto;padding:24px 12px 18px; text-align:left;">
+  <h1 style="font-size:1.32em; font-weight:bold; margin-bottom:10px; text-align:center;">
+    ストレスチェック録音ページ
+  </h1>
+
+  <p style="font-size:1.04em; margin-bottom:15px;">下記の6つの文章を読み上げてください。</p>
+
+  <!-- ← 入れ子の record-container は削除 -->
+  <ol style="margin:10px 0 16px 1.2em; padding:0; list-style-position:outside; text-align:left;">
+    <li style="text-align:left;">今日は落ち着いた気持ちで過ごしました</li>
+    <li style="text-align:left;">人との関わりに安心感を感じています</li>
+    <li style="text-align:left;">最近は夜によく眠れています</li>
+    <li style="text-align:left;">体の調子も比較的安定しています</li>
+    <li style="text-align:left;">一人の時間も心地よく過ごせています</li>
+    <li style="text-align:left;">今日は特に強い不安は感じていません</li>
+  </ol>
+
+  <p style="color:#555; font-size:14px; margin-bottom:15px;">
+    ※小声やささやき声での録音は、実際の気分に関係なく低スコアになる場合があります。<br>
+    ※録音後の解析には数秒ほどかかることがありますので、その間お待ちください。
+  </p>
 
     <!-- ↓↓↓2段ラベルのボタン -->
     <div style="display:flex;gap:10px;justify-content:center;margin-bottom:12px;">
@@ -43,7 +41,7 @@
     <div style="text-align:center; margin-bottom:14px;">
       <audio id="audioPlayback" controls style="width:100%;max-width:340px;"></audio>
     </div>
-  </div>
+</div>
 
   <div style="text-align:left; font-size:1.05em; line-height:1.6; margin:14px auto 0; max-width:500px;">
     <p style="margin-bottom:0.4em;"><strong>📘 使い方（録音の流れ）</strong></p>
