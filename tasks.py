@@ -20,7 +20,7 @@ def enqueue_detailed_analysis(s3_filename, user_id):
         print("⚠️ Redis 未設定のため詳細解析ジョブをスキップ")
         return None
     print(f"📤 Redis にジョブ登録中: user_id={user_id}, filename={s3_filename}")
-    job = q.enqueue(detailed_worker, s3_filename, user_id)
+    job = q.enqueue(detailed_worker, s3_filename, user_id, result_ttl=600)
     print(f"✅ Redis 登録完了: job.id={job.id}")
     return job.get_id()
 
