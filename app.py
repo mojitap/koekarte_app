@@ -2202,20 +2202,46 @@ except Exception as e:
 @app.route('/api/job_status/<job_id>')
 @login_required
 def job_status(job_id):
-    job = Job.fetch(job_id, connection=redis_conn)
-    if job.is_finished:
-        scorelog = (
-            ScoreLog.query
-            .filter_by(
-                user_id=current_user.id,
-                filename=job.args[0],      # enqueue時の第一引数が filename
-                is_fallback=False
-            )
-            .first()
-        )
-        return jsonify({'status': 'finished', 'score': scorelog.score}), 200
-    if job.is_failed:
+    try:
+        job = Job.fetch(job_id, connection=redis_conn)
+    except Exception:
+        return jsonify({'status': 'not_found'}), 404
+
+    status = job.get_status()  # 'queued' | 'started' | 'finished' | 'failed' | ...
+    if status == 'finished':
+        # 1) タスクの返り値を優先（例: {'score': x} or {'final_score': x, 'filename': '...'}）
+        result = job.result or {}
+        score = None
+        fname_from_result = None
+        if isinstance(result, dict):
+            score = result.get('score') or result.get('final_score')
+            fname_from_result = result.get('filename')
+
+        # 2) 無ければDBを探す（filename一致があればそれで、無ければ直近の detailed を拾う）
+        if score is None:
+            try:
+                fname = fname_from_result
+                if not fname and getattr(job, "args", None):
+                    fname = job.args[0]  # enqueue時の第一引数が filename の設計なら
+                q = ScoreLog.query.filter_by(user_id=current_user.id, is_fallback=False)
+                if fname:
+                    q = q.filter(ScoreLog.filename == fname)
+                scorelog = q.order_by(ScoreLog.timestamp.desc()).first()
+                if scorelog:
+                    score = scorelog.score
+                else:
+                    app.logger.warning(
+                        f"[job_status] finished but no DB row: uid={current_user.id} jid={job_id} fname={fname}"
+                    )
+            except Exception as e:
+                app.logger.exception(f"[job_status] DB lookup error: {e}")
+                score = None
+
+        return jsonify({'status': 'finished', 'score': score}), 200
+
+    if status in ('failed', 'stopped'):
         return jsonify({'status': 'failed'}), 200
+
     return jsonify({'status': 'running'}), 200
 
 @app.get("/api/ping")
