@@ -42,7 +42,8 @@
     </li>
   </ul>
 
-  {% if current_user.is_paid %}
+{% if not FREE_MODE %}
+  {% if CAN_USE_PREMIUM %}
     <div style="padding: 8px; border: 1px solid #90ee90; border-radius: 6px; background: #f0fff0; margin:12px auto 8px; max-width:440px;">
       <p style="font-size: 13px; color: #060; margin:0;">
         🎟 <strong>有料会員</strong>としてご利用いただけます！
@@ -76,6 +77,7 @@
       </div>
     {% endif %}
   {% endif %}
+{% endif %}
 
   <h3 style="margin-top: 40px;">🎟 プレミアム音源</h3>
     
