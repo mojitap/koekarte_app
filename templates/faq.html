@@ -2,109 +2,157 @@
 {% block title %}よくある質問（FAQ）{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto; padding: 30px; font-size: 18px; line-height: 1.7;">
-  <h1 style="text-align: center;">❓ よくある質問</h1>
+<div style="max-width:800px;margin:0 auto;padding:30px;font-size:18px;line-height:1.7;">
+  <h1 style="text-align:center;">❓ よくある質問</h1>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q1.</strong> 解約はできますか？</h3>
-    <p>
-      はい、いつでもご自身で解約いただけます。<br>
-      解約後は次回請求日以降の料金は発生しません。
-    </p>
-  </div>
+  {% if FREE_MODE %}
+    <div style="margin-top:30px;">
+      <h3><strong>現在は無料開放中です</strong></h3>
+      <p>
+        いまは課金・解約・返金・支払い方法などのご案内は対象外です。<br>
+        有料販売を再開する際は本ページを更新します。
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q2.</strong> 支払い方法は何がありますか？</h3>
-    <p>
-      現在はクレジットカード（Visa / MasterCard / AMEX）に対応しています。<br>
-      iPhone（iOS）・AndroidどちらもWeb上でカード決済をご利用ください。<br>
-      <br>
-      アプリ版は、Apple PayやGoogle Play決済（アプリ内課金）にも対応しています。
-    </p>
-  </div>
+    <div style="margin-top:30px;">
+      <h3>ログインできないときは？</h3>
+      <p>
+        メールアドレスやパスワードをご確認のうえ、再度ログインをお試しください。<br>
+        パスワードを忘れた場合は、お問い合わせフォームよりご連絡ください。
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q3.</strong> 返金はできますか？</h3>
-    <p>
-      デジタル商品の性質上、ご利用後の返金は基本的にお受けしておりません。<br>
-      ただし、二重課金などの問題があった場合は、サポートまでご連絡ください。
-    </p>
-  </div>
+    <div style="margin-top:30px;">
+      <h3>AndroidでWEBにログインできない・画面がループする場合</h3>
+      <p>
+        端末やブラウザのアップデート等で「Cookie」や「キャッシュ」の不整合が起きる場合があります。<br><br>
+        <b>Chromeの設定 → プライバシー → 閲覧履歴データの削除</b>から、<br>
+        <span style="color:#ef6d00;">
+          ・Cookieとサイトデータ<br>
+          ・キャッシュされた画像とファイル<br>
+          ・保存済みサイト設定
+        </span><br>
+        にチェックを入れて削除し、再度アクセスしてください。<br><br>
+        改善しない場合は<b>シークレットモード</b>でのログインもお試しください。
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q4.</strong> 解約後はすぐに機能が使えなくなりますか？</h3>
-    <p>
-      いいえ、解約しても次回請求日までは引き続きすべての機能をご利用いただけます。
-    </p>
-  </div>
+    <div style="margin-top:30px;">
+      <h3>録音が「保存できません（空き容量不足）」と出る</h3>
+      <p>
+        端末の空き容量が不足しています。不要な写真・動画・アプリ等を削除してから再度お試しください。<br>
+        iPhoneではiCloud残容量が少ない場合にもシステムから注意が表示されることがあります。
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q5.</strong> サブスク登録の確認方法は？</h3>
-    <p>
-      マイページにて「有料会員」と表示されていれば、有料プランが有効です。<br>
-      状況が反映されない場合は、一度ログアウトし、再ログインしてご確認ください。
-    </p>
-  </div>
+    <div style="margin-top:30px;">
+      <h3>「マイクへのアクセスが許可されていません」と表示される</h3>
+      <p>
+        端末の設定で本アプリのマイク権限をオンにしてください。<br><br>
+        【iPhone】設定 → プライバシーとセキュリティ → マイク → 本アプリをオン<br>
+        【Android】設定 → アプリと通知 → 本アプリ → 権限 → マイクを許可
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q6.</strong> アプリとWebで機能や料金は違いますか？</h3>
-    <p>
-      どちらも同じアカウントでご利用いただけます。<br><br>
+  {% else %}
+    <div style="margin-top: 30px;">
+      <h3><strong>Q1.</strong> 解約はできますか？</h3>
+      <p>
+        はい、いつでもご自身で解約いただけます。<br>
+        解約後は次回請求日以降の料金は発生しません。
+      </p>
+    </div>
 
-      <b>■ アプリ版（iOS / Android）</b><br>
-      ・<b>音声日記（アプリ限定機能）</b>：録音を端末に保存し、日付ごとに管理できます。<br>
-      ・オフラインでも録音できます（後でアップロード可能）。<br>
-      ・料金：月額 <b>550円</b>（各ストアの通貨に自動対応）<br><br>
+    <div style="margin-top: 30px;">
+      <h3><strong>Q2.</strong> 支払い方法は何がありますか？</h3>
+      <p>
+        現在はクレジットカード（Visa / MasterCard / AMEX）に対応しています。<br>
+        iPhone（iOS）・AndroidどちらもWeb上でカード決済をご利用ください。<br><br>
+        アプリ版は、Apple PayやGoogle Play決済（アプリ内課金）にも対応しています。
+      </p>
+    </div>
 
-      <b>■ Web版</b><br>
-      ・ブラウザから録音＆分析、スコアの確認ができます。<br>
-      ・<b>音声日記の端末保存はありません</b><br>
-      ・料金：月額 <b>300円</b><br><br>
+    <div style="margin-top: 30px;">
+      <h3><strong>Q3.</strong> 返金はできますか？</h3>
+      <p>
+        デジタル商品の性質上、ご利用後の返金は基本的にお受けしておりません。<br>
+        ただし、二重課金などの問題があった場合は、サポートまでご連絡ください。
+      </p>
+    </div>
 
-      用途に合わせてお好きな方をご利用ください。アプリ限定の「音声日記」を使いたい方はアプリ版がおすすめです。
-    </p>
-  </div>
-  
-  <div style="margin-top: 30px;">
-    <h3><strong>Q7.</strong> ログインできないときは？</h3>
-    <p>
-      メールアドレスやパスワードをお確かめのうえ、再度ログインをお試しください。<br>
-      パスワードを忘れた場合は、お問い合わせフォームよりご連絡ください。
-    </p>
-  </div>
+    <div style="margin-top: 30px;">
+      <h3><strong>Q4.</strong> 解約後はすぐに機能が使えなくなりますか？</h3>
+      <p>
+        いいえ、解約しても次回請求日までは引き続きすべての機能をご利用いただけます。
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q8.</strong> AndroidでWEBにログインできない・画面がループする場合は？</h3>
-    <p>
-      まれに、Android端末やブラウザのアップデート等で「Cookie」や「キャッシュ」の不整合が発生し、ログインできなくなる場合があります。<br>
-      <br>
-      お手数ですが、<b>「Chromeの設定 → プライバシー → 閲覧履歴データの削除」</b>から、<br>
-      <span style="color:#ef6d00;">・Cookieとサイトデータ<br>・キャッシュされた画像とファイル<br>・保存済みサイト設定</span><br>
-      にチェックを入れて削除し、<b>再度アクセス</b>してください。<br>
-      <br>
-      それでも解決しない場合は、<b>シークレットモードで一度ログイン</b>をお試しください。
-    </p>
-  </div>
+    <div style="margin-top: 30px;">
+      <h3><strong>Q5.</strong> サブスク登録の確認方法は？</h3>
+      <p>
+        マイページにて「有料会員」と表示されていれば、有料プランが有効です。<br>
+        状況が反映されない場合は、一度ログアウトし、再ログインしてご確認ください。
+      </p>
+    </div>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q9.</strong> 録音が「保存できません（空き容量不足）」と出ます</h3>
-    <p>
-      端末の空き容量が不足しています。不要な写真・動画・アプリ等を削除し、空き容量を確保してから再度お試しください。<br>
-      iPhoneではiCloud残容量が少ない場合にもシステムから注意が表示されることがあります。
-    </p>
-  </div>
+    <div style="margin-top: 30px;">
+      <h3><strong>Q6.</strong> アプリとWebで機能や料金は違いますか？</h3>
+      <p>
+        どちらも同じアカウントでご利用いただけます。<br><br>
 
-  <div style="margin-top: 30px;">
-    <h3><strong>Q10.</strong> 「マイクへのアクセスが許可されていません」と出ます</h3>
-    <p>
-      端末の設定で本アプリのマイク権限をオンにしてください。<br><br>
-      【iPhone】設定 → プライバシーとセキュリティ → マイク → 本アプリをオン<br>
-      【Android】設定 → アプリと通知 → 本アプリ → 権限 → マイクを許可
-    </p>
-  </div>
+        <b>■ アプリ版（iOS / Android）</b><br>
+        ・<b>音声日記（アプリ限定機能）</b>：録音を端末に保存し、日付ごとに管理できます。<br>
+        ・オフラインでも録音できます（後でアップロード可能）。<br>
+        ・料金：月額 <b>550円</b>（各ストアの通貨に自動対応）<br><br>
 
-  <div style="margin-top: 50px; text-align: center;">
-    <a href="/dashboard" style="color: #007bff;">← マイページに戻る</a>
+        <b>■ Web版</b><br>
+        ・ブラウザから録音＆分析、スコアの確認ができます。<br>
+        ・<b>音声日記の端末保存はありません</b><br>
+        ・料金：月額 <b>300円</b><br><br>
+
+        用途に合わせてお好きな方をご利用ください。アプリ限定の「音声日記」を使いたい方はアプリ版がおすすめです。
+      </p>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <h3><strong>Q7.</strong> ログインできないときは？</h3>
+      <p>
+        メールアドレスやパスワードをお確かめのうえ、再度ログインをお試しください。<br>
+        パスワードを忘れた場合は、お問い合わせフォームよりご連絡ください。
+      </p>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <h3><strong>Q8.</strong> AndroidでWEBにログインできない・画面がループする場合は？</h3>
+      <p>
+        まれに、Android端末やブラウザのアップデート等で「Cookie」や「キャッシュ」の不整合が発生する場合があります。<br><br>
+        <b>Chromeの設定 → プライバシー → 閲覧履歴データの削除</b>から、<br>
+        <span style="color:#ef6d00;">・Cookieとサイトデータ<br>・キャッシュされた画像とファイル<br>・保存済みサイト設定</span><br>
+        にチェックを入れて削除し、再度アクセスしてください。<br><br>
+        それでも解決しない場合は、<b>シークレットモード</b>で一度ログインをお試しください。
+      </p>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <h3><strong>Q9.</strong> 録音が「保存できません（空き容量不足）」と出ます</h3>
+      <p>
+        端末の空き容量が不足しています。不要な写真・動画・アプリ等を削除し、空き容量を確保してから再度お試しください。<br>
+        iPhoneではiCloud残容量が少ない場合にもシステムから注意が表示されることがあります。
+      </p>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <h3><strong>Q10.</strong> 「マイクへのアクセスが許可されていません」と出ます</h3>
+      <p>
+        端末の設定で本アプリのマイク権限をオンにしてください。<br><br>
+        【iPhone】設定 → プライバシーとセキュリティ → マイク → 本アプリをオン<br>
+        【Android】設定 → アプリと通知 → 本アプリ → 権限 → マイクを許可
+      </p>
+    </div>
+  {% endif %}
+
+  <div style="margin-top:50px;text-align:center;">
+    <a href="/dashboard" style="color:#007bff;">← マイページに戻る</a>
   </div>
 </div>
 {% endblock %}
