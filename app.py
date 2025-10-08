@@ -2211,24 +2211,26 @@ def job_status(job_id):
     except Exception:
         return jsonify({'status': 'not_found'}), 404
 
-    status = job.get_status()  # 'queued' | 'started' | 'finished' | 'failed' | ...
+    status = job.get_status()
     if status == 'finished':
-        # 1) タスクの返り値を優先（例: {'score': x} or {'final_score': x, 'filename': '...'}）
         result = job.result or {}
         score = None
         fname_from_result = None
+        updated = None
+
         if isinstance(result, dict):
             score = result.get('score') or result.get('final_score')
             fname_from_result = result.get('filename')
+            updated = result.get('updated')
 
-        # 2) 無ければDBを探す（filename一致があればそれで、無ければ直近の detailed を拾う）
         if score is None:
             try:
                 fname = fname_from_result
                 if not fname and getattr(job, "args", None):
-                    fname = job.args[0]  # enqueue時の第一引数が filename の設計なら
+                    fname = job.args[0]
                 if fname:
                     fname = basename(fname)
+
                 q = ScoreLog.query.filter_by(user_id=current_user.id, is_fallback=False)
                 if fname:
                     q = q.filter(ScoreLog.filename == fname)
@@ -2243,7 +2245,12 @@ def job_status(job_id):
                 app.logger.exception(f"[job_status] DB lookup error: {e}")
                 score = None
 
-        return jsonify({'status': 'finished', 'score': score}), 200
+        payload = {'status': 'finished'}
+        if isinstance(updated, bool):
+            payload['updated'] = updated
+        if score is not None:
+            payload['score'] = score
+        return jsonify(payload), 200
 
     if status in ('failed', 'stopped'):
         return jsonify({'status': 'failed'}), 200
