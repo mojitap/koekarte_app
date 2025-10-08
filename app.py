@@ -3,6 +3,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os, time, glob, wave, csv, joblib
+
+def is_free_mode() -> bool:
+    # 環境変数 APP_FREE_MODE=1 で「常に無料」
+    return os.getenv("APP_FREE_MODE", "0") == "1"
+
 import shutil
 import numpy as np
 import stripe
@@ -101,8 +106,29 @@ from flask_babel import Babel, gettext as _
 app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
 babel = Babel(app)
 
+@app.before_request
+def _block_paid_routes_in_free_mode():
+    if not is_free_mode():
+        return
+    p = request.path or ""
+    # IAP／Stripe 入口はFREEモード中は使わせない
+    if p.startswith("/api/iap/") or p in ("/create-checkout-session",):
+        if p.startswith("/api/") or request.is_json:
+            return jsonify({'error': 'not_available', 'reason': 'free_mode'}), 410
+        else:
+            flash("現在は全機能を無料開放中のため購入は不要です。")
+            return redirect(url_for('dashboard'))
+
 app.jinja_env.globals['date'] = date
 app.jinja_env.globals['datetime'] = datetime
+
+@app.context_processor
+def inject_premium_flags():
+    try:
+        ok, reason = check_can_use_premium(current_user)
+    except Exception:
+        ok, reason = (False, 'anon')
+    return dict(CAN_USE_PREMIUM=ok, PREMIUM_REASON=reason, FREE_MODE=is_free_mode())
 
 # ✅ 本番環境かどうか判定（SESSION_COOKIE_SECUREに使用）
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
@@ -215,24 +241,24 @@ app.config["WEB_BASE_URL"] = os.getenv("WEB_BASE_URL") \
     or os.getenv("DOMAIN_URL") or "https://koekarte.com"
 
 def check_can_use_premium(user):
+    # ★ FREE MODE：常に使える
+    if is_free_mode():
+        return True, "free_mode"
+
     now = datetime.now(UTC)
 
-    # ①有料（最優先）
     if getattr(user, "is_paid", False):
         return True, "paid"
 
-    # ②paid_until での有効期限（あれば尊重）
     pu = getattr(user, "paid_until", None)
     if pu:
         pu = _ensure_aware_utc(pu)
         if pu >= now:
             return True, "paid_until"
 
-    # ③無料延長
     if getattr(user, "is_free_extended", False):
         return True, "free_extended"
 
-    # ④トライアル（登録からFREE_DAYS日）
     ca = getattr(user, "created_at", None)
     if ca:
         ca = _ensure_aware_utc(ca)
@@ -249,6 +275,9 @@ def can_use_premium(user):
 def require_premium(fn):
     @wraps(fn)
     def _wrapped(*args, **kwargs):
+        # FREE モードは常に通す
+        if is_free_mode():
+            return fn(*args, **kwargs)
         ok, _ = check_can_use_premium(current_user)
         if not ok:
             return jsonify(success=False, error='forbidden'), 403
@@ -1468,6 +1497,10 @@ def diary_list():
 @app.route('/api/premium/status')
 @login_required
 def premium_status():
+    # ★ FREE MODE：常にOK（重い同期を回避）
+    if is_free_mode():
+        return jsonify(ok=True, reason='free_mode'), 200
+
     try:
         sync_subscription_from_stripe(current_user)  # 任意（重いなら省略）
     except Exception as e:
@@ -1731,6 +1764,9 @@ def diary_redirect():
 @app.route('/checkout')
 @login_required
 def checkout():
+    if is_free_mode():
+        flash("現在は無料開放中のため購入は不要です。")
+        return redirect(url_for('dashboard'))
     return render_template('checkout.html')
 
 # app.py
@@ -1935,20 +1971,6 @@ def within_free_trial(user) -> bool:
         return False
     created_utc = _ensure_aware_utc(ca)
     return (datetime.now(UTC) - created_utc) <= timedelta(days=FREE_DAYS)
-
-def check_can_use_premium(user):
-    """
-    プレミアム機能が使えるかを判定し、(bool, reason) を返す。
-    reason: 'paid' | 'free_extended' | f'free_trial_until_{ISO8601}' | 'not_paid'
-    """
-    if getattr(user, "is_paid", False):
-        return True, "paid"
-    if getattr(user, "is_free_extended", False):
-        return True, "free_extended"
-    if within_free_trial(user):
-        end = _ensure_aware_utc(user.created_at) + timedelta(days=FREE_DAYS)
-        return True, f"free_trial_until_{end.isoformat()}"
-    return False, "not_paid"
 
 def compute_score_baseline(user_id: int):
     """全期間の『最初の最大5回』の平均に統一（小数1桁）。"""
