@@ -1598,6 +1598,8 @@ def privacy():
 
 @app.route('/legal')
 def legal():
+    if is_free_mode():
+        abort(404)  # 完全に見せない
     return render_template('legal.html')
 
 @app.route('/edit_profile', methods=['GET', 'POST'])
