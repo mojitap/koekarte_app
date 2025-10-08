@@ -89,6 +89,7 @@ from sqlalchemy import Date
 import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from os.path import basename
 
 # ↓↓↓ ③ 定数はインポートしない（必要なら関数だけ）
 from s3_utils import upload_to_s3, signed_url
@@ -1306,11 +1307,14 @@ def upload():
         os.makedirs(os.path.dirname(persistent_path), exist_ok=True)
         shutil.copy(normalized_path, persistent_path)
 
-        # 正規化WAVも S3（必要なら）
-        upload_to_s3(normalized_path, f"normalized/{os.path.basename(normalized_path)}", content_type="audio/wav")
+        # 正規化WAVを S3 に保存（★これは残す）
+        s3_norm_key = f"normalized/{os.path.basename(normalized_path)}"
+        upload_to_s3(normalized_path, s3_norm_key, content_type="audio/wav")
 
-        job_id = enqueue_detailed_analysis(os.path.basename(normalized_path), current_user.id)
+        # ★ enqueue は「normalized/… を含むフルキー」を1回だけ渡す
+        job_id = enqueue_detailed_analysis(s3_norm_key, current_user.id)
         add_action_log(current_user.id, "録音アップロード（light）")
+
     except Exception:
         app.logger.exception("enqueue failed")
         job_id = None
@@ -2223,6 +2227,8 @@ def job_status(job_id):
                 fname = fname_from_result
                 if not fname and getattr(job, "args", None):
                     fname = job.args[0]  # enqueue時の第一引数が filename の設計なら
+                if fname:
+                    fname = basename(fname)
                 q = ScoreLog.query.filter_by(user_id=current_user.id, is_fallback=False)
                 if fname:
                     q = q.filter(ScoreLog.filename == fname)
