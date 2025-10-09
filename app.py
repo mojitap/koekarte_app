@@ -1818,18 +1818,31 @@ def update_profile():
     db.session.commit()
     return jsonify({'message': '✅ プロフィール更新成功'})
 
-@app.route('/api/account', methods=['DELETE'])
+@app.route("/api/account", methods=["DELETE"])
 @login_required
 def delete_account():
+    if current_user.is_anonymous:
+        return ("", 401)
+
     uid = current_user.id
-    # 1) 関連データの物理削除（DB, S3等）
+    # user = current_user._get_current_object()  でもOK
+    user = db.session.get(User, uid)
+    if not user:
+        return ("", 404)
+
+    # 関連資産を消すならここで（削除前に uid を使う）
     # delete_user_assets(uid)
-    # 2) ログアウト
-    logout_user()
-    # 3) ユーザー削除
-    db.session.delete(current_user)
+
+    db.session.delete(user)
     db.session.commit()
-    return {"ok": True}
+
+    logout_user()  # ← 削除・commit の「あと」でセッション破棄
+    return make_response("", 204)
+
+@app.route("/api/delete-account", methods=["POST"])
+@login_required
+def delete_account_legacy():
+    return delete_account()
     
 @app.route('/diary')
 @login_required
