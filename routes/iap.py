@@ -4,28 +4,30 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app_instance import db
 from models import User
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
+
+# 環境フラグ
+BILLING_ENABLED = os.getenv("BILLING_ENABLED", "0").lower() in ("1","true","yes")
 
 # Blueprint は定義だけ（register は app.py 側で 1 回だけ）
 iap_bp = Blueprint("iap", __name__)
 
-@iap_bp.before_app_request
-def _iap_debug_in():
-    if request.path.startswith("/api/iap/"):
-        try:
-            body = request.get_json(silent=True) or {}
-            keys = list(body.keys())
-        except Exception:
-            keys = []
-        print(f"[IAP IN] {request.method} {request.path} "
-              f"uid={getattr(current_user,'id',None)} keys={keys}")
+if BILLING_ENABLED:
+    @iap_bp.before_app_request
+    def _iap_debug_in():
+        if request.path.startswith("/api/iap/"):
+            try:
+                body = request.get_json(silent=True) or {}
+                keys = list(body.keys())
+            except Exception:
+                keys = []
+            print(f"[IAP IN] {request.method} {request.path} "
+                  f"uid={getattr(current_user,'id',None)} keys={keys}")
 
-@iap_bp.after_app_request
-def _iap_debug_out(resp):
-    if request.path.startswith("/api/iap/"):
-        print(f"[IAP OUT] {request.method} {request.path} -> {resp.status_code}")
-    return resp
+    @iap_bp.after_app_request
+    def _iap_debug_out(resp):
+        if request.path.startswith("/api/iap/"):
+            print(f"[IAP OUT] {request.method} {request.path} -> {resp.status_code}")
+        return resp
     
 # ===== 設定（環境変数） =========================================
 # 複数SKUをカンマ区切りで許容: IAP_PRODUCT_ID="com.koekarte.premium,com.koekarte.premium.monthly"
@@ -82,6 +84,8 @@ def _commit_subscription_state(user: User, platform: str, expiry_ms: int | None,
 
 # ===== Android: 検証 ============================================
 def _load_sa_credentials():
+    # 遅延 import（有効時のみロード）
+    from google.oauth2 import service_account
     if not GOOGLE_SA_JSON:
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON not set")
     try:
@@ -98,6 +102,8 @@ def _load_sa_credentials():
     )
 
 def _gplay_service():
+    # 遅延 import（有効時のみロード）
+    from googleapiclient.discovery import build
     creds = _load_sa_credentials()
     return build("androidpublisher", "v3", credentials=creds, cache_discovery=False)
 
@@ -168,6 +174,10 @@ def _verify_apple(receipt_b64: str, product_id: str | None):
 @iap_bp.post("/verify")
 @login_required
 def iap_verify():
+    # 無料モードでは常に成功（何もせず返す）
+    if not BILLING_ENABLED:
+        return jsonify({"ok": True, "status": "disabled"}), 200
+
     data = request.get_json(force=True) or {}
     platform    = (data.get("platform") or "").lower()  # "ios" or "android"
     product_id  = (data.get("productId") or "").strip() or None
@@ -233,12 +243,3 @@ def iap_verify():
         }), 200
 
     return jsonify({"ok": False, "error": "unsupported_platform"}), 400
-    
-@iap_bp.get("/ping")
-def iap_ping():
-    try:
-        uid = getattr(current_user, "id", None)
-    except Exception:
-        uid = None
-    print(f"[IAP PING] uid={uid}")
-    return jsonify(ok=True, uid=uid), 200
