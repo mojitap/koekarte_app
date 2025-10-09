@@ -313,43 +313,102 @@ def api_music():
     return jsonify({"error":"This endpoint was removed."}), 410
 
 # ======== 音声処理 =========
+def bandpass_filter(signal, sr, lowcut=80, highcut=4000, order=5):
+    nyq = 0.5 * sr
+    b, a = butter(order, [lowcut/nyq, highcut/nyq], btype='band')
+    return lfilter(b, a, signal).astype(np.float32)
+
 def extract_advanced_features(signal, sr):
-    features = {}
+    """
+    低メモリ＆学習なし想定：
+      - 16kHz/mono化、無音トリム
+      - ピッチ: YIN（1D）
+      - 統計量は「平均＋標準偏差」中心（固定次元）
+      - 発話/無音は適応しきい値
+    返り値: dict（固定キー）
+    """
+    # --- 安全キャスト＆モノラル化 ---
+    y = np.asarray(signal, dtype=np.float32)
+    if y.ndim > 1:
+        y = y.mean(axis=1)
 
-    # Pitch（高さ） + 抑揚の変動
-    pitches, magnitudes = librosa.piptrack(y=signal, sr=sr)
-    pitches_nonzero = pitches[pitches > 0]
-    features['pitch_mean'] = np.mean(pitches_nonzero) if pitches_nonzero.size > 0 else 0
-    features['pitch_std'] = np.std(pitches_nonzero) if pitches_nonzero.size > 0 else 0
+    # --- サンプリング周波数統一 ---
+    if sr != 16000:
+        y = librosa.resample(y, orig_sr=sr, target_sr=16000, res_type='kaiser_fast')
+        sr = 16000
 
-    # MFCC（音色特徴量）
-    mfcc = librosa.feature.mfcc(y=signal, sr=sr, n_mfcc=13)
-    for i, val in enumerate(np.mean(mfcc, axis=1)):
-        features[f'mfcc_{i+1}'] = val
+    # --- 無音区間トリム（前後） ---
+    intervals = librosa.effects.split(y, top_db=30, frame_length=1024, hop_length=256)
+    if len(intervals):
+        y = np.concatenate([y[s:e] for s, e in intervals])
+    if y.size < sr // 2:  # 0.5秒未満はダミーで返す
+        return {
+            'pitch_med': 0.0, 'pitch_iqr': 0.0,
+            'rms_mean': 0.0, 'rms_std': 0.0,
+            'zcr_mean': 0.0, 'zcr_std': 0.0,
+            'centroid_mean': 0.0, 'centroid_std': 0.0,
+            'bandwidth_mean': 0.0, 'bandwidth_std': 0.0,
+            **{f'mfcc_{i+1}_mean': 0.0 for i in range(13)},
+            **{f'mfcc_{i+1}_std':  0.0 for i in range(13)},
+            'voiced_ratio': 0.0, 'voiced_rate_fps': 0.0,
+        }
 
-    # 話すスピード（有声音）と無音の割合
-    frame_length = 2048
-    hop_length = 512
-    energy = np.array([
-        sum(abs(signal[i:i+frame_length]**2))
-        for i in range(0, len(signal), hop_length)
-    ])
-    threshold = 0.0005
-    speech_frames = np.sum(energy > threshold)
-    pause_frames = np.sum(energy <= threshold)
-    total_frames = speech_frames + pause_frames
+    # --- （必要なら）帯域制限：F0の劣化が嫌なら YIN の前は未フィルタでOK ---
+    y_bp = bandpass_filter(y, sr, 80, 4000, order=5)
 
-    features['speech_rate'] = speech_frames / (len(signal)/sr)
-    features['pause_ratio'] = pause_frames / total_frames if total_frames > 0 else 0
+    # 共通パラメータ
+    n_fft = 2048
+    hop   = 256
+    win   = 1024
 
-    return features
+    # --- 1) ピッチ（軽量＆堅牢） ---
+    #    piptrack -> yin に変更（1Dで低メモリ）
+    f0 = librosa.yin(y, fmin=50, fmax=400, sr=sr, frame_length=n_fft, hop_length=hop)
+    f0 = f0[np.isfinite(f0)]
+    if f0.size == 0:
+        f0 = np.array([0.0], dtype=np.float32)
+    pitch_med = float(np.median(f0))
+    pitch_iqr = float(np.percentile(f0, 75) - np.percentile(f0, 25))
 
-def bandpass_filter(signal, rate, lowcut=300, highcut=3400, order=5):
-    nyquist = 0.5 * rate
-    low = lowcut / nyquist
-    high = highcut / nyquist
-    b, a = butter(order, [low, high], btype='band')
-    return lfilter(b, a, signal)
+    # --- 2) 強度・発話テンポプロキシ ---
+    rms = librosa.feature.rms(y=y_bp, frame_length=win, hop_length=hop)[0]
+    zcr = librosa.feature.zero_crossing_rate(y_bp, frame_length=win, hop_length=hop)[0]
+
+    # 適応しきい値で有声/無声を分ける（中央値ベース）
+    thr = float(np.median(rms) * 1.1 + 1e-6)
+    voiced = rms > thr
+    total_frames = rms.size
+    voiced_frames = int(voiced.sum())
+    voiced_ratio = float(voiced_frames / max(total_frames, 1))
+    # 近似「発話レート」＝1秒あたりの有声フレーム数
+    fps = sr / hop
+    voiced_rate_fps = float(voiced_frames / (total_frames / fps + 1e-6))
+
+    # --- 3) スペクトル特徴 ---
+    sc  = librosa.feature.spectral_centroid(y=y_bp, sr=sr, n_fft=n_fft, hop_length=hop)[0]
+    sbw = librosa.feature.spectral_bandwidth(y=y_bp, sr=sr, n_fft=n_fft, hop_length=hop)[0]
+
+    # --- 4) MFCC（13次）: 平均＆標準偏差のみ（固定次元） ---
+    mfcc = librosa.feature.mfcc(y=y_bp, sr=sr, n_mfcc=13, n_fft=n_fft, hop_length=hop)
+    mfcc_mean = mfcc.mean(axis=1).astype(np.float32)
+    mfcc_std  = mfcc.std(axis=1).astype(np.float32)
+
+    # --- 5) まとめ ---
+    feats = {
+        'pitch_med': pitch_med,
+        'pitch_iqr': pitch_iqr,
+        'rms_mean':  float(rms.mean()), 'rms_std': float(rms.std()),
+        'zcr_mean':  float(zcr.mean()), 'zcr_std': float(zcr.std()),
+        'centroid_mean': float(sc.mean()),  'centroid_std': float(sc.std()),
+        'bandwidth_mean': float(sbw.mean()), 'bandwidth_std': float(sbw.std()),
+        'voiced_ratio': voiced_ratio,
+        'voiced_rate_fps': voiced_rate_fps,
+    }
+    for i in range(13):
+        feats[f'mfcc_{i+1}_mean'] = float(mfcc_mean[i])
+        feats[f'mfcc_{i+1}_std']  = float(mfcc_std[i])
+
+    return feats
     
 # ======== ルート定義 =========
 @app.route('/send-test-mail')
