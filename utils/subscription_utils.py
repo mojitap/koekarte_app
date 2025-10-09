@@ -1,10 +1,18 @@
 # utils/subscription_utils.py
-import os, stripe
+import os
 from datetime import datetime, timezone
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+BILLING_ENABLED = os.getenv("BILLING_ENABLED", "0").lower() in ("1","true","yes")
+if BILLING_ENABLED:
+    import stripe
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 def sync_subscription_from_stripe(user):
     from app_instance import db  # ←OK（関数内importで循環回避）
+
+    # 無料モード：Stripe を一切触らず成功扱いで戻す
+    if not BILLING_ENABLED:
+        return True, "disabled"
 
     cust_id = getattr(user, "stripe_customer_id", None)
     cust = None
