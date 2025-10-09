@@ -8,9 +8,16 @@ def is_free_mode() -> bool:
     # 環境変数 APP_FREE_MODE=1 で「常に無料」
     return os.getenv("APP_FREE_MODE", "0") == "1"
 
+BILLING_ENABLED = os.getenv("BILLING_ENABLED", "0").lower() in ("1", "true", "yes")
+
+if BILLING_ENABLED:
+    import stripe
+    stripe.api_key = os.environ["STRIPE_API_KEY"]
+else:
+    stripe = None  # 参照されてもエラーにしないためのダミー
+
 import shutil
 import numpy as np
-import stripe
 import python_speech_features
 import librosa
 import boto3
@@ -1093,13 +1100,16 @@ def admin_set_free_extended(user_id):
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # ★ここを追加：画面描画前に一度だけ Stripe と突き合わせ
-    try:
-        if not current_user.is_paid:
-            ok, st = sync_subscription_from_stripe(current_user)
-            print(f"[DASH SYNC] ok={ok}, status={st}")
-    except Exception as e:
-        print(f"[SYNC WARN] {e}")
+    # 課金を使うときだけ同期（無料モードなら一切触らない）
+    if BILLING_ENABLED:
+        try:
+            # 遅延 import（無料時はロードしない）
+            from utils.subscription_utils import sync_subscription_from_stripe
+            if not getattr(current_user, "is_paid", False):
+                ok, st = sync_subscription_from_stripe(current_user)
+                app.logger.info("[DASH SYNC] ok=%s, status=%s", ok, st)
+        except Exception as e:
+            app.logger.warning("[DASH SYNC] skipped: %s", e)
         
     # ① detailed / fallback で latest を取るコードはそのまま…
     latest = (
