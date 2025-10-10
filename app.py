@@ -1824,19 +1824,31 @@ def delete_account():
     if current_user.is_anonymous:
         return ("", 401)
 
-    uid = current_user.id
-    # user = current_user._get_current_object()  でもOK
-    user = db.session.get(User, uid)
+    user = db.session.get(User, current_user.id)
     if not user:
         return ("", 404)
 
-    # 関連資産を消すならここで（削除前に uid を使う）
-    # delete_user_assets(uid)
+    # --- ソフトデリート＆匿名化（DB上に退会として残す） ---
+    user.deleted_at = datetime.now(timezone.utc)
+    user.deleted_reason = "user_request"  # 任意
 
-    db.session.delete(user)
+    # 個人情報を無効化（任意：見えない形に）
+    user.email  = f"deleted+{user.id}@example.invalid"
+    user.username = f"deleted_{user.id}"
+    user.password = generate_password_hash(os.urandom(16).hex())
+
+    # 課金系フラグの無効化（任意）
+    user.is_paid = False
+    user.is_free_extended = False
+    user.paid_until = None
+    user.plan_status = None
+    user.stripe_subscription_id = None
+    user.stripe_customer_id = None
+
     db.session.commit()
+    logout_user()  # セッション破棄
 
-    logout_user()  # ← 削除・commit の「あと」でセッション破棄
+    # 204 を返す（フロントの実装と整合）
     return make_response("", 204)
 
 @app.route("/api/delete-account", methods=["POST"])
@@ -2071,7 +2083,10 @@ def compute_score_baseline(user_id: int):
     return round(sum(x.score for x in first5) / len(first5), 1)
 
 @app.route('/api/profile')
+@login_required
 def api_profile():
+    if getattr(current_user, 'deleted_at', None):
+        return ("", 401)
     """
     - baseline: ユーザー登録から5日間の中で『最初の最大5回』の平均
         * 5日間に2〜4回しか記録がなくても、その回数で平均
