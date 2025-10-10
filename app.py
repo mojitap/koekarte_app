@@ -565,9 +565,7 @@ def login():
     if request.method == 'POST':
         identifier = (request.form.get('username') or '').strip()
         password   = request.form.get('password') or ''
-        next_url   = request.form.get('next') or ''
-
-        # "None" という文字列で来るケースのガード
+        next_url   = (request.form.get('next') or '')
         if next_url == 'None':
             next_url = ''
 
@@ -575,22 +573,27 @@ def login():
             (User.username == identifier) | (User.email == identifier)
         ).first()
 
-        if not user or not check_password_hash(user.password, password):
-            # 失敗時はテンプレ再表示（next を保持）
+        # 1) 該当ユーザーなし
+        if not user:
+            flash('ログイン失敗', 'error')
+            return render_template('login.html', next=next_url), 200
+
+        # 2) 退会済み
+        if user.deleted_at:
+            flash('このアカウントは退会済みです', 'error')
+            return render_template('login.html', next=next_url), 200
+
+        # 3) パスワード不一致
+        if not check_password_hash(user.password, password):
             flash('ログイン失敗', 'error')
             return render_template('login.html', next=next_url), 200
 
         login_user(user)
         session.permanent = True
-
-        # next がサイト内URLとして安全ならそこへ
         if next_url and _is_safe_url(next_url):
             return redirect(next_url)
-
-        # フォールバック
         return redirect(url_for('dashboard'))
 
-    # GET: ?next= をテンプレに渡す（未指定は空）
     next_url = request.args.get('next') or ''
     return render_template('login.html', next=next_url)
         
@@ -1795,23 +1798,28 @@ def api_register():
 def api_login():
     try:
         logout_user()
-        
-        data = request.get_json()
-        identifier = data.get('email')  # フロント側では「email」に入れて送ってる（←identifierと見なす）
+        data = request.get_json() or {}
+        identifier = (data.get('email') or '').strip()
+        password   = data.get('password') or ''
 
-        password = data.get('password')
-
-        # メール or ユーザー名で検索
         user = User.query.filter(
             (User.email == identifier) | (User.username == identifier)
         ).first()
 
-        if not user or not check_password_hash(user.password, password):
+        # 1) 該当なし → 401
+        if not user:
+            return jsonify({'error': 'メールアドレスまたはパスワードが間違っています'}), 401
+
+        # 2) 退会済み → 403
+        if getattr(user, 'deleted_at', None):
+            return jsonify({'error': 'deleted_user', 'message': 'このアカウントは退会済みです'}), 403
+
+        # 3) パスワード不一致 → 401
+        if not check_password_hash(user.password, password):
             return jsonify({'error': 'メールアドレスまたはパスワードが間違っています'}), 401
 
         login_user(user)
         session.permanent = True
-
         return jsonify({
             'message': 'ログイン成功',
             'user': {
@@ -1819,7 +1827,7 @@ def api_login():
                 'username': user.username,
                 'created_at': (_ensure_aware_utc(user.created_at).isoformat() if user.created_at else None),
                 'is_paid': user.is_paid,
-                'is_free_extended': user.is_free_extended
+                'is_free_extended': user.is_free_extended,
             }
         })
     except Exception as e:
