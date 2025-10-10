@@ -52,9 +52,13 @@ class User(UserMixin, db.Model):
     def is_admin(self):
         return self.email == 'ta714kadvance@gmail.com'
 
+    # ▼ 追加（退会フラグ）
+    deleted_at     = db.Column(db.DateTime(timezone=True), index=True, nullable=True)
+    deleted_reason = db.Column(db.String(255), nullable=True)
+    
     @property
     def is_active(self):
-        return True
+        return self.deleted_at is None
 
 JST = timezone(timedelta(hours=9))
 
