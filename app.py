@@ -73,6 +73,32 @@ def fmt_jst(dt, fmt='%Y-%m-%d'):
     x = to_jst(dt)
     return x.strftime(fmt) if x else None
 
+def soft_delete_user(user, reason: str = "user_request"):
+    """ユーザーをソフトデリート＆匿名化する共通処理"""
+    from datetime import datetime, timezone
+    import os
+    from werkzeug.security import generate_password_hash
+
+    # すでに退会済みなら何もしない（冪等）
+    if getattr(user, "deleted_at", None):
+        return
+
+    user.deleted_at = datetime.now(timezone.utc)
+    user.deleted_reason = reason
+
+    # 匿名化（ユニーク制約を壊さない）
+    user.email = f"deleted+{user.id}@example.invalid"
+    user.username = f"deleted_{user.id}"
+    user.password = generate_password_hash(os.urandom(16).hex())
+
+    # 課金系の無効化
+    user.is_paid = False
+    user.is_free_extended = False
+    user.paid_until = None
+    user.plan_status = None
+    user.stripe_subscription_id = None
+    user.stripe_customer_id = None
+
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, make_response, render_template_string, abort
 from flask_cors import CORS
@@ -210,7 +236,11 @@ def admin_required():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    u = User.query.get(int(user_id))
+    # 退会済みは認証しない（自動ログアウト扱い）
+    if u and getattr(u, "deleted_at", None):
+        return None
+    return u
 
 def _is_safe_url(target: str) -> bool:
     ref = urlparse(request.host_url)
@@ -1645,21 +1675,23 @@ def admin():
         user.score_logs = ScoreLog.query.filter_by(user_id=user.id).order_by(ScoreLog.timestamp).all()
     return render_template('admin.html', users=users)
 
-@app.route('/admin/cleanup')
+@app.route("/admin/cleanup", methods=["POST"])  # 開発中は ["GET","POST"] でも可
 @login_required
-def cleanup_users_without_scores():
-    if current_user.email != 'ta714kadvance@gmail.com':
-        return 'アクセス権がありません', 403
+def admin_cleanup_soft_delete():
+    admin_required()  # ← 既存の管理者チェックを必ず通す
 
-    users_to_delete = User.query.outerjoin(ScoreLog).filter(ScoreLog.id == None).all()
-    deleted_count = 0
-
-    for user in users_to_delete:
-        db.session.delete(user)
-        deleted_count += 1
+    targets = (
+        db.session.query(User)
+        .outerjoin(ScoreLog, ScoreLog.user_id == User.id)  # 明示
+        .filter(ScoreLog.id.is_(None))                     # is_(None) を推奨
+        .filter(User.deleted_at.is_(None))                 # まだ退会していないユーザーだけ
+        .all()
+    )
+    for u in targets:
+        soft_delete_user(u, reason="admin_cleanup")
 
     db.session.commit()
-    return f"{deleted_count} 件のスコアなしユーザーを削除しました"
+    return jsonify({"soft_deleted": len(targets)})
 
 @app.route('/terms')
 def terms():
@@ -1828,27 +1860,11 @@ def delete_account():
     if not user:
         return ("", 404)
 
-    # --- ソフトデリート＆匿名化（DB上に退会として残す） ---
-    user.deleted_at = datetime.now(timezone.utc)
-    user.deleted_reason = "user_request"  # 任意
-
-    # 個人情報を無効化（任意：見えない形に）
-    user.email  = f"deleted+{user.id}@example.invalid"
-    user.username = f"deleted_{user.id}"
-    user.password = generate_password_hash(os.urandom(16).hex())
-
-    # 課金系フラグの無効化（任意）
-    user.is_paid = False
-    user.is_free_extended = False
-    user.paid_until = None
-    user.plan_status = None
-    user.stripe_subscription_id = None
-    user.stripe_customer_id = None
-
+    # すでに退会済みでも204でOK（冪等）
+    soft_delete_user(user, reason="user_request")
     db.session.commit()
-    logout_user()  # セッション破棄
 
-    # 204 を返す（フロントの実装と整合）
+    logout_user()
     return make_response("", 204)
 
 @app.route("/api/delete-account", methods=["POST"])
