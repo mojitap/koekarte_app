@@ -7,6 +7,7 @@
   <tr>
     <th>ユーザー名</th>
     <th>メール</th>
+    <th>会員</th>
     <th>現在の状態</th>
     <th>登録日</th>
     <th>無料延長</th>  <!-- ✅ 追加 -->
@@ -16,6 +17,8 @@
   <tr>
     <td>{{ user.username }}</td>
     <td>{{ user.email }}</td>
+    <td>{{ '退会' if user.deleted_at else '会員' }}</td>
+    
     <td>{{ '有料' if user.is_paid else '無料' }}</td>
     <td>
       {% if user.created_at %}
