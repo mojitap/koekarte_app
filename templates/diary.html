@@ -20,19 +20,14 @@
 
   <!-- ストア導線（iOS公開前は iOS ボタンを無効化して「近日公開」に） -->
   <div class="store-buttons" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-    {# iOS が公開済みならボタン表示 / 未公開ならグレー表示 #}
-    {% if config.IOS_PUBLISHED %}
-      <a class="btn btn-info"
-         href="{{ config.APPSTORE_URL }}"
-         target="_blank" rel="noopener">
-         App Store で入手
-      </a>
-    {% else %}
-      <button class="btn btn-secondary" disabled> iOS版 近日公開</button>
-    {% endif %}
+    <a class="btn btn-info"
+       href="https://apps.apple.com/app/id6749899463"
+       target="_blank" rel="noopener">
+       App Store で入手
+    </a>
 
     <a class="btn btn-success"
-       href="https://play.google.com/store/apps/details?id=com.koekarte.app&pcampaignid=web_share"
+       href="https://play.google.com/store/apps/details?id=com.koekarte.app"
        target="_blank" rel="noopener">
        ▶ Google Play で入手
     </a>
