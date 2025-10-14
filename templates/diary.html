@@ -2,22 +2,46 @@
 {% block title %}📔 音声日記はアプリ限定機能です{% endblock %}
 
 {% block content %}
-  <div class="centered-container">
-    <h1>📔 音声日記はアプリ限定機能です</h1>
-    <p>「今日ちょっと疲れたかも…」<br>「今日こんなことがあった…」</p>
-    <p>
+<div class="centered-container">
+  <h1>📔 音声日記はアプリ限定機能です</h1>
+
+  <p>「今日ちょっと疲れたかも…」<br>「今日こんなことがあった…」</p>
+  <p>
       コエカルテのアプリ版では、<strong>毎日15秒の音声</strong>を記録できる
       「音声日記」機能をご用意しています。<br>
       録音した声はカレンダー形式で残り、あとから聞き返すこともできます。<br><br>
       現在、この機能はスマートフォンアプリでのみご利用いただけます。
-    </p>
-    <p style="margin: 30px 0;">
-      <a href="#" class="btn btn-info">✅ アプリをダウンロードする</a>
-    </p>
-    <div style="text-align:center; margin-top:40px;">
-      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
-        🏠 マイページに戻る
+  </p>
+
+  <!-- アプリが既に入っている人向け（スキームで直接起動） -->
+  <p style="margin: 20px 0;">
+    <a href="koekarteapp://voice-diary" class="btn btn-outline-primary">📲 アプリを開く</a>
+  </p>
+
+  <!-- ストア導線（iOS公開前は iOS ボタンを無効化して「近日公開」に） -->
+  <div class="store-buttons" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+    {# iOS が公開済みならボタン表示 / 未公開ならグレー表示 #}
+    {% if config.IOS_PUBLISHED %}
+      <a class="btn btn-info"
+         href="{{ config.APPSTORE_URL }}"
+         target="_blank" rel="noopener">
+         App Store で入手
       </a>
-    </div>
+    {% else %}
+      <button class="btn btn-secondary" disabled> iOS版 近日公開</button>
+    {% endif %}
+
+    <a class="btn btn-success"
+       href="https://play.google.com/store/apps/details?id=com.koekarte.app&pcampaignid=web_share"
+       target="_blank" rel="noopener">
+       ▶ Google Play で入手
+    </a>
   </div>
+
+  <div style="text-align:center; margin-top:40px;">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+      🏠 マイページに戻る
+    </a>
+  </div>
+</div>
 {% endblock %}
